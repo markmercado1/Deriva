@@ -31,10 +31,14 @@ Los días de la sección 12 del plano son hitos de alcance. Cada fase puede repa
 | F5.2a | Pausa manual | HECHO | Pausar/reanudar cierra segmento y episodio con `PAUSE`, estado visible y reanudación sin pérdida ni solape (E029) |
 | F5.2b | Bandeja básica | HECHO | Menú Abrir, Pausar/Reanudar y Salir; cerrar oculta; Salir detiene, hace flush y no deja proceso oculto (E029) |
 | UI-CLARIDAD | Claridad anotación vs. estabilidad | HECHO | Columna Anotación desde `answered_at`, Estabilidad con En curso/Estable/No comprobada, explicación por motivo de cierre y filtros coherentes; guardar no altera el estado. No cierra F6.2 ni implementa Ajustes (E031) |
+| EXCLUSION-FOCO | Revisión de cierre por foco en Deriva | PENDIENTE | Decidir si enfocar la propia ventana debe cerrar el episodio por EXCLUSION; no se cambia desde Ajustes ni se añaden registros diagnósticos sin aprobación |
+| AJUSTES-DETECCION | Cuatro umbrales configurables de detección | HECHO | Ajustes edita cambios/ventana/estabilidad/inactividad, persiste en `setting`, distingue efectivo/pendiente, restaura sin guardar y avisa inactividad≤estabilidad. Pausar/Reanudar conserva; Detener/Iniciar reaplica. Configuración inválida usa predeterminados visibles sin sobrescribir. No cierra F6.2 ni añade exclusiones, bridge o empaquetado (E034) |
 | F6.1 | Prueba sostenida y rendimiento | HECHO | Medición real de 2 h 7 min 30 s con 256 muestras, CPU media 0,15 % (máx. 0,40 % de 16 CPUs), working set 249–416 MB y captura activa con Brave/bridge (E030). Límites: una máquina, resolución 30 s |
 | F6.2 | Entrega local reproducible | PENDIENTE | Instrucciones verificadas de arranque/test, limitaciones y pendientes claros |
 
-Dependencias: F1.1 → F1.2 → F1.3 → F2 → F3 → F4 → F5 → F6. GATE-Q2 PASS, F2.4 y F2.4b habilitan Chrome/Brave + un perfil en el filtro; F4.1, F4.2 y F4.3 están hechos (F4.3 solo con segmentos cerrados), F5.1a conecta la captura real con la UI, F5.1b añade borrado coordinado y fallo SQLite, F5.1c cubre la matriz de fallos/privacidad y F5.1d cierra el bloqueo/reanudación. **F5.1 HECHO** con límites documentados: el equipo solo ofrece suspensión S0, no S3/hibernación; el fallo nativo del sensor sigue sin inducir (SEN-01 PARCIAL). **F5.2 HECHO** el 2026-11-23 con pausa manual y bandeja básica (E029). P1/P2, Brave y USE-02 siguen abiertos fuera de F5.1/F5.2. Ajustes no está implementado. **F6.1 HECHO** con la medición sostenida E030; el siguiente bloque es F6.2, pendiente de autorización. El gate de Brave es reducido: faltan segundo perfil, reinicio, una hora y resolver la colisión de sesiones Chrome/Brave (`browser:"chrome"`). La captura ya tiene un bucle desde la UI, pero la orquestación completa de producto sigue pendiente; F4.1–F4.3 aportan la UI de lectura y F3.1b es consola diagnóstica. Si el navegador exige una acción externa, registrar el bloqueo del piloto y continuar la captura independiente; nunca postergar silenciosamente su primera prueba hasta F6.
+Pendiente de revisión de comportamiento, fuera de AJUSTES-DETECCION: enfocar la propia ventana de Deriva puede cerrar un episodio por **EXCLUSION**; no se cambia esa regla aquí ni se afirma que los umbrales la resuelvan.
+
+Dependencias: F1.1 → F1.2 → F1.3 → F2 → F3 → F4 → F5 → F6. GATE-Q2 PASS, F2.4 y F2.4b habilitan Chrome/Brave + un perfil en el filtro; F4.1, F4.2 y F4.3 están hechos (F4.3 solo con segmentos cerrados), F5.1a conecta la captura real con la UI, F5.1b añade borrado coordinado y fallo SQLite, F5.1c cubre la matriz de fallos/privacidad y F5.1d cierra el bloqueo/reanudación. **F5.1 HECHO** con límites documentados: el equipo solo ofrece suspensión S0, no S3/hibernación; el fallo nativo del sensor sigue sin inducir (SEN-01 PARCIAL). **F5.2 HECHO** el 2026-11-23 con pausa manual y bandeja básica (E029). P1/P2, Brave y USE-02 siguen abiertos fuera de F5.1/F5.2. **AJUSTES-DETECCION HECHO** (E034): cuatro umbrales de detección, sin editor de exclusiones ni bridge. **F6.1 HECHO** con la medición sostenida E030; el siguiente bloque es F6.2, pendiente de autorización. El gate de Brave es reducido: faltan segundo perfil, reinicio, una hora y resolver la colisión de sesiones Chrome/Brave (`browser:"chrome"`). La captura ya tiene un bucle desde la UI, pero la orquestación completa de producto sigue pendiente; F4.1–F4.3 aportan la UI de lectura y F3.1b es consola diagnóstica. Si el navegador exige una acción externa, registrar el bloqueo del piloto y continuar la captura independiente; nunca postergar silenciosamente su primera prueba hasta F6.
 
 ## Avance F1.3
 
@@ -86,7 +90,7 @@ Dependencias: F1.1 → F1.2 → F1.3 → F2 → F3 → F4 → F5 → F6. GATE-Q2
 - [x] Tabla de Interrupciones + panel de detalle a la derecha; sin detalle expandido.
 - [x] Filtros de fecha, estado e incluir justificadas; estados vacío/error.
 - [x] Anotaciones motivo/Justificada contra `DriftRepository`; consultas y guardado fuera del hilo FX.
-- [x] Navegación lateral; Uso diario/Ajustes deshabilitados, sin pantallas anticipadas.
+- [x] Navegación lateral; Uso diario/Ajustes deshabilitados en F4.1, sin pantallas anticipadas; Ajustes se habilitó después (E034).
 - [x] Captura real de la UI y 5 tests nuevos de ViewModel (E018).
 - [x] Modo de prueba en Interrupciones: botón “Ver datos de ejemplo” carga 6 episodios sintéticos en memoria (abierta, estables y sin confirmar), no escribe en SQLite y deshabilita Guardar; filtros y detalle funcionan (E027).
 
@@ -107,7 +111,7 @@ Dependencias: F1.1 → F1.2 → F1.3 → F2 → F3 → F4 → F5 → F6. GATE-Q2
 - [x] Exclusión de IDLE/EXCLUDED/UNAVAILABLE y huecos del total de primer plano; cobertura separada.
 - [x] “Sin datos” distinto de “0 s”; estados vacío/error con bases temporales.
 - [x] Vista Uso diario con barras simples, fecha, zona, cobertura y la nota de sitios incluidos.
-- [x] Navegación lateral funcional entre Interrupciones y Uso diario; Ajustes sigue deshabilitado.
+- [x] Navegación lateral funcional entre Interrupciones y Uso diario; después se habilitó Ajustes con los cuatro umbrales (AJUSTES-DETECCION, E034).
 - [x] No se incluye el segmento abierto: solo se calculan segmentos cerrados persistidos; la UI no se presenta como vista en vivo.
 - [x] 4 tests nuevos y capturas de uso, sin datos, cero uso y error (E020); USE-02 queda PARCIAL por la prueba real Dota/YouTube y el segmento abierto.
 

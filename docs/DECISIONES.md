@@ -194,3 +194,7 @@ Por petición del usuario, envolver únicamente el detalle en ScrollPane: ajuste
 
 ## A38 — 2026-11-23 — Guardar solo cambios pendientes
 Comparación pura en InterruptionRow entre motivo/Justificada y valores persistidos; answered_at nulo permite la primera anotación con motivo válido. El controller bloquea reentrada, invalida lecturas anteriores y mantiene bloqueo hasta recargar el resultado. No cambia esquema ni reglas de episodios.
+
+## A39 — 2026-11-23 — Cuatro umbrales de detección configurables
+
+Estado: aplicable. Ajustes implementa solo cuatro claves sobre la tabla `setting` existente: `drift_switches`, `drift_window_s`, `stable_s` e `idle_threshold_s`. Predeterminados conservados: **10 / 120 / 180 / 120**. Límites iniciales de producto (no científicos): cambios 4–30; ventana 30–600 s; estabilidad 30–900 s; inactividad 30–1800 s. La validación es pura en `DetectionSettings`; un valor persistido ausente usa el predeterminado sin aviso, y uno inválido usa el predeterminado del campo afectado, muestra qué valores están en uso y **no** sobrescribe lo guardado. La sesión congela sus valores al iniciar; **Pausar/Reanudar conserva** y **Detener/Iniciar relee**. Guardar no modifica el episodio en curso ni recalcula historial. `DriftEpisode`/`DriftEvent` exigen `switchCount > 0`, no 10, para admitir umbrales menores. La consola diagnóstica conserva los predeterminados y no lee la configuración. El aviso inactividad≤estabilidad es informativo y no bloquea. Sin editor de exclusiones, bridge ni cierre de F6.2. Evidencia E034.

@@ -26,7 +26,7 @@ Estados de estabilidad: salvia para **Estable**, ámbar para **En curso** y gris
 
 - Tabla con panel de detalle a la derecha. **No** detalle expandido dentro de las filas.
 - Columnas: inicio con fecha y hora (`dd/MM HH:mm`), **Estabilidad**, **Anotación**, primer cambio detectado, cambios y tiempo hasta estabilidad.
-- **Estabilidad** solo describe la comprobación automática: **En curso** (episodio abierto), **Estable** (180 s sin cambios) o **No comprobada** (cerrado por una frontera o motivo de cierre). No se usa «Sin confirmar».
+- **Estabilidad** solo describe la comprobación automática: **En curso** (episodio abierto), **Estable** (el contexto se mantuvo el tiempo de estabilidad configurado, sin cambios pendientes) o **No comprobada** (cerrado por una frontera o motivo de cierre). No se usa «Sin confirmar» ni se presenta como concentración comprobada.
 - **Anotación** es independiente: **Pendiente** o **Guardada**. «Guardada» se deriva del dato persistido `answered_at`, no de que haya un motivo elegido ni de la casilla Justificada.
 - Filtros: rango **Desde/Hasta** inclusivo por día local, estabilidad e incluir justificadas. Las etiquetas del filtro deben coincidir con las de la columna.
 - El rango usa solapamiento: un episodio que cruza medianoche aparece en ambos días consultados y una sola vez en un rango que cubre ambos.
@@ -37,9 +37,9 @@ Estados de estabilidad: salvia para **Estable**, ámbar para **En curso** y gris
 
 ## Navegación y captura
 
-Lateral compacta: **Interrupciones**, **Uso diario** y **Ajustes**. En F5.1a Interrupciones y Uso diario están implementadas; Ajustes sigue deshabilitado y no se crea ninguna pantalla anticipada.
+Lateral compacta: **Interrupciones**, **Uso diario** y **Ajustes**. Desde AJUSTES-DETECCION, Ajustes está habilitado solo para los cuatro umbrales de detección; no incluye exclusiones, bridge ni empaquetado.
 
-La barra lateral incluye un panel de captura con estado textual y botón **Iniciar/Detener captura**. Estados: detenida, iniciando, capturando, en pausa, deteniendo y error; nunca solo color. Con la captura activa aparece **Pausar captura**; en pausa el botón pasa a **Reanudar captura** y el estado dice `Captura en pausa.` en ámbar. El cierre de la ventana detiene la captura y espera su salida ordenada cuando no hay bandeja. Sin bridge, los navegadores quedan excluidos; con bridge configurado se permite Chrome o Brave con un perfil (uno a la vez). El gate completo de Brave sigue pendiente. Ajustes sigue deshabilitado.
+La barra lateral incluye un panel de captura con estado textual y botón **Iniciar/Detener captura**. Estados: detenida, iniciando, capturando, en pausa, deteniendo y error; nunca solo color. Con la captura activa aparece **Pausar captura**; en pausa el botón pasa a **Reanudar captura** y el estado dice `Captura en pausa.` en ámbar. El cierre de la ventana detiene la captura y espera su salida ordenada cuando no hay bandeja. Sin bridge, los navegadores quedan excluidos; con bridge configurado se permite Chrome o Brave con un perfil (uno a la vez). El gate completo de Brave sigue pendiente.
 
 ## Pausa y bandeja (F5.2)
 
@@ -49,6 +49,15 @@ La barra lateral incluye un panel de captura con estado textual y botón **Inici
 - Si la bandeja no está soportada, cerrar la ventana termina la aplicación y hace flush como antes. No se añaden pantallas nuevas.
 
 **Borrar registros** abre una confirmación propia que avisa de que se borran segmentos, episodios y anotaciones, se conservan configuración/token y la captura se detiene. El error de almacenamiento se muestra en el mismo panel de estado, con el botón **Reintentar captura**; no se oculta como una tabla vacía.
+
+## Ajustes de detección (AJUSTES-DETECCION)
+
+- Sección **Detección de cambios frecuentes** con cuatro campos: cambios para abrir un episodio, ventana de tiempo, tiempo en el mismo contexto para comprobar estabilidad y tiempo sin teclado ni ratón para considerar inactividad.
+- Textos en lenguaje cotidiano y unidades visibles. Se usa «cambios entre aplicaciones o sitios», no «cambios de ventana». Se avisa de que solo cuentan cambios confirmados y de que estos ajustes no miden concentración ni productividad.
+- **En uso ahora** muestra la configuración efectiva de la sesión; **Guardado, pendiente de aplicar** solo aparece si difiere. Guardar se deshabilita sin cambios o con valores inválidos. **Restaurar valores predeterminados** solo rellena el formulario.
+- Aviso cuando inactividad ≤ estabilidad: la inactividad puede cerrar el episodio antes de comprobar la estabilidad. También se explica el riesgo inverso: un umbral de inactividad mayor puede contar como primer plano tiempo en que el usuario se alejó y permitir un cierre **Estable** sin uso real.
+- Si la configuración guardada es inválida, se usa el predeterminado del campo afectado, se muestra qué valores están realmente en uso y **no** se sobrescribe lo guardado.
+- Regla de aplicación: **Pausar/Reanudar conserva la configuración de la sesión; Detener/Iniciar relee la guardada.** Guardar no cambia el episodio en curso ni recalcula el historial. La consola diagnóstica conserva los predeterminados y no lee esta configuración.
 
 ## Uso diario (F4.3)
 

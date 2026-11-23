@@ -238,3 +238,9 @@ Detalle de Interrupciones desplazable; compilación, carga JavaFX y accesibilida
 
 ## 2026-11-23 — UI-SAVE (E033)
 Guardar sin cambios queda deshabilitado; controles bloqueados durante escritura/recarga, con reintento en error. 129 tests Java sin fallos y smoke JavaFX de clics repetidos/cambios/reversión/error. Sin cierre de F6.2.
+
+## 2026-11-23 - AJUSTES-DETECCION (E034)
+- Funciona: Ajustes con cuatro umbrales de detección (cambios, ventana, estabilidad e inactividad), persistencia en `setting`, valores efectivos vs. pendientes, restaurar predeterminados sin guardar, aviso inactividad≤estabilidad y fallback visible sin sobrescribir configuración inválida.
+- Probado: Maven verify offline 158 tests Java, 0 fallos (29 nuevos); smokes `settings` y `settings-session` sobre bases temporales; persistencia y reapertura; configuración inválida intacta; regla Pausar/Reanudar conserva y Detener/Iniciar aplica; captura con 0 OPEN y hilos 0. Capturas en `work/ui-preview/ajustes/`.
+- Límites: smokes de controles, no clics humanos; sin episodio real de deriva con umbral distinto; consola diagnóstica conserva defaults; el hallazgo de EXCLUSION al enfocar Deriva queda pendiente de revisión separada. No se implementaron exclusiones, bridge ni F6.2.
+- Siguiente: F6.2 sigue pendiente; revisar el comportamiento de EXCLUSION por foco como tarea aparte.
