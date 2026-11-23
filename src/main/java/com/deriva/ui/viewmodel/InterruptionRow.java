@@ -16,6 +16,8 @@ public record InterruptionRow(
         String firstChange,
         int switchCount,
         String stabilityText,
+        String annotationText,
+        Instant answeredAt,
         String reasonCode,
         String reasonText,
         boolean justified,

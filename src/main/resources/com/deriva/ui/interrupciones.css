@@ -215,6 +215,16 @@
     -fx-fill: #A66A1F;
 }
 
+.table .table-cell.annotation-saved {
+    -fx-text-fill: #4F6B57;
+    -fx-font-size: 12px;
+}
+
+.table .table-cell.annotation-pending {
+    -fx-text-fill: #7A756C;
+    -fx-font-size: 12px;
+}
+
 .status-dot-unconfirmed {
     -fx-fill: transparent;
     -fx-stroke: #7A756C;

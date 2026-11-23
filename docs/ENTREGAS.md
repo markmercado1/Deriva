@@ -222,5 +222,12 @@ Las siguientes entradas deben ser cortas: tarea, cambios, evidencia, límites y 
 - Límites: una máquina, resolución 30 s, solo el proceso de la UI; la sesión posterior de la mañana no tiene CSV; no sustituye una prueba de varias horas ni de otro equipo. La base protegida no se tocó.
 - Siguiente: F6.2 entrega local reproducible, pendiente de autorización. Ajustes, Brave completo, P1/P2 y USE-02 siguen fuera.
 
+## E031 — 2026-11-23 — Anotación guardada vs. estabilidad no comprobada
+
+- Funciona: la columna **Anotación** muestra **Pendiente/Guardada** según `answered_at` persistido; **Estabilidad** usa **En curso/Estable/No comprobada**; el detalle explica por qué no se comprobó la estabilidad con el motivo real de cierre. Guardar mantiene la confirmación visible y no altera el estado automático ni reabre el episodio.
+- Probado: Maven verify offline **127 tests Java, 0 fallos**; smoke `annotate` sobre base sintética → banner `Guardado · Mensajes · Justificada · 10:44`; reapertura de la misma base → `Guardada · 23/11 10:44` sin volver a guardar; trigger SQLite → banner rojo y fila **Pendiente**; episodio UNCONFIRMED → `No se comprobó la estabilidad: el cierre por inactividad.` Capturas en `work/ui-preview/ui-claridad/`.
+- Límites: smokes de controles, no clics humanos; bases sintéticas, no captura real; fallo inducido con trigger. F6.2 no se inició ni cerró; Ajustes no se implementó.
+- Siguiente: revisar la recomendación de Ajustes (A36) y decidir el alcance de F6.2 con autorización explícita.
+
 ### 2026-11-23 — Base inicial de Git
 Preparación del respaldo del código y documentación en GitHub por solicitud del usuario. Capturas reales locales excluidas; sin implementación ni cierre de F6.2.

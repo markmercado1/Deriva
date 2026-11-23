@@ -42,7 +42,7 @@ public final class DisplayFormats {
     }
 
     public static String duration(Long millis) {
-        if (millis == null) return "Sin confirmar";
+        if (millis == null) return "—";
         long seconds = Math.max(0, Duration.ofMillis(millis).toSeconds());
         if (seconds < 60) return seconds + " s";
         long minutes = seconds / 60;

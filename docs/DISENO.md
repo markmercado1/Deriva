@@ -14,7 +14,7 @@ Base visual: **Propuesta 3** (cálida, convencional, sin efectos decorativos), c
 | Acento terracota | `#B75436` |
 | Selección | `#F8E9DE` |
 
-Estados: salvia para estable, ámbar para abierta y gris para sin confirmar. Siempre icono + texto; nunca solo color. Sin puntuaciones ni juicios de productividad.
+Estados de estabilidad: salvia para **Estable**, ámbar para **En curso** y gris para **No comprobada**. Siempre icono + texto; nunca solo color. Sin puntuaciones ni juicios de productividad.
 
 ## Tipografía y densidad
 
@@ -25,12 +25,14 @@ Estados: salvia para estable, ámbar para abierta y gris para sin confirmar. Sie
 ## Interrupciones (F4.1/F4.2)
 
 - Tabla con panel de detalle a la derecha. **No** detalle expandido dentro de las filas.
-- Columnas: inicio con fecha y hora (`dd/MM HH:mm`), estado, primer cambio detectado, cambios y tiempo hasta estabilidad.
-- Filtros: rango **Desde/Hasta** inclusivo por día local, estado e incluir justificadas.
+- Columnas: inicio con fecha y hora (`dd/MM HH:mm`), **Estabilidad**, **Anotación**, primer cambio detectado, cambios y tiempo hasta estabilidad.
+- **Estabilidad** solo describe la comprobación automática: **En curso** (episodio abierto), **Estable** (180 s sin cambios) o **No comprobada** (cerrado por una frontera o motivo de cierre). No se usa «Sin confirmar».
+- **Anotación** es independiente: **Pendiente** o **Guardada**. «Guardada» se deriva del dato persistido `answered_at`, no de que haya un motivo elegido ni de la casilla Justificada.
+- Filtros: rango **Desde/Hasta** inclusivo por día local, estabilidad e incluir justificadas. Las etiquetas del filtro deben coincidir con las de la columna.
 - El rango usa solapamiento: un episodio que cruza medianoche aparece en ambos días consultados y una sola vez en un rango que cubre ambos.
-- Detalle: contexto, tiempo, motivos y Justificada. Guardar actualiza la anotación y se conserva al reabrir.
+- Detalle: contexto, tiempo, motivo de cierre real, estado de la anotación y Justificada. Para **No comprobada** se explica por qué no se comprobó la estabilidad usando el motivo de cierre persistido. Guardar actualiza la anotación, se conserva al reabrir y **no** modifica el estado automático ni reabre el episodio.
 - Rango invertido, estados vacíos y errores visibles; no sustituir un error por una tabla vacía.
-- **Modo de prueba** con el botón “Ver datos de ejemplo”: carga seis episodios sintéticos en memoria (abierta, estables y sin confirmar) para comprobar tabla, filtros y detalle sin esperar una captura real. Se avisa con “Modo prueba · episodios de ejemplo · no se guardan”; Guardar y la anotación quedan deshabilitados y no se escribe en SQLite. “Volver a datos reales” restaura la consulta normal.
+- **Modo de prueba** con el botón “Ver datos de ejemplo”: carga seis episodios sintéticos en memoria (en curso, estables y no comprobadas) para comprobar tabla, filtros y detalle sin esperar una captura real. Se avisa con “Modo prueba · episodios de ejemplo · no se guardan”; Guardar y la anotación quedan deshabilitados y no se escribe en SQLite. “Volver a datos reales” restaura la consulta normal.
 - Apertura/migración, consultas, anotación y refresco fuera del hilo JavaFX; la UI se construye cuando la base está lista.
 
 ## Navegación y captura

@@ -46,14 +46,17 @@ public final class InterruptionsController {
     @FXML private TableView<InterruptionRow> table;
     @FXML private TableColumn<InterruptionRow, String> startColumn;
     @FXML private TableColumn<InterruptionRow, String> statusColumn;
+    @FXML private TableColumn<InterruptionRow, String> annotationColumn;
     @FXML private TableColumn<InterruptionRow, String> firstChangeColumn;
     @FXML private TableColumn<InterruptionRow, String> switchColumn;
     @FXML private TableColumn<InterruptionRow, String> stabilityColumn;
     @FXML private Label detailTitle;
     @FXML private Label detailTime;
     @FXML private Label detailFirstChange;
+    @FXML private Label detailState;
     @FXML private Label detailStability;
     @FXML private Label detailCloseReason;
+    @FXML private Label detailAnnotation;
     @FXML private FlowPane contextsPane;
     @FXML private ComboBox<ReasonOption> reasonCombo;
     @FXML private CheckBox justifiedCheck;
@@ -89,6 +92,7 @@ public final class InterruptionsController {
         table.setPlaceholder(new Label("Sin datos registrados para este rango de fechas."));
         startColumn.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue().startText()));
         statusColumn.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue().statusText()));
+        annotationColumn.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue().annotationText()));
         firstChangeColumn.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue().firstChange()));
         switchColumn.setCellValueFactory(data -> new ReadOnlyStringWrapper(String.valueOf(data.getValue().switchCount())));
         stabilityColumn.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue().stabilityText()));
@@ -96,6 +100,7 @@ public final class InterruptionsController {
         switchColumn.setCellFactory(column -> monoCell());
         stabilityColumn.setCellFactory(column -> monoCell());
         statusColumn.setCellFactory(column -> statusCell());
+        annotationColumn.setCellFactory(column -> annotationCell());
 
         table.getSelectionModel().selectedItemProperty().addListener((observable, old, row) -> {
             updateDetail(row);
@@ -252,8 +257,10 @@ public final class InterruptionsController {
             detailTitle.setText("Detalle del episodio");
             detailTime.setText("Selecciona un episodio");
             detailFirstChange.setText("—");
+            detailState.setText("—");
             detailStability.setText("—");
             detailCloseReason.setText("");
+            detailAnnotation.setText("—");
             reasonCombo.setValue(null);
             justifiedCheck.setSelected(false);
             updateSaveEnabled();
@@ -263,15 +270,10 @@ public final class InterruptionsController {
         detailTitle.setText("Episodio · " + row.startText());
         detailTime.setText(row.statusText() + " · " + row.firstChange());
         detailFirstChange.setText(row.firstChange());
+        detailState.setText(row.statusText());
         detailStability.setText(row.stabilityText());
-        detailCloseReason.setText(switch (row.status()) {
-            case STABLE -> "Estabilidad confirmada tras 180 s sin cambios.";
-            case OPEN -> "Episodio en curso; se cierra al estabilizarse o al perder la actividad.";
-            case UNCONFIRMED -> {
-                String reason = viewModel.closeReasonText(row.closeReason());
-                yield reason.isBlank() ? "Sin motivo de cierre registrado." : reason;
-            }
-        });
+        detailCloseReason.setText(viewModel.stabilityExplanation(row));
+        detailAnnotation.setText(viewModel.annotationDetail(row));
         for (var context : row.contexts()) {
             Label chip = new Label(viewModel.display(context));
             chip.getStyleClass().add("chip");
@@ -334,6 +336,23 @@ public final class InterruptionsController {
             saveStatus.setText("");
             saveStatus.getStyleClass().remove("save-ok");
         }
+    }
+
+    private static TableCell<InterruptionRow, String> annotationCell() {
+        return new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                getStyleClass().removeAll("annotation-saved", "annotation-pending");
+                if (empty || item == null) {
+                    setText(null);
+                    return;
+                }
+                setText(item);
+                getStyleClass().add("Guardada".equals(item)
+                        ? "annotation-saved" : "annotation-pending");
+            }
+        };
     }
 
     private static TableCell<InterruptionRow, String> monoCell() {

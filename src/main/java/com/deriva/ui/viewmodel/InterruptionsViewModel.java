@@ -109,7 +109,8 @@ public final class InterruptionsViewModel {
         Instant start = day.atTime(hour, minute).atZone(zone).toInstant();
         Instant stable = start.plusMillis(stabilityMs);
         return new DriftEvent(id, start, start.plusSeconds(60), stable, stable, stable,
-                DriftStatus.STABLE, null, switches, first, stabilityMs, reason, justified, null, contexts);
+                DriftStatus.STABLE, null, switches, first, stabilityMs, reason, justified,
+                justified ? stable : null, contexts);
     }
 
     private DriftEvent demoOpen(long id, LocalDate day, int hour, int minute, int switches,
@@ -142,15 +143,14 @@ public final class InterruptionsViewModel {
 
     private InterruptionRow row(DriftEvent event) {
         String statusText = switch (event.status()) {
-            case OPEN -> "Abierta";
-            case STABLE -> "Estable";
-            case UNCONFIRMED -> "Sin confirmar";
-        };
-        String stability = switch (event.status()) {
             case OPEN -> "En curso";
-            case UNCONFIRMED -> "Sin confirmar";
-            case STABLE -> duration(event.timeToStabilityMs());
+            case STABLE -> "Estable";
+            case UNCONFIRMED -> "No comprobada";
         };
+        String stability = event.status() == DriftStatus.STABLE
+                ? duration(event.timeToStabilityMs())
+                : "—";
+        String annotation = event.answeredAt() == null ? "Pendiente" : "Guardada";
         return new InterruptionRow(
                 event.id(),
                 event.startTs(),
@@ -160,6 +160,8 @@ public final class InterruptionsViewModel {
                 display(event.firstChangeContext()),
                 event.switchCount(),
                 stability,
+                annotation,
+                event.answeredAt(),
                 event.reason(),
                 event.reason() == null ? "Sin motivo" : REASON_LABELS.getOrDefault(event.reason(), event.reason()),
                 event.justified(),
@@ -174,15 +176,36 @@ public final class InterruptionsViewModel {
     public String closeReasonText(CloseReason reason) {
         if (reason == null) return "";
         return switch (reason) {
-            case IDLE -> "Cierre por inactividad";
-            case EXCLUSION -> "Cierre por exclusion";
-            case UNAVAILABLE -> "Cierre por falta de datos";
-            case PAUSE -> "Cierre por pausa";
-            case LOCK -> "Cierre por bloqueo";
-            case EXIT -> "Cierre al salir";
-            case GAP -> "Cierre por hueco";
-            case RESTART -> "Cierre por reinicio";
+            case IDLE -> "el cierre por inactividad";
+            case EXCLUSION -> "el cierre por exclusión";
+            case UNAVAILABLE -> "la falta de datos";
+            case PAUSE -> "el cierre por pausa";
+            case LOCK -> "el cierre por bloqueo";
+            case EXIT -> "el cierre al salir de la aplicación";
+            case GAP -> "un hueco de datos";
+            case RESTART -> "el reinicio de la captura";
         };
+    }
+
+    /** Why stability was or was not checked, using the persisted close reason. */
+    public String stabilityExplanation(InterruptionRow row) {
+        if (row == null) return "";
+        return switch (row.status()) {
+            case STABLE -> "Estabilidad comprobada: el contexto se mantuvo 180 s sin cambios.";
+            case OPEN -> "Estabilidad aún no comprobada: el episodio sigue en curso.";
+            case UNCONFIRMED -> {
+                String reason = closeReasonText(row.closeReason());
+                yield reason.isBlank()
+                        ? "No se comprobó la estabilidad: no hay motivo de cierre registrado."
+                        : "No se comprobó la estabilidad: " + reason + ".";
+            }
+        };
+    }
+
+    /** Persisted annotation state; answeredAt is written only after a successful save. */
+    public String annotationDetail(InterruptionRow row) {
+        if (row == null || row.answeredAt() == null) return "Pendiente de guardar";
+        return "Guardada · " + DATE_TIME.format(row.answeredAt().atZone(zone));
     }
 
     public static String duration(Long millis) {

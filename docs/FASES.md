@@ -30,6 +30,7 @@ Los días de la sección 12 del plano son hitos de alcance. Cada fase puede repa
 | F5.2 | Pausa/bandeja (OPCIONAL) | HECHO | Autorizada por el usuario el 2026-11-23; pausa y bandeja probadas (E029) |
 | F5.2a | Pausa manual | HECHO | Pausar/reanudar cierra segmento y episodio con `PAUSE`, estado visible y reanudación sin pérdida ni solape (E029) |
 | F5.2b | Bandeja básica | HECHO | Menú Abrir, Pausar/Reanudar y Salir; cerrar oculta; Salir detiene, hace flush y no deja proceso oculto (E029) |
+| UI-CLARIDAD | Claridad anotación vs. estabilidad | HECHO | Columna Anotación desde `answered_at`, Estabilidad con En curso/Estable/No comprobada, explicación por motivo de cierre y filtros coherentes; guardar no altera el estado. No cierra F6.2 ni implementa Ajustes (E031) |
 | F6.1 | Prueba sostenida y rendimiento | HECHO | Medición real de 2 h 7 min 30 s con 256 muestras, CPU media 0,15 % (máx. 0,40 % de 16 CPUs), working set 249–416 MB y captura activa con Brave/bridge (E030). Límites: una máquina, resolución 30 s |
 | F6.2 | Entrega local reproducible | PENDIENTE | Instrucciones verificadas de arranque/test, limitaciones y pendientes claros |
 
@@ -140,6 +141,15 @@ Dependencias: F1.1 → F1.2 → F1.3 → F2 → F3 → F4 → F5 → F6. GATE-Q2
 - [x] Sin `SystemTray`, cerrar termina y hace flush como antes; `Platform.setImplicitExit(false)` solo con bandeja instalada (E029).
 - [x] Test del cierre `PAUSE` en la máquina y de persistencia del episodio UNCONFIRMED con `PAUSE`; smokes de pausa/reanudación y bandeja; 124 tests Java (E029).
 - Límite: el smoke invoca los mismos callbacks del menú, no es un clic humano sobre el icono.
+
+## Avance UI-CLARIDAD
+
+- [x] Columna **Anotación** con **Pendiente/Guardada** derivada de `answered_at`, no del motivo ni de Justificada (E031).
+- [x] **Estado** renombrado a **Estabilidad**: **En curso**, **Estable** y **No comprobada**; filtro y detalle usan las mismas etiquetas (E031).
+- [x] Detalle de `UNCONFIRMED` explica por qué no se comprobó con el motivo real de cierre; `STABLE` y `OPEN` tienen textos propios (E031).
+- [x] Guardar conserva la confirmación visible y solo actualiza `reason`, `justified` y `answered_at`; no cambia estado ni reabre (E031, test SQLite real).
+- [x] Smoke de UI: guardado, reapertura y fallo inducido sin éxito falso; base sintética (E031).
+- Límite: los smokes recorren controles, no son clics humanos. Mejora de claridad, **no** cierre de F6.2.
 
 ## Avance F6.1
 
