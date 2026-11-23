@@ -159,8 +159,8 @@ public final class SettingsController {
         }
 
         if (page.idleWarning()) {
-            idleWarningLabel.setText("Aviso: el tiempo de inactividad es menor o igual que el de "
-                    + "estabilidad. Si lees o ves vídeos sin tocar el teclado o el ratón, la "
+            idleWarningLabel.setText("Aviso: con los valores del formulario, el tiempo de inactividad "
+                    + "es menor o igual que el de estabilidad. Si lees o ves vídeos sin tocar el teclado o el ratón, la "
                     + "inactividad puede cerrar el episodio antes de comprobar la estabilidad y "
                     + "quedará como No comprobada. Si lo aumentas por encima de la estabilidad, "
                     + "Deriva puede cerrar como Estable mientras no usabas el equipo y Uso diario "

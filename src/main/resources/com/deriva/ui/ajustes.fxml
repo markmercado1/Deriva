@@ -64,7 +64,7 @@
                     <VBox spacing="2" HBox.hgrow="ALWAYS">
                         <Label text="Tiempo sin teclado ni ratón para considerar inactividad"
                                styleClass="settings-label"/>
-                        <Label text="Al superar este tiempo sin teclado ni ratón, Deriva considera la actividad inactividad. También puede afectar al tiempo en primer plano de Uso diario."
+                        <Label text="Al superar este tiempo sin teclado ni ratón, Deriva considera la actividad inactividad. También puede afectar al tiempo en primer plano de Uso diario; si lo aumentas demasiado, puede contar tiempo en que te alejaste del equipo."
                                styleClass="settings-help" wrapText="true"/>
                     </VBox>
                     <HBox spacing="8" alignment="CENTER_RIGHT">
