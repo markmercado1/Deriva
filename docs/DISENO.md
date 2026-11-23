@@ -67,3 +67,6 @@ La barra lateral incluye un panel de captura con estado textual y botón **Inici
 - Sin glassmorphism, neón, desenfoques ni modo oscuro.
 - Sin secciones nuevas por anticipado.
 - No modificar los planos ni ampliar el alcance de F4.1/F4.2/F4.3.
+
+
+Guardar se deshabilita si los valores coinciden con la anotación persistida (Guardado ✓); editar motivo o Justificada habilita Guardar cambios. Durante escritura y recarga se bloquean los controles del formulario, selección y filtros para evitar solicitudes simultáneas. Un error permite reintentar.

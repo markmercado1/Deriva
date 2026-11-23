@@ -324,3 +324,6 @@ Por solicitud del usuario se prepara el primer commit en main y la subida a http
 
 ## UI-SCROLL — HECHO (2026-11-23, E032)
 Detalle envuelto en ScrollPane, sin cambios de lógica ni barra lateral. Archivo funcional: interrupciones.fxml. Compilación y carga FXML correctas; probe JavaFX a 1200x600 confirma overflow y Guardar completamente visible al desplazar al final. Sin pruebas nuevas de captura ni SQLite. Próximo paso: reiniciar la app desde Salir para cargar el recurso actualizado; F6.2 pendiente.
+
+## UI-SAVE — HECHO (2026-11-23, E033)
+Guardar compara motivo/Justificada con la fila persistida y answered_at. Sin cambios: Guardado ✓ deshabilitado; al editar: Guardar cambios. Bloqueo durante escritura y recarga; error permite reintentar. Archivos: InterruptionsController.java, InterruptionRow.java y InterruptionsViewModelTest.java. Maven verify offline: 129 tests, 0 fallos. Smoke JavaFX con repositorio simulado: 30 clics generan una escritura; cambios/reversión/error/reintento correctos. No se tocaron bases reales. Próximo paso: salir de la instancia abierta y relanzar el build actualizado; F6.2 pendiente.

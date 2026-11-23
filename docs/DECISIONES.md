@@ -190,3 +190,7 @@ Estado: aplicable. El botón **Ajustes** continúa visible pero deshabilitado; n
 
 ## A37 — 2026-11-23 — Detalle desplazable
 Por petición del usuario, envolver únicamente el detalle en ScrollPane: ajuste al ancho, scroll vertical según necesidad y sin scroll horizontal. Guardar permanece dentro del contenido. Sin cambiar barra lateral ni lógica.
+
+
+## A38 — 2026-11-23 — Guardar solo cambios pendientes
+Comparación pura en InterruptionRow entre motivo/Justificada y valores persistidos; answered_at nulo permite la primera anotación con motivo válido. El controller bloquea reentrada, invalida lecturas anteriores y mantiene bloqueo hasta recargar el resultado. No cambia esquema ni reglas de episodios.

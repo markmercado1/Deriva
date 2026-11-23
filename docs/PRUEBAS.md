@@ -992,3 +992,10 @@ Comandos: `git status --short`, `git diff --stat`, `git ls-remote https://github
 - `powershell -NoProfile -File .\scripts\Start-Ui.ps1 -Demo -Screenshot C:\AppTImeControl\work\ui-preview\ui-scroll.png`: carga real JavaFX, captura inspeccionada y cierre con 0 hilos de captura.
 - `$probeClasspath = 'C:\AppTImeControl\target\classes;' + (Get-Content work/ui-preview/classpath.txt -Raw).Trim(); java -cp $probeClasspath work/ui-preview/ScrollProbe.java`: PASS 1200x600; contenido supera viewport y bounds de Guardar completamente dentro al poner vvalue=1.
 - Probe temporal en work/, sin base de datos; no es un clic humano ni prueba de captura. La validación XML inicial detectó un cierre de etiqueta faltante, corregido antes de la compilación final y los smokes.
+
+
+## E033 — 2026-11-23 — Guardar sin duplicados
+- Comando: `mvn '-Dmaven.repo.local=C:\AppTImeControl\work\m2' --offline --batch-mode --no-transfer-progress verify`. BUILD SUCCESS: 129 tests, 0 fallos/errores/omitidos; dos pruebas nuevas de comparación de anotaciones.
+- Comando: `$probeClasspath = 'C:\AppTImeControl\target\classes;' + (Get-Content work/ui-preview/classpath.txt -Raw).Trim(); java -cp $probeClasspath work/ui-preview/SaveProbe.java`.
+- Resultado: PASS; 30 clics antes de completar escritura producen una llamada; después de guardar no permite repetir; motivo y casilla habilitan, revertir deshabilita; fallo inducido conserva datos y permite reintento exitoso. Refresco durante escritura no desbloquea el botón.
+- Límite: smoke JavaFX con repositorio simulado y sincronización mediante latch; no prueba navegador, SQLite real ni clic humano. Primera ejecución del probe falló por faltar Scene/CSS en el arnés; corregido y repetido con éxito. No se ejecutó JS porque no hay cambios de extensión.

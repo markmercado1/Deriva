@@ -234,3 +234,7 @@ Preparación del respaldo del código y documentación en GitHub por solicitud d
 
 ## 2026-11-23 — UI-SCROLL (E032)
 Detalle de Interrupciones desplazable; compilación, carga JavaFX y accesibilidad geométrica de Guardar tras scroll a 1200x600 comprobadas. F6.2 pendiente.
+
+
+## 2026-11-23 — UI-SAVE (E033)
+Guardar sin cambios queda deshabilitado; controles bloqueados durante escritura/recarga, con reintento en error. 129 tests Java sin fallos y smoke JavaFX de clics repetidos/cambios/reversión/error. Sin cierre de F6.2.

@@ -6,6 +6,7 @@ import com.deriva.tracking.model.ContextKey;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 
 public record InterruptionRow(
         long id,
@@ -23,4 +24,8 @@ public record InterruptionRow(
         boolean justified,
         List<ContextKey> contexts,
         CloseReason closeReason) {
+    public boolean hasAnnotationChanges(String reason, boolean isJustified) {
+        return reason != null && (answeredAt == null
+                || !Objects.equals(reasonCode, reason) || justified != isJustified);
+    }
 }

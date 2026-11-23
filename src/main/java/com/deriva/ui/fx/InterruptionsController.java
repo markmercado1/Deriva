@@ -74,6 +74,7 @@ public final class InterruptionsController {
     private String savedStatusText;
     private boolean appDemo;
     private boolean demoMode;
+    private boolean saving;
 
     @FXML
     private void initialize() {
@@ -114,7 +115,10 @@ public final class InterruptionsController {
             updateSaveEnabled();
             clearSavedNote();
         });
-        justifiedCheck.selectedProperty().addListener((observable, old, value) -> clearSavedNote());
+        justifiedCheck.selectedProperty().addListener((observable, old, value) -> {
+            updateSaveEnabled();
+            clearSavedNote();
+        });
         demoButton.setOnAction(event -> toggleDemoMode());
         saveButton.setOnAction(event -> save());
     }
@@ -162,7 +166,11 @@ public final class InterruptionsController {
     }
 
     private void refreshAsync() {
-        if (viewModel == null) return;
+        refreshAsync(false);
+    }
+
+    private void refreshAsync(boolean finishSave) {
+        if (viewModel == null || (saving && !finishSave)) return;
         LocalDate from = fromPicker.getValue() == null ? LocalDate.now() : fromPicker.getValue();
         LocalDate to = toPicker.getValue() == null ? LocalDate.now() : toPicker.getValue();
         if (from.isAfter(to)) {
@@ -182,8 +190,10 @@ public final class InterruptionsController {
                         : viewModel.load(from, to, filter, include), executor)
                 .whenComplete((page, error) -> Platform.runLater(() -> {
                     if (request != refreshRequest.get()) return;
+                    if (finishSave) saving = false;
                     if (error != null) showLoadError(error);
                     else applyPage(page, selectedId);
+                    updateSaveEnabled();
                 }));
     }
 
@@ -285,19 +295,34 @@ public final class InterruptionsController {
     }
 
     private void updateSaveEnabled() {
-        saveButton.setDisable(demoMode || table.getSelectionModel().getSelectedItem() == null
-                || reasonCombo.getValue() == null);
+        InterruptionRow row = table.getSelectionModel().getSelectedItem();
+        ReasonOption reason = reasonCombo.getValue();
+        boolean changed = row != null && row.hasAnnotationChanges(
+                reason == null ? null : reason.code(), justifiedCheck.isSelected());
+        saveButton.setDisable(saving || demoMode || !changed);
+        saveButton.setText(saving ? "Guardando…" : row != null && row.answeredAt() != null
+                ? (changed ? "Guardar cambios" : "Guardado ✓") : "Guardar");
+        reasonCombo.setDisable(saving || demoMode);
+        justifiedCheck.setDisable(saving || demoMode);
+        table.setDisable(saving);
+        fromPicker.setDisable(saving);
+        toPicker.setDisable(saving);
+        statusFilter.setDisable(saving);
+        includeJustified.setDisable(saving);
+        demoButton.setDisable(saving);
     }
 
     private void save() {
-        if (demoMode) return;
+        if (demoMode || saving) return;
         InterruptionRow row = table.getSelectionModel().getSelectedItem();
         ReasonOption reason = reasonCombo.getValue();
-        if (row == null || reason == null) return;
+        if (row == null || reason == null
+                || !row.hasAnnotationChanges(reason.code(), justifiedCheck.isSelected())) return;
         boolean justified = justifiedCheck.isSelected();
 
-        saveButton.setDisable(true);
-        saveButton.setText("Guardando…");
+        saving = true;
+        refreshRequest.incrementAndGet();
+        updateSaveEnabled();
         saveStatus.getStyleClass().removeAll("save-ok", "save-error");
         saveStatus.setText("Guardando…");
         CompletableFuture.runAsync(
@@ -305,8 +330,8 @@ public final class InterruptionsController {
                         executor)
                 .whenComplete((ignored, error) -> Platform.runLater(() -> {
                     if (error != null) {
-                        saveButton.setText("Guardar");
-                        saveButton.setDisable(false);
+                        saving = false;
+                        updateSaveEnabled();
                         saveStatus.setText("No se pudo guardar: " + message(error));
                         saveStatus.getStyleClass().removeAll("save-ok");
                         saveStatus.getStyleClass().add("save-error");
@@ -314,12 +339,10 @@ public final class InterruptionsController {
                         savedStatusText = "Guardado · " + reason.label()
                                 + (justified ? " · Justificada" : "")
                                 + " · " + SAVED_TIME.format(LocalTime.now());
-                        saveButton.setText("Guardar");
-                        updateSaveEnabled();
                         saveStatus.setText(savedStatusText);
                         saveStatus.getStyleClass().removeAll("save-error");
                         saveStatus.getStyleClass().add("save-ok");
-                        refreshAsync();
+                        refreshAsync(true);
                     }
                 }));
     }
@@ -328,7 +351,7 @@ public final class InterruptionsController {
         savedStatusText = null;
         saveStatus.setText("");
         saveStatus.getStyleClass().removeAll("save-ok", "save-error");
-        saveButton.setText("Guardar");
+        updateSaveEnabled();
     }
 
     private void clearSavedNote() {

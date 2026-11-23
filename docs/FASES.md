@@ -218,3 +218,6 @@ Al actualizar, sustituir “Estado inicial” por “Estado” y mantener los ID
 
 ## UI-SCROLL — HECHO (E032)
 Corrección autorizada: desplazar únicamente el detalle de Interrupciones. F6.2 sigue pendiente.
+
+## UI-SAVE — HECHO (E033)
+Guardar solo con cambios pendientes y bloquear solicitudes simultáneas. F6.2 pendiente.

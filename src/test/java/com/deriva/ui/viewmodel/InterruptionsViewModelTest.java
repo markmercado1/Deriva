@@ -196,6 +196,28 @@ class InterruptionsViewModelTest {
         assertEquals("unknown", viewModel(new FakeRepository(List.of())).display(unknown));
     }
 
+    @Test
+    void savedAnnotationOnlyEnablesSavingWhenValuesDiffer() {
+        var row = viewModel(new FakeRepository(List.of()))
+                .demoPage(LocalDate.of(2026, 11, 23), StatusFilter.ALL, true)
+                .rows().stream().filter(r -> r.answeredAt() != null).findFirst().orElseThrow();
+        assertFalse(row.hasAnnotationChanges(row.reasonCode(), row.justified()));
+        assertTrue(row.hasAnnotationChanges("OTHER", row.justified()));
+        assertTrue(row.hasAnnotationChanges(row.reasonCode(), !row.justified()));
+        assertFalse(row.hasAnnotationChanges(row.reasonCode(), row.justified()));
+        assertFalse(row.hasAnnotationChanges(null, !row.justified()));
+    }
+
+    @Test
+    void firstAnnotationRequiresReasonEvenWhenJustifiedChanges() {
+        var row = viewModel(new FakeRepository(List.of()))
+                .demoPage(LocalDate.of(2026, 11, 23), StatusFilter.ALL, true)
+                .rows().stream().filter(r -> r.answeredAt() == null).findFirst().orElseThrow();
+        assertFalse(row.hasAnnotationChanges(null, false));
+        assertFalse(row.hasAnnotationChanges(null, true));
+        assertTrue(row.hasAnnotationChanges("OTHER", false));
+    }
+
     private static final class FakeRepository implements DriftRepository {
         private final List<DriftEvent> events;
         private long annotatedId;
