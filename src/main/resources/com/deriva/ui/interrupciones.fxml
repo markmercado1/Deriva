@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.deriva.ui.fx.InterruptionsController"
+      styleClass="content" spacing="18">
+    <HBox alignment="CENTER_LEFT" spacing="12">
+        <VBox spacing="2">
+            <Label text="Interrupciones" styleClass="page-title"/>
+            <Label text="Revisa tus cambios de actividad y añade contexto." styleClass="page-subtitle"/>
+        </VBox>
+        <Region HBox.hgrow="ALWAYS"/>
+        <HBox spacing="8" alignment="CENTER_RIGHT">
+            <Label text="Desde" styleClass="filter-label"/>
+            <DatePicker fx:id="fromPicker" styleClass="filter-control" prefWidth="150"/>
+            <Label text="Hasta" styleClass="filter-label"/>
+            <DatePicker fx:id="toPicker" styleClass="filter-control" prefWidth="150"/>
+        </HBox>
+    </HBox>
+
+    <HBox spacing="16">
+        <VBox styleClass="stat-card" HBox.hgrow="ALWAYS" spacing="4">
+            <Label text="Episodios del rango" styleClass="stat-label"/>
+            <Label fx:id="totalLabel" text="0" styleClass="stat-value"/>
+        </VBox>
+        <VBox styleClass="stat-card" HBox.hgrow="ALWAYS" spacing="4">
+            <Label text="En curso" styleClass="stat-label"/>
+            <Label fx:id="openLabel" text="0" styleClass="stat-value"/>
+        </VBox>
+    </HBox>
+
+    <HBox spacing="12" alignment="CENTER_LEFT">
+        <ComboBox fx:id="statusFilter" styleClass="filter-control" prefWidth="190"/>
+        <CheckBox fx:id="includeJustified" text="Incluir justificadas" selected="true"/>
+        <Button fx:id="demoButton" text="Ver datos de ejemplo" styleClass="secondary-button"/>
+        <Label fx:id="rangeNote" styleClass="range-error" managed="false" visible="false"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Label fx:id="dataNote" styleClass="data-note"/>
+    </HBox>
+
+    <HBox spacing="18" VBox.vgrow="ALWAYS">
+        <VBox HBox.hgrow="ALWAYS" spacing="8">
+            <TableView fx:id="table" styleClass="table" VBox.vgrow="ALWAYS">
+                <columns>
+                    <TableColumn fx:id="startColumn" text="Inicio" prefWidth="104"/>
+                    <TableColumn fx:id="statusColumn" text="Estado" prefWidth="128"/>
+                    <TableColumn fx:id="firstChangeColumn" text="Primer cambio detectado" prefWidth="230"/>
+                    <TableColumn fx:id="switchColumn" text="Cambios" prefWidth="80"/>
+                    <TableColumn fx:id="stabilityColumn" text="Tiempo hasta estabilidad" prefWidth="170"/>
+                </columns>
+            </TableView>
+        </VBox>
+
+        <VBox styleClass="detail-panel" prefWidth="380" spacing="10">
+            <Label fx:id="detailTitle" text="Detalle del episodio" styleClass="detail-title"/>
+            <Label fx:id="detailTime" text="Selecciona un episodio" styleClass="detail-subtitle" wrapText="true"/>
+            <Separator/>
+            <Label text="Primer cambio detectado" styleClass="detail-label"/>
+            <Label fx:id="detailFirstChange" text="—" styleClass="detail-value"/>
+            <Label text="Tiempo hasta actividad estable" styleClass="detail-label"/>
+            <Label fx:id="detailStability" text="—" styleClass="detail-value, mono"/>
+            <Label fx:id="detailCloseReason" text="" styleClass="detail-note" wrapText="true"/>
+            <Label text="Contextos observados" styleClass="detail-label"/>
+            <FlowPane fx:id="contextsPane" hgap="6" vgap="6"/>
+            <Separator/>
+            <Label text="Motivo" styleClass="detail-label"/>
+            <ComboBox fx:id="reasonCombo" maxWidth="Infinity"/>
+            <CheckBox fx:id="justifiedCheck" text="Justificada"/>
+            <Button fx:id="saveButton" text="Guardar" styleClass="primary-button" maxWidth="Infinity" disable="true"/>
+            <Label fx:id="saveStatus" styleClass="save-status" wrapText="true" maxWidth="Infinity"/>
+        </VBox>
+    </HBox>
+</VBox>

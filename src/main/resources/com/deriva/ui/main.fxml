@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.deriva.ui.fx.MainController"
+            styleClass="app-root">
+    <left>
+        <VBox styleClass="sidebar" prefWidth="220">
+            <HBox styleClass="brand" spacing="10" alignment="CENTER_LEFT">
+                <Region styleClass="brand-mark" prefWidth="18" prefHeight="18"/>
+                <Label text="DERIVA" styleClass="brand-name"/>
+            </HBox>
+            <VBox spacing="6" VBox.vgrow="ALWAYS">
+                <Button fx:id="interruptionsButton" text="Interrupciones" maxWidth="Infinity"
+                        styleClass="nav-button" onAction="#showInterruptions"/>
+                <Button fx:id="usageButton" text="Uso diario" maxWidth="Infinity"
+                        styleClass="nav-button" onAction="#showUsage"/>
+                <Button text="Ajustes" maxWidth="Infinity" styleClass="nav-button" disable="true">
+                    <tooltip><Tooltip text="Pendiente de una fase posterior"/></tooltip>
+                </Button>
+            </VBox>
+            <VBox styleClass="capture-panel" spacing="6">
+                <Label fx:id="captureStatus" text="Captura detenida"
+                       styleClass="capture-status" wrapText="true"/>
+                <Button fx:id="captureButton" text="Iniciar captura" maxWidth="Infinity"
+                        styleClass="capture-button" onAction="#toggleCapture"/>
+                <Button fx:id="pauseButton" text="Pausar captura" maxWidth="Infinity"
+                        styleClass="pause-button" onAction="#togglePause"
+                        managed="false" visible="false"/>
+                <Button fx:id="deleteButton" text="Borrar registros" maxWidth="Infinity"
+                        styleClass="delete-button" onAction="#requestDelete"/>
+            </VBox>
+            <Label text="Solo en este equipo" styleClass="sidebar-footer"/>
+        </VBox>
+    </left>
+    <center>
+        <StackPane>
+            <StackPane fx:id="content"/>
+            <StackPane fx:id="deleteOverlay" styleClass="modal-backdrop"
+                       visible="false" managed="false">
+                <VBox styleClass="modal-card" maxWidth="500" maxHeight="240" spacing="12">
+                    <Label text="Borrar registros" styleClass="modal-title"/>
+                    <Label fx:id="deleteWarning"
+                           text="Se borrarán segmentos, episodios y anotaciones. Se conservan la configuración y el token. La captura se detendrá para coordinar el borrado."
+                           styleClass="modal-text" wrapText="true"/>
+                    <Region VBox.vgrow="ALWAYS"/>
+                    <HBox alignment="CENTER_RIGHT" spacing="10">
+                        <Button text="Cancelar" styleClass="secondary-button"
+                                onAction="#cancelDelete"/>
+                        <Button fx:id="confirmDeleteButton" text="Borrar"
+                                styleClass="danger-button" onAction="#confirmDelete"/>
+                    </HBox>
+                </VBox>
+            </StackPane>
+        </StackPane>
+    </center>
+</BorderPane>

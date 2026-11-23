@@ -1,0 +1,181 @@
+# Registro de decisiones
+
+No sustituye el plano. Referencia las reglas y registra razones para evitar que otra IA las reinvente. Nuevas decisiones se añaden con ID, fecha, estado, motivo, alcance y evidencia. Una decisión sustituida se conserva como historial.
+
+| ID | Estado | Decisión | Referencia / motivo |
+|---|---|---|---|
+| D1 | Aplicable salvo objeción | Un episodio abierto; unir disparos solapados | Plano v2 §3 y §7; no contar minutos dos veces |
+| D2 | Aplicable salvo objeción | Estabilidad por contexto evaluada cada tick | Plano v2 §3; no esperar segmento cerrado |
+| D3 | Aplicable salvo objeción | Identidad = proceso + host | Plano v2 §3; etiquetas visibles no definen identidad |
+| D4 | Aplicable salvo objeción | Excluir navegador si atribución/privacidad es incierta | Plano v2 §3 y §14; prueba real antes de habilitar |
+| A1 | Base de trabajo solicitada | Clean Architecture ligera, puertos/adaptadores, DI manual, MVVM ligero | Usuario pide continuidad de arquitectura; concreta §5 sin introducir frameworks |
+| A2 | Base de trabajo solicitada | Trabajo por tareas pequeñas y estado persistente | Usuario prevé interrupciones por créditos; cada entrega deja punto de guardado |
+| A3 | Vigente por alcance v2 | Sin adaptación, estadísticas avanzadas ni análisis comercial nuevo | Petición explícita del usuario |
+
+## Pendientes de definición, no bloquean preparar F1.1
+
+| ID | Pregunta | Resolver en | Regla mientras no se resuelva |
+|---|---|---|---|
+| Q1 | Qué Chromium y perfil se usarán | F1.1/F1.2 | No asumir Brave por ejemplos del plano |
+| Q2 | Cómo correlacionar sesión, secuencia y ventana activa | F1.2/F2.3 | Navegador excluido; no afirmar garantía de privado |
+| Q3 | Renovación de evidencia con caducidad de 3 s y ciclo MV3 | F1.2/F2.3 | No aumentar caducidad para ocultar fallos |
+| Q4 | Parser JSON seguro compatible con dependencias permitidas | F1.2 | No regex improvisada; proponer biblioteca concreta si hace falta |
+| Q5 | Versiones y herramientas disponibles | F1.1 | No declarar comandos de build verificados |
+
+No se necesita preguntar al usuario cada decisión rutinaria. Investigar lo comprobable en su equipo, documentar la elección mínima y continuar dentro del alcance. Si cambia una promesa o contrato sustancial, presentar el cambio concreto y el impacto juntos.
+
+## A4 — 2026-11-21 — Uso diario básico
+
+Estado: solicitado explícitamente por el usuario (“entonces agrega eso”), incorporado al alcance de F4.3. Mostrar tiempo diario por aplicación y sitio. Decisión de medición conservada del sensor: primer plano, no tiempo abierto ni reproducción de audio. Dota con YouTube de fondo suma a Dota mientras tenga foco; cambiar a YouTube reparte el tiempo. No se solicitó todavía implementar una métrica de audio simultáneo. No cambia D4: sitios solo con atribución segura. A3 sigue aplicando a estadísticas avanzadas, no a esta vista básica. Aumenta el trabajo de F4; seis días siguen siendo una previsión, no garantía.
+
+## A5 — 2026-11-21 — Base mínima F1.1
+
+Se usa el JDK 21.0.7 y Maven 3.9.9 ya instalados. Maven de un módulo, release 21, UTF-8, sin module-info ni framework nuevo. JUnit 5.11.4 solo para tests; plugins clean 3.4.1, resources 3.3.1, compiler 3.14.1, surefire 3.5.2, jar 3.4.2 fijados. Versiones seleccionadas compatibles, sin afirmar que son las más recientes. La compatibilidad efectiva se verifica mediante clean verify.
+
+JavaFX/JNA/SQLite se añadirán al implementar sus adaptadores. El esqueleto no introduce clases de dominio ficticias ni tablas. Build usa caché local work/m2; no modifica la instalación global. Git inicializado sin remoto ni commits. Bootstrap de consola transitorio; UI sigue en F4.
+
+Q5 resuelta para F1.1: Java/javac 21.0.7, Maven 3.9.9, Git 2.49.0. Chrome 157.0.8103.79, Edge 158.0.4370.33 y Brave 158.1.100.58 encontrados mediante metadatos de ejecutables. Q1: Chrome candidato inicial, selección de perfil y prueba pendientes en F1.2. Q2–Q4 siguen pendientes; no habilitar captura.
+
+Referencia de configuración del compilador: https://maven.apache.org/components/plugins-archives/maven-compiler-plugin-3.14.1/usage.html . La evidencia de descarga/ejecución del build determina las versiones realmente resueltas.
+
+## A6 — 2026-11-22 — Piloto F1.2, implementación y límites
+
+Q4: se implementó un parser de protocolo acotado (FlatJson) por descenso de tokens, sin regex/subcadenas para interpretar JSON. Solo objetos planos de strings/null/enteros positivos; rechazo de duplicados, anidación, campos extra y trailing input. No añade dependencias ni pretende ser un parser JSON general.
+
+Q2 parcialmente resuelta: POST /v1/session crea ID aleatorio del servidor, invalida reportes anteriores, y seq impide replay o reordenamiento dentro de una sesión. Nuevo worker/servidor negocia de nuevo. Falta correlación HWND/perfil: ningún reporte habilita captura; captureEnabled=false fijo en diagnóstico. El endpoint adicional es una concreción del contrato de sesión que el plano dejó pendiente para el piloto; no modifica la BD.
+
+Q3: lectura nueva por eventos/timer 1 s mientras el worker corre; alarma 30 s solo despierta para nueva lectura. Caducidad monotónica estricta de 3 s, sin heartbeat que prolongue el host. UNKNOWN limpia inmediatamente el host. El comportamiento real MV3 está pendiente; no se garantiza cobertura continua.
+
+Origen restringido al ID exacto configurado; token de 32 bytes, HTTP exclusivamente 127.0.0.1, 2 KB, 20 peticiones/s, sin CORS abierto. /v1/status autenticado es diagnóstico temporal en memoria, no historial. No logs de host/token/payload. El script Start-BridgePilot.ps1 genera token local dentro de work/pilot (ignorado por Git) y no lo imprime.
+
+Q1 sigue parcialmente abierta: Chrome candidato, se intentó perfil aislado. Chrome/Brave abortaron con 2147483651, Edge no expuso CDP; causa no determinada. No se instalaron extensiones en perfiles personales ni se cambiaron sus ajustes. Prueba manual necesaria antes de cerrar BR-01/BR-02. No ampliar alcance a sensor/UI ni afirmar privacidad validada en navegador.
+
+## A7 — 2026-11-22 — Cierre de F1.2 con validación real
+
+Estado: aplicable. La validación paso a paso en Chrome real confirmó comunicación, línea base normal, exclusión de incógnito, regreso y reinicio. Incógnito: 12/12 UNKNOWN sin host; no se expuso el dominio privado. Reinicio: sesión nueva y reconexión. F1.2 se cierra HECHO; BR-01 PASÓ y BR-02 queda PARCIAL. Segundo perfil, caducidad exacta de 3 s en navegador real y cierre ordenado con Ctrl+C no se validaron y quedan para F2.3. No se habilita captura ni se afirma correlación HWND/perfil. Evidencia E004 en PRUEBAS.
+
+## A8 — 2026-11-22 — Contratos de sensor y dobles deterministas
+
+Estado: aplicable. `ActivitySample` es un record puro en `sensor`; una muestra disponible debe identificar proceso, PID y ventana, y una muestra `available=false` no puede llevar identidad ni idle. El nombre de proceso se limita a nombre de archivo (sin rutas ni controles) para no filtrar rutas completas. `FakeSensor` y `FakeIdleDetector` viven en `src/test/java` como dobles de test, no en el JAR. No se añadió JNA en esta tarea. Evidencia E005 en PRUEBAS.
+
+## A9 — 2026-11-22 — Sensor Windows y privacidad antes del tracking
+
+Estado: aplicable. JNA/jna-platform 5.19.1 fijados. `WindowsWindowSensor` usa `GetForegroundWindow`, `GetWindowThreadProcessId` y `QueryFullProcessImageName`, reutiliza un buffer de ruta en el hilo de muestreo y convierte fallos nativos en `available=false` sin identidad. `WindowsIdleDetector` usa `GetLastInputInfo` con resta unsigned de ticks de 32 bits; si falla lanza y la orquestación futura debe mapearlo a `UNAVAILABLE`. `PrivacyFilter` excluye el PID propio y los navegadores (D4) antes de crear contexto; idle >120 s produce `IDLE`; `Observation.OBSERVED` es el único estado con identidad. `Observation`/`ObservationKind` viven en `privacy`; `ContextKey`, debounce y segmentación quedan para F2.1. El fallo nativo no se indujo manualmente; SEN-01 queda PARCIAL. Evidencia E006 en PRUEBAS.
+
+## A10 — 2026-11-22 — Segmentación F2.1
+
+Estado: aplicable. `Segmenter` es una máquina de estados pura, sin hilos, SQL, HTTP ni UI. Debounce de 3 s sobre tiempo observado; al confirmar, el candidato empieza en su primer tick y cierra el segmento anterior en ese mismo instante. IDLE/EXCLUDED/UNAVAILABLE se aplican inmediatamente y absorben cualquier candidato pendiente. Un hueco >3 s cierra en el último tick válido y deja un hueco sin rellenar; un reloj hacia atrás cierra en el último tick válido y pasa a UNAVAILABLE. `StableTick` describe el contexto confirmado con `pendingChange` mientras hay candidato; al inicio, sin contexto confirmado, describe el candidato provisional. `Segment` no observado no lleva identidad y su `id` es 0 hasta F2.2. `ContextKey` normaliza proceso/host y conserva subdominios. El bucle de muestreo/`TrackingService` y la persistencia no forman parte de esta tarea. Evidencia E007 en PRUEBAS.
+
+## A11 — 2026-11-22 — Diseño visual pendiente de referencias
+
+Estado: pendiente. La UI es JavaFX y entra en F4.1 (Interrupciones), F4.2 (anotaciones/filtros) y F4.3 (Uso diario). Antes de implementar F4.1, recordar al usuario y pedir referencias concretas (screenshots, paleta, tipografía, densidad, estilo) para evitar un diseño genérico. No crear `docs/DISENO.md` hasta recibir esas referencias.
+
+## A12 — 2026-11-22 — SQLite V1 y repositorio de segmentos
+
+Estado: aplicable. SQLite JDBC 3.54.1.0 fijado. V1 crea el esquema completo del plano, incluida `schema_version`; las tablas de drift quedan listas para F3 aunque sus repositorios aún no existan. Cada conexión activa WAL, `foreign_keys=ON` y `busy_timeout`. `saveAll` abre una transacción y revierte el lote completo ante error; `between` usa solapamiento semiabierto `start_ts < to AND end_ts > from`. Los segmentos no observados usan centinelas `__IDLE__`, `__EXCLUDED__`, `__UNAVAILABLE__` y no llevan identidad. El adaptador abre una conexión por operación; el escritor serializado, la cola acotada y la ruta `%APPDATA%\DerivaPrototype\deriva.db` se conectarán en la orquestación/F5. Evidencia E008 en PRUEBAS.
+
+## A13 — 2026-11-22 — Navegadores excluidos por D4
+
+Estado: vigente. Se revisó la evidencia real E004 (extensión cargada, comunicación, foco, incógnito, regreso y reinicio) y sus límites: Q2 sigue sin correlación fiable entre reporte, ventana normal/HWND y perfil; segundo perfil, caducidad exacta de 3 s y cierre ordenado no se validaron. D4 y la sección 14.3 obligan a mantener `browser_capture_enabled=false` cuando no se puede distinguir con fiabilidad una ventana privada o un segundo perfil del estado normal anterior. Decisión: todos los navegadores quedan excluidos; no se guardan hosts ni tiempo de sitios. `PrivacyFilter` excluye Chrome, Edge, Brave, Firefox, Opera y Vivaldi. El núcleo continúa con procesos permitidos. Solo se reabrirá con correlación HWND/perfil fiable, segundo perfil y pruebas pendientes completas, mediante una nueva decisión escrita. Evidencia E009 en PRUEBAS.
+
+## A14 — 2026-11-22 — Log temporal de diagnóstico del bridge
+
+Estado: temporal, solo para GATE-Q2. Se activa con `DERIVA_BRIDGE_REPORT_LOG`; `Start-BridgePilot.ps1` lo apunta a `work/pilot/bridge-reports.log`. Por cada reporte aceptado escribe timestamp ISO, `seq`, `state` y `hostPresent=yes/no`; nunca host, URL, título ni token. Hace flush por línea. Un fallo de escritura se informa por stderr y no tumba el bridge. No es producción: se retira o desactiva al cerrar el gate. Evidencia E010.
+
+## A15 — 2026-11-22 — GATE-Q2: Chrome + un perfil (PASS)
+
+Estado: vigente para Chrome + un perfil; sustituye A13 solo en ese alcance. **El criterio no fue correlación HWND/perfil.** Fue: (a) frescura de reportes, con una hora de 13.680 muestras, `maxGapMs=1088`, `over3s=0`, 0 errores y 0 reinicios, aceptando un límite de ~1 s de latencia entre reportes; y (b) la extensión reporta UNKNOWN/no al perder el foco (otro perfil, ventana privada u otra app). No se demostró correlación nativa HWND; se acepta el límite de ~1 s y la evidencia empírica de foco.
+
+Segundo perfil: repetido y confirmado; UNKNOWN/no con B enfocado y NORMAL/yes <1 s al volver a A. Ctrl+C: el primer intento falló y se cerró con Stop-Process; el segundo detuvo el bridge; la causa del primer fallo no se investigó. No se marca como cierre ordenado validado, pero no bloquea el criterio de atribución por frescura/foco.
+
+Alcance autorizado: Chrome, un único perfil, sin incógnito ni otros navegadores/perfiles. `browser_capture_enabled` sigue false hasta que F2.4 implemente la allowlist en `PrivacyFilter` y propague el host solo con `BrowserStateStore` fresco en NORMAL. Si las pruebas de F2.4 fallan, A15 se revisa y A13 sigue vigente. Evidencia E011.
+
+## A16 — 2026-11-22 — F2.4 allowlist de Chrome
+
+Estado: aplicable. `PrivacyFilter` mantiene el constructor por defecto con todos los navegadores excluidos. Con un `BrowserStateProvider` explícito, `chrome.exe` solo se marca OBSERVED si el proveedor devuelve un host NORMAL fresco; UNKNOWN/STALE lo dejan EXCLUDED. El host se propaga a `Observation` y `ContextKey`; idle, no disponible y proceso propio tienen prioridad y no llevan host. Edge/Brave/Firefox/Opera/Vivaldi siguen excluidos. `BrowserStateStore.freshNormalHost()` expone el host solo antes de 3 s. La app aún no compone el proveedor ni tiene bucle/UI, así que la captura real no está activa; el límite de ~1 s de A15 se mantiene. Evidencia E012.
+
+## A17 — 2026-11-22 — F3.1 máquina de deriva
+
+Estado: aplicable. `ChangeCounter` (analysis) cuenta solo transiciones confirmadas entre OBSERVED consecutivos; pendientes no cuentan y una frontera resetea continuidad. `DriftStateMachine` (coach) usa ventana `(t-120 s, t]`, umbral 10, un solo episodio abierto, `switchCount` y contextos actualizados por cambios, estabilidad de 180 s evaluada por tick y candidato pendiente bloqueante. STABLE fija `stabilityStartTs`, `closedAt` y `timeToStabilityMs = stabilityStartTs - startTs`. IDLE/EXCLUDED/UNAVAILABLE cierran UNCONFIRMED con motivo, `lastObservedTs` del último OBSERVED y sin tiempo de estabilidad. Al cerrar se limpia la ventana; un episodio nuevo exige 10 cambios nuevos. Sin persistencia de drift, UI ni bucle; eso es F3.2/orquestación. PAUSE/LOCK/EXIT/GAP/RESTART aún no los produce `Segmenter`. Evidencia E013.
+
+## A18 — 2026-11-22 — F3.1b integración mínima por consola
+
+Estado: temporal, rebanada vertical de diagnóstico; no sustituye F4.3 ni F5.1. `ConsoleCapture` compone sensor Windows, bridge, `PrivacyFilter` con `BrowserStateStore::freshNormalHost`, `Segmenter`, `SQLiteSegmentRepository` y `DriftStateMachine`. Base por defecto `work/console-day/deriva.db`; el script resuelve el classpath Maven para SQLite/JNA. Guarda cada segmento al cerrarse y usa `Segmenter.close` al salir. El resumen separa OBSERVED por app, sitios como desglose, IDLE, EXCLUDED, UNAVAILABLE y sin registro. Imprime drift sin persistirlo. Stop file como alternativa a Ctrl+C. `SQLitePrivacyCheck` verifica que no existan columnas URL/título ni hosts con ruta/query; UNKNOWN/privado no guarda host. Escrituras sincrónicas, sin cola/escritor de producción, sin UI; Chrome/Brave + un perfil. P1 (idle de navegador) y P2 (causa Ctrl+C, hipótesis de consola interactiva) abiertos. Evidencia E014.
+
+## A19 — 2026-11-22 — Brave allowlist reducida
+
+Estado: vigente de forma reducida. `brave.exe` se permite en `PrivacyFilter` con las mismas reglas que Chrome: solo si `BrowserStateProvider` devuelve un host NORMAL fresco; UNKNOWN/STALE, idle, no disponible, proceso propio y el resto de navegadores quedan EXCLUDED. El gate de Brave fue reducido: la ventana privada pasó (UNKNOWN/no, sin NORMAL yes), pero quedan pendientes segundo perfil, reinicio, prueba de una hora y el choque de sesiones Chrome/Brave. El payload de la extensión de Brave dice `browser:"chrome"` y `BrowserStateStore` mantiene una sola sesión; por tanto Chrome y Brave no deben reportar simultáneamente al mismo bridge. No se declara paridad completa con Chrome. Evidencia E015.
+
+## A20 — 2026-11-22 — “Sin registro” desde el inicio de la sesión
+
+Estado: aplicable solo a `ConsoleSummary` (F3.1b). El tiempo “sin registro” se mide desde el primer segmento de la sesión hasta el corte del resumen, no desde medianoche. Evita mostrar `16:20:52` como si fuera una hora del día cuando en realidad eran horas previas a iniciar la captura. Si no hay segmentos, se usa el rango solicitado. No cambia la métrica de Uso diario ni F4.3. Evidencia E016.
+
+## A21 — 2026-11-22 — Persistencia de drift F3.2
+
+Estado: aplicable. `DriftRepository`/`SQLiteDriftRepository` persisten OPENED/UPDATED/CLOSED, contextos y anotaciones. El id en memoria del episodio se mapea a un id SQLite por sesión; las actualizaciones no sobrescriben `reason/justified/answered_at`. Al arrancar, `recoverOpenEpisodes` convierte OPEN en UNCONFIRMED/RESTART con `closed_at=last_observed_ts`; al salir, `DriftStateMachine.close(EXIT)` cierra el episodio abierto. `between` consulta por solapamiento y devuelve contextos/anotaciones. No hay UI, borrado ni retención; no se persisten títulos ni URLs. Evidencia E017.
+
+## A22 — 2026-11-22 — UI F4.1 Interrupciones
+
+Estado: aplicable. La UI es JavaFX 21.0.13 con FXML/CSS, entrada `com.deriva.app.Launcher` (evita el arranque directo de `Application` desde classpath) y `DerivaApp` como composición. `docs/DISENO.md` fija la Propuesta 3 como base, tema claro, paleta cálida y tabla + panel de detalle (sin detalle expandido en filas). `InterruptionsService` consulta `DriftRepository` por rango y `InterruptionsViewModel` transforma a filas puras; el controlador ejecuta lectura y anotación en un ejecutor de un hilo y aplica resultados en el hilo FX, descartando respuestas obsoletas. Los estados se dibujan con formas (`Circle`) y texto, no solo color; no hay puntuaciones ni juicios. La demo (`DERIVA_UI_DEMO=1`, base `work/ui-preview/demo.db`) es solo para captura y no toca la base de consola; `seedIfMissing` evita borrar anotaciones al reabrir. F4.1/F4.2 no capturan ni borran; F4.3 añade Uso diario. Ajustes sigue fuera. Evidencia E018.
+
+## A23 — 2026-11-22 — Rango de fechas F4.2 y smoke de UI
+
+Estado: aplicable. El rango `Desde`/`Hasta` es inclusivo por día local: `desde` a las 00:00 y `hasta+1 día` a las 00:00, con `start_ts < fin` y `COALESCE(closed_at,last_observed_ts) > inicio`. Un episodio que cruza medianoche se incluye en ambos días consultados y no se duplica dentro de un mismo rango; la consulta SQL devuelve una fila por episodio. La tabla muestra `dd/MM HH:mm` para desambiguar días. Un rango invertido no consulta la base: muestra un aviso y limpia la tabla. La apertura/migración, la consulta y la anotación motivo/Justificada se mantienen fuera del hilo FX; la UI se construye después, y la anotación se conserva al reabrir. `seedIfMissing` solo siembra la demo cuando la base no existe. El smoke `DERIVA_UI_SMOKE=annotate` es diagnóstico: recorre los controles reales y dispara Guardar, pero no simula un clic humano; no sustituye una prueba manual de una persona. Las bases temporales viven en `work/ui-preview/f4-2/` y la base real no se toca. Evidencia E019.
+
+## A24 — 2026-11-22 — Uso diario F4.3
+
+Estado: aplicable. `DailyUsageService` reutiliza `SegmentRepository` y recorta cada segmento a `[inicio del día local, día siguiente)`. Solo los segmentos `OBSERVED` suman al total de primer plano, a las aplicaciones y a los sitios; `IDLE`, `EXCLUDED`, `UNAVAILABLE` y los huecos no suman. Los sitios se agregan por `siteHost` y son un subconjunto del tiempo de su navegador: se muestran en una lista aparte y nunca se añaden al total de aplicaciones. La cobertura usa el tiempo con registro (incluidos los segmentos no observados) frente al tiempo transcurrido del día (hasta ahora si es hoy, día completo si es pasado); el tiempo sin registro incluye huecos. “Sin datos” significa que no hay segmentos; “0 s” significa que hay segmentos pero ningún primer plano observado. La UI muestra fecha, zona, total, cobertura y dos listas con barras simples, con la etiqueta permanente de sitios incluidos. `ConsoleCapture` solo persiste segmentos completados: el segmento abierto no se incluye hasta cerrarse y la vista no se presenta como actualización en vivo. La demo siembra segmentos sintéticos, incluido uno que cruza medianoche, y no toca la base real. F4.3 no añade Ajustes ni inicia F5; USE-02 queda PARCIAL por la prueba real Dota/YouTube y el segmento abierto. Evidencia E020.
+
+## A25 — 2026-11-22 — Captura real desde la UI y snapshot F5.1a
+
+Estado: aplicable. `CaptureSession` implementa `CaptureControl`, corre sensor/segmentador/deriva/SQLite en un hilo dedicado y expone `CaptureStatus` y `CaptureSnapshot` volátiles. La UI solo inicia, detiene o cierra; las consultas y escrituras no corren en el hilo FX. Al cerrar la ventana se envía parada, se cierra el segmento y el episodio (EXIT) y se espera el hilo. La captura usa `PrivacyFilter` con `Set.of("chrome.exe")`: sin bridge los navegadores quedan excluidos; con `DERIVA_BRIDGE_TOKEN`/`DERIVA_EXTENSION_ID`/`DERIVA_BRIDGE_PORT` se permite Chrome + un perfil. Brave sigue excluido hasta cerrar su gate. `Segmenter.snapshot` devuelve el abierto confirmado y el candidato pendiente sin mutar ni cerrar. Uso diario suma el abierto a los totales como provisional, muestra el pendiente sin sumarlo y omite cualquier abierto que solape un segmento persistido; el refresco de la vista es cada 2 s y no fuerza cierres. `CaptureSnapshot` de un día pasado se ignora. P1 (idle 120 s) se mantiene; P2 se evita en la UI con parada explícita, pero el Ctrl+C de consola sigue sin validar. F5.1a no añade borrado, pausa/bandeja ni Ajustes; F5.1 sigue EN_CURSO. Evidencia E021.
+
+## A26 — 2026-11-22 — Borrado coordinado y fallo SQLite F5.1b
+
+Estado: aplicable. `SQLiteDataMaintenance.deleteActivity` borra solo `drift_context`, `drift_event` y `segment` en una transacción; conserva `setting` (incluido token), `excluded_app`, `excluded_site` y `schema_version`. La UI muestra una confirmación propia; al confirmar, `CaptureSession.deleteAllRecords` detiene la captura, espera el hilo (`join`), borra, deja el snapshot vacío y la captura detenida. La UI refresca Interrupciones y Uso diario; no se reanuda automáticamente y no puede reaparecer un segmento en memoria. Un fallo de SQLite durante `saveAll` termina el bucle de captura, se marca `ERROR` visible y se cierra lo posible; no hay cola de escritura, así que no se acumula memoria sin límite. El escenario se simuló con un trigger temporal sobre una base temporal. No se toca la base real. Brave sigue excluido; P1/P2, matriz completa de fallos/privacidad, cierre sin proceso oculto y bloqueo siguen pendientes. F5.1 sigue EN_CURSO. Evidencia E022.
+
+## A27 — 2026-11-22 — Matriz de fallos y privacidad F5.1c
+
+Estado: aplicable. La matriz se compone de pruebas automáticas y smokes de UI, no de clics humanos. `BrowserPrivacyIntegrationTest` recorre Chrome autorizado, UNKNOWN/privado, navegador no autorizado, proceso propio, idle y no disponible; persiste una base temporal y escanea DB, `-wal` y `-shm` para comprobar que solo se guarda el host normal y que no aparecen URL, título, token ni host privado. `LocalBridgeServerTest` comprueba que un puerto ocupado lanza `IOException` en vez de omitir el bridge silenciosamente.
+
+El fallo de escritura del bucle se indujo sobre una base temporal con un trigger que aborta los INSERT en `segment`: se abrió la UI con `-Smoke capture`, se suspendió el proceso Java 4 s (`NtSuspendProcess`/`NtResumeProcess`) y, al reanudar, el hueco >3 s cerró el segmento y el `saveAll` del bucle falló. El primer fallo se conserva en `CaptureSession` y el fallo de cierre se añade como “el cierre también falló”; ambos dejan la captura en `ERROR` y, en el escenario probado, sin segmento ni OPEN. Un puerto de bridge ocupado produce un `BindException`, también visible como `ERROR`. `BindException` y `StorageException` se traducen a mensajes genéricos en español; las excepciones desconocidas muestran solo el nombre de la clase para no filtrar mensajes con datos sensibles. El token del bridge no se imprime ni se persiste en estos escenarios.
+
+`UiSmoke.captureCycle` no vuelve a pulsar el botón si muestra “Reintentar captura”; antes, un error durante la captura se interpretaba como una orden de detener y reiniciaba la captura en el smoke. La acción humana de reintentar no cambia. No se indujo un fallo nativo del sensor de ventana: SEN-01 sigue PARCIAL. La suspensión de 4 s simula un hueco de reanudación, no un bloqueo de Windows real; el bloqueo/desbloqueo y el cierre sin proceso oculto siguen pendientes. F5.1 sigue EN_CURSO. Evidencia E023.
+
+## A28 — 2026-11-22 — Cierre completo, pendiente y bloqueo/reanudación F5.1d
+
+Estado: aplicable. `Segmenter.close` persiste el candidato pendiente al terminar la sesión: si existe un abierto, lo cierra en el inicio del candidato y guarda el candidato como `OBSERVED` hasta el fin; si no hay abierto, guarda directamente el pendiente. Así no se pierde lo observado al cerrar y los intervalos quedan contiguos y sin solapamiento. Un candidato que empieza antes del abierto se descarta para no inventar un intervalo negativo; el abierto se cierra al final. La UI no necesita cerrar el segmento durante el refresco; el volcado ocurre solo al detener o cerrar.
+
+`PrivacyFilter` trata `lockapp.exe` y `logonui.exe` como `UNAVAILABLE` antes de evaluar idle o navegador. La primera pasada real mostró 4 s de `LockApp.exe` contados como uso; tras el cambio, una segunda pasada de 45 s de bloqueo no guardó `lockapp.exe` y dejó todo el bloqueo como `UNAVAILABLE`. El sensor sigue devolviendo no disponible cuando no hay ventana en primer plano.
+
+`CaptureSession.shutdown` marca `ERROR` si el hilo no termina tras el `join` de 10 s. `DerivaApp` usa un cierre único (`shutdownOnce`) para no duplicar parada/informe y escribe `UI shutdown: hilos deriva-capture vivos=N`; un cierre normal debe dar 0 y el proceso Java debe terminar. `UiSmoke` añade `shutdown-close` (cierra la ventana real) y `capture-hold` (duración por `DERIVA_UI_HOLD_SECONDS`) para las pruebas de bloqueo/suspensión.
+
+La prueba real de suspensión solo pudo usar S0 Modern Standby: `powercfg /a` no ofrece S1/S2/S3 ni hibernación. En S0 el proceso puede seguir muestreando; el intervalo se registra como `UNAVAILABLE`, no como uso. El caso de congelación total (sin muestras) se cubre con la simulación de proceso y los tests de gap; no se declara una prueba S3 real. En el equipo de prueba, F5.1 queda HECHO con ese límite, SEN-01 PARCIAL, y P1/P2/Brave/USE-02 abiertos fuera de F5.1. Evidencia E024.
+
+## A29 — 2026-11-22 — Medición de CPU y memoria F6.1
+
+Estado: aplicable. La medición de F6.1 usa `scripts/Measure-UiResources.ps1`, que identifica el proceso `java.exe` cuya línea de comandos contiene `com.deriva.app.Launcher` y muestrea cada 30 s (configurable). Cada fila guarda timestamp, tiempo transcurrido, PID, CPUs lógicas, CPU %, working set, memoria privada, hilos y handles. `CpuPercent` es el delta de tiempo de CPU del proceso dividido por el intervalo real y por las CPUs lógicas; por tanto, es un porcentaje del total del sistema y puede superar 100 solo si el proceso usa varios núcleos. La primera fila es la línea base y deja la CPU vacía.
+
+El CSV no incluye títulos de ventana, hosts, URLs, rutas de navegador, nombre de documentos ni la línea de comandos; la línea de comandos solo se usa en memoria para localizar el proceso. El medidor no abre la base ni escribe en ella. La base de prueba se copia con la UI cerrada, incluyendo `-wal`/`-shm` si existen, y se verifica el SHA-256 de la base original antes y después; nunca se mide sobre `work/console-day/deriva.db`. El medidor corre en primer plano y termina por duración, por cierre de la UI o con `Ctrl+C`, sin dejar tareas en segundo plano. Una sesión corta con `shutdown-close` valida el mecanismo, pero no se presenta como prueba de rendimiento. Evidencia E025.
+
+## A30 — 2026-11-22 — Brave en la captura de UI y parámetros de bridge
+
+Estado: aplicable. `CaptureSession` usa `CAPTURE_BROWSERS = {chrome.exe, brave.exe}` al construir `PrivacyFilter`. Sin bridge, el proveedor de host es `Optional::empty`, por lo que ambos navegadores quedan `EXCLUDED`; con bridge y estado `NORMAL` fresco, se observan con host. Esto sustituye solo la exclusión de Brave descrita en A25; el gate reducido de A19 (segundo perfil, reinicio, una hora y colisión de sesiones) sigue vigente y no se declara completo.
+
+`Start-Ui.ps1` acepta `-ExtensionId`, `-Port` (47821 por defecto) y `-BridgeTokenFile` (por defecto `work\pilot\bridge-token.txt`). Lee el token sin imprimirlo, exige 64 hex, comprueba que el puerto no esté escuchando, define `DERIVA_BRIDGE_TOKEN`, `DERIVA_EXTENSION_ID` y `DERIVA_BRIDGE_PORT` para el proceso Java y restaura los valores previos al salir. La UI inicia el `LocalBridgeServer` dentro del proceso de captura; no hay que arrancar `Start-BridgePilot.ps1` ni `Start-ConsoleCapture.ps1` en paralelo, y hacerlo en el mismo puerto provoca un fallo de bind visible. El payload de Brave sigue declarando `browser:"chrome"`, así que solo se admite un navegador/perfil a la vez. El medidor de F6.1 no usa red ni el puerto del bridge: solo consulta métricas del proceso. Evidencia E026.
+
+## A31 — 2026-11-23 — Modo de prueba de Interrupciones
+
+Estado: aplicable. `InterruptionsViewModel.demoPage` genera seis `DriftEvent` sintéticos en memoria (IDs `900001`–`900006`): una abierta, cuatro estables y una sin confirmar, con contextos, motivos y justificadas variadas. No consulta `DriftRepository` ni escribe SQLite; el controlador usa esta página solo cuando el botón **Ver datos de ejemplo** está activo. En ese modo se muestra “Modo prueba · episodios de ejemplo · no se guardan”, se deshabilitan Motivo/Justificada/Guardar y `save()` no hace nada; **Volver a datos reales** restaura la consulta normal. Los filtros de estado e incluir justificadas se aplican igual que en datos reales; el rango usa el día “Desde” para fechar los ejemplos. No se crea una pantalla nueva ni se toca la base real; los IDs altos evitan confundirlos con episodios persistidos. No cambia el refresco de la pantalla: sigue sin actualización periódica. Evidencia E027.
+
+## A32 — 2026-11-23 — Pausa manual y cierre con motivo PAUSE
+
+Estado: aplicable. F5.2a añade `CaptureState.PAUSED` y `CaptureControl.pause()`. Pausar detiene el bucle de muestreo y el bloque de cierre usa `CloseReason.PAUSE` para el episodio de deriva abierto y `Segmenter.close` para el segmento abierto; no se guarda el tiempo en pausa como uso. Reanudar llama a `start()`, que crea un bucle y una sesión de captura nuevos. `stop()` desde `PAUSED` deja el estado en `STOPPED` sin lanzar un hilo. La UI muestra `Captura en pausa.`, mantiene **Detener captura** y ofrece **Reanudar captura**. El cierre por pausa se prueba de forma unitaria (`DriftStateMachine.close` con `PAUSE`) y con el hueco entre segmentos; un smoke corto no garantiza un episodio abierto, así que no se presenta como prueba de deriva real. Evidencia E029.
+
+## A33 — 2026-11-23 — Bandeja básica y cierre de ventana
+
+Estado: aplicable. F5.2b usa `java.awt.SystemTray` desde `com.deriva.app.AppTray`. El menú tiene **Abrir Deriva**, **Pausar/Reanudar captura** y **Salir**. Con bandeja instalada, `Platform.setImplicitExit(false)` y cerrar la ventana la oculta (con aviso); la captura sigue hasta que el usuario pause o salga. **Salir** ejecuta el mismo camino único de cierre: retira el icono, detiene la captura, espera el `join`, hace flush y termina el proceso; se usa `System.exit(0)` tras el cierre porque el bucle nativo de AWT puede mantener vivo el JVM. Si `SystemTray` no está disponible o falla, no se activa `setImplicitExit(false)` y cerrar la ventana termina y hace flush como en F5.1. La bandeja es específica de Windows y no se probó con un clic humano: el smoke invoca los mismos callbacks del menú. Evidencia E029.
+
+## A34 — 2026-11-23 — Medición sostenida F6.1 aceptada
+
+Estado: aplicable. La medición de F6.1 se acepta con `work/f6/ui-resources.csv` (SHA-256 `2DF7C43703890F7A43D6086E7ED6F3A27CC8542A8B7C6EF129FFC19175FA0EDD`): 256 muestras cada 30 s durante 2 h 7 min 30 s, con captura activa y bridge/Brave según los segmentos de la base de la sesión. Se registran CPU media 0,15 %, máxima 0,40 % y p95 0,24 % sobre 16 CPUs lógicas; working set 394,7→249,0 MB (máx. 416,4 MB); memoria privada ≤484,0 MB; hilos 67–70 y handles 750–760. El CSV no tiene huecos mayores de 30,025 s. Es una sola máquina y una resolución de 30 s; no se extrapola a otros equipos ni a sesiones de varias horas. La sesión posterior de la mañana (capturas en `docs/pruebas/`) no tiene CSV y no se usa para las cifras. La base protegida `work/console-day/deriva.db` no se tocó. Evidencia E030.

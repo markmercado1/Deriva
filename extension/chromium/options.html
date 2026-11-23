@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Deriva - piloto local</title></head>
+<body>
+<h1>Deriva: conectar piloto local</h1>
+<p>Solo comunicación con tu PC. Captura de actividad deshabilitada. Usa un perfil de prueba, sin cuentas ni navegación personal.</p>
+<form id="settings">
+<p><label>Puerto <input id="port" type="number" min="1024" max="65535" value="47821" required></label></p>
+<p><label>Token local <input id="token" type="password" minlength="64" maxlength="64" autocomplete="off" required></label></p>
+<button type="submit">Guardar conexión</button>
+</form>
+<p id="status" role="status">Sin configurar</p>
+<p>Los sitios se consultan solo en memoria. No se guardan títulos, historial ni hosts en la extensión. No se permite usarla en incógnito.</p>
+<script type="module" src="options.js"></script>
+</body></html>

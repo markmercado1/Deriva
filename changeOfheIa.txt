@@ -1,0 +1,2 @@
+otra ia:Cuando cambies de IA, dale acceso a la carpeta y dile:
+Lee AGENTS.md y docs/ESTADO.md. Continúa únicamente con la siguiente tarea pendiente y actualiza el estado al terminar.

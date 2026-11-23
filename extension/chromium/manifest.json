@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Deriva - piloto local",
+  "version": "0.1.0",
+  "description": "Piloto de comunicacion local. No registra historial ni habilita captura.",
+  "minimum_chrome_version": "120",
+  "permissions": ["tabs", "storage", "alarms"],
+  "host_permissions": ["http://127.0.0.1/*"],
+  "background": {"service_worker": "background.js", "type": "module"},
+  "options_page": "options.html",
+  "incognito": "not_allowed",
+  "action": {"default_title": "Configurar piloto Deriva"}
+}

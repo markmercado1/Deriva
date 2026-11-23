@@ -1,0 +1,216 @@
+package com.deriva.ui.fx;
+
+import com.deriva.app.usecase.CaptureControl;
+import com.deriva.app.usecase.CaptureState;
+import com.deriva.app.usecase.CaptureStatus;
+import com.deriva.ui.viewmodel.DailyUsageViewModel;
+import com.deriva.ui.viewmodel.InterruptionsViewModel;
+import javafx.animation.Animation;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
+import javafx.application.Platform;
+import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.layout.StackPane;
+import javafx.util.Duration;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+/** Shell with lateral navigation and capture controls shared by both views. */
+public final class MainController {
+    @FXML private StackPane content;
+    @FXML private Button interruptionsButton;
+    @FXML private Button usageButton;
+    @FXML private Button captureButton;
+    @FXML private Button pauseButton;
+    @FXML private Label captureStatus;
+    @FXML private Button deleteButton;
+    @FXML private StackPane deleteOverlay;
+    @FXML private Button confirmDeleteButton;
+    @FXML private Label deleteWarning;
+
+    private final Timeline capturePoll = new Timeline(
+            new KeyFrame(Duration.millis(500), event -> updateCaptureStatus()));
+    private final ExecutorService actionExecutor = Executors.newSingleThreadExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "deriva-ui-action");
+        thread.setDaemon(true);
+        return thread;
+    });
+
+    private Parent interruptionsRoot;
+    private Parent usageRoot;
+    private InterruptionsController interruptionsController;
+    private UsageController usageController;
+    private CaptureControl capture;
+    private boolean initialized;
+    private boolean deleting;
+
+    public void init(InterruptionsViewModel interruptions, DailyUsageViewModel usage,
+                     CaptureControl capture, boolean demo) throws IOException {
+        this.capture = Objects.requireNonNull(capture, "capture");
+
+        FXMLLoader interruptionsLoader = new FXMLLoader(
+                MainController.class.getResource("/com/deriva/ui/interrupciones.fxml"));
+        interruptionsRoot = interruptionsLoader.load();
+        interruptionsController = interruptionsLoader.getController();
+        interruptionsController.init(interruptions, demo);
+
+        FXMLLoader usageLoader = new FXMLLoader(
+                MainController.class.getResource("/com/deriva/ui/uso-diario.fxml"));
+        usageRoot = usageLoader.load();
+        usageController = usageLoader.getController();
+        usageController.init(usage, demo);
+
+        initialized = true;
+        setContent(interruptionsRoot);
+        setActive(interruptionsButton);
+        updateCaptureStatus();
+        capturePoll.setCycleCount(Animation.INDEFINITE);
+        capturePoll.play();
+    }
+
+    @FXML
+    private void showInterruptions() {
+        if (!initialized) return;
+        setContent(interruptionsRoot);
+        setActive(interruptionsButton);
+        usageController.stopAutoRefresh();
+        interruptionsController.refresh();
+    }
+
+    @FXML
+    private void showUsage() {
+        if (!initialized) return;
+        setContent(usageRoot);
+        setActive(usageButton);
+        usageController.startAutoRefresh();
+        usageController.refresh();
+    }
+
+    @FXML
+    private void toggleCapture() {
+        if (capture == null || deleting) return;
+        CaptureState state = capture.status().state();
+        if (state == CaptureState.RUNNING || state == CaptureState.STARTING
+                || state == CaptureState.PAUSED) capture.stop();
+        else capture.start();
+        updateCaptureStatus();
+    }
+
+    @FXML
+    private void togglePause() {
+        if (capture == null || deleting) return;
+        CaptureState state = capture.status().state();
+        if (state == CaptureState.RUNNING || state == CaptureState.STARTING) capture.pause();
+        else if (state == CaptureState.PAUSED) capture.start();
+        updateCaptureStatus();
+    }
+
+    @FXML
+    private void requestDelete() {
+        if (deleting) return;
+        deleteOverlay.setManaged(true);
+        deleteOverlay.setVisible(true);
+        deleteOverlay.toFront();
+        updateCaptureStatus();
+    }
+
+    @FXML
+    private void cancelDelete() {
+        if (deleting) return;
+        deleteOverlay.setManaged(false);
+        deleteOverlay.setVisible(false);
+        updateCaptureStatus();
+    }
+
+    @FXML
+    private void confirmDelete() {
+        if (deleting || capture == null) return;
+        deleteOverlay.setManaged(false);
+        deleteOverlay.setVisible(false);
+        deleting = true;
+        deleteButton.setDisable(true);
+        deleteButton.setText("Borrando…");
+        updateCaptureStatus();
+
+        CompletableFuture.runAsync(capture::deleteAllRecords, actionExecutor)
+                .whenComplete((ignored, error) -> Platform.runLater(() -> {
+                    deleting = false;
+                    deleteButton.setDisable(false);
+                    deleteButton.setText("Borrar registros");
+                    updateCaptureStatus();
+                    interruptionsController.refresh();
+                    usageController.refresh();
+                    if (error != null) {
+                        captureStatus.setText("No se pudieron borrar los registros: "
+                                + (error.getMessage() == null
+                                ? error.getClass().getSimpleName() : error.getMessage()));
+                        if (!captureStatus.getStyleClass().contains("capture-error"))
+                            captureStatus.getStyleClass().add("capture-error");
+                    }
+                }));
+    }
+
+    public void showUsageView() {
+        showUsage();
+    }
+
+    public void shutdown() {
+        capturePoll.stop();
+        actionExecutor.shutdownNow();
+        if (capture != null) capture.shutdown();
+        if (interruptionsController != null) interruptionsController.shutdown();
+        if (usageController != null) usageController.shutdown();
+    }
+
+    private void updateCaptureStatus() {
+        if (capture == null || captureStatus == null) return;
+        CaptureStatus status = capture.status();
+        captureStatus.setText(status.message());
+        captureStatus.getStyleClass().removeAll("capture-running", "capture-error", "capture-paused");
+        switch (status.state()) {
+            case RUNNING -> captureStatus.getStyleClass().add("capture-running");
+            case PAUSED -> captureStatus.getStyleClass().add("capture-paused");
+            case ERROR -> captureStatus.getStyleClass().add("capture-error");
+            default -> { }
+        }
+        captureButton.setText(switch (status.state()) {
+            case RUNNING, PAUSED -> "Detener captura";
+            case STARTING, STOPPING -> "…";
+            case ERROR -> "Reintentar captura";
+            case STOPPED -> "Iniciar captura";
+        });
+        boolean confirming = deleteOverlay != null && deleteOverlay.isVisible();
+        boolean canPause = status.state() == CaptureState.RUNNING
+                || status.state() == CaptureState.PAUSED;
+        if (pauseButton != null) {
+            pauseButton.setText(status.state() == CaptureState.PAUSED
+                    ? "Reanudar captura" : "Pausar captura");
+            pauseButton.setVisible(canPause);
+            pauseButton.setManaged(canPause);
+            pauseButton.setDisable(!canPause || deleting || confirming);
+        }
+        captureButton.setDisable(deleting || confirming
+                || status.state() == CaptureState.STARTING
+                || status.state() == CaptureState.STOPPING);
+        if (deleteButton != null) deleteButton.setDisable(deleting || confirming);
+    }
+
+    private void setContent(Parent root) {
+        content.getChildren().setAll(Objects.requireNonNull(root, "root"));
+    }
+
+    private void setActive(Button active) {
+        for (Button button : List.of(interruptionsButton, usageButton))
+            button.getStyleClass().remove("nav-active");
+        active.getStyleClass().add("nav-active");
+    }
+}
