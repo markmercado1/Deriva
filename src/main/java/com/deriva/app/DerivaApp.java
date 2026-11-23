@@ -2,11 +2,14 @@ package com.deriva.app;
 
 import com.deriva.app.usecase.DailyUsageService;
 import com.deriva.app.usecase.InterruptionsService;
+import com.deriva.app.usecase.SettingsService;
 import com.deriva.storage.sqlite.SQLiteDriftRepository;
 import com.deriva.storage.sqlite.SQLiteSegmentRepository;
+import com.deriva.storage.sqlite.SQLiteSettingsRepository;
 import com.deriva.ui.fx.MainController;
 import com.deriva.ui.viewmodel.DailyUsageViewModel;
 import com.deriva.ui.viewmodel.InterruptionsViewModel;
+import com.deriva.ui.viewmodel.SettingsViewModel;
 import javafx.animation.PauseTransition;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -57,11 +60,17 @@ public final class DerivaApp extends Application {
                 InterruptionsService interruptionsService =
                         new InterruptionsService(driftRepository, clock);
                 DailyUsageService usageService = new DailyUsageService(segmentRepository, clock);
+                SettingsService settingsService =
+                        new SettingsService(new SQLiteSettingsRepository(databasePath));
                 CaptureSession capture = new CaptureSession(databasePath, bridgeConfig(),
-                        clock, java.time.Duration.ofSeconds(120));
+                        clock, settingsService);
+                SettingsViewModel settings = new SettingsViewModel();
+                settings.load(settingsService.snapshot(), capture.effectiveSettings());
                 return new ViewModels(
                         new InterruptionsViewModel(interruptionsService, zone),
                         new DailyUsageViewModel(usageService, zone, capture),
+                        settings,
+                        settingsService,
                         capture);
             } catch (Exception e) {
                 throw new CompletionException(e);
@@ -79,6 +88,7 @@ public final class DerivaApp extends Application {
             Parent root = loader.load();
             MainController controller = loader.getController();
             controller.init(viewModels.interruptions(), viewModels.usage(),
+                    viewModels.settings(), viewModels.settingsService(),
                     viewModels.capture(), demo);
 
             Scene scene = new Scene(root, 1440, 900);
@@ -110,6 +120,8 @@ public final class DerivaApp extends Application {
 
             if ("usage".equalsIgnoreCase(environment("DERIVA_UI_VIEW", "")))
                 controller.showUsageView();
+            else if ("settings".equalsIgnoreCase(environment("DERIVA_UI_VIEW", "")))
+                controller.showSettingsView();
 
             String screenshot = System.getenv("DERIVA_UI_SCREENSHOT");
             if ("annotate".equalsIgnoreCase(smoke)) {
@@ -143,6 +155,10 @@ public final class DerivaApp extends Application {
                 UiSmoke.trayCycle(scene, tray,
                         () -> saveScreenshot(scene, screenshot),
                         () -> finish(scene, controller, screenshot));
+            } else if ("settings".equalsIgnoreCase(smoke)) {
+                UiSmoke.settingsCycle(scene, () -> finish(scene, controller, screenshot));
+            } else if ("settings-session".equalsIgnoreCase(smoke)) {
+                UiSmoke.settingsSessionCycle(scene, () -> finish(scene, controller, screenshot));
             } else if (screenshot != null && !screenshot.isBlank()) {
                 PauseTransition pause = new PauseTransition(Duration.seconds(1.2));
                 pause.setOnFinished(event -> finish(scene, controller, screenshot));
@@ -300,5 +316,6 @@ public final class DerivaApp extends Application {
     }
 
     private record ViewModels(InterruptionsViewModel interruptions, DailyUsageViewModel usage,
+                              SettingsViewModel settings, SettingsService settingsService,
                               CaptureSession capture) {}
 }

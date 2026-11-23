@@ -51,6 +51,15 @@ class PrivacyFilterTest {
     }
 
     @Test
+    void customIdleThresholdUsesStrictlyGreaterComparison() {
+        PrivacyFilter custom = new PrivacyFilter(OWN_PID, Duration.ofSeconds(300));
+        assertEquals(ObservationKind.OBSERVED,
+                custom.filter(sample("notepad.exe", 7, true), Duration.ofSeconds(300)).kind());
+        assertEquals(ObservationKind.IDLE,
+                custom.filter(sample("notepad.exe", 7, true), Duration.ofSeconds(301)).kind());
+    }
+
+    @Test
     void windowsLockSurfaceIsUnavailableNotObserved() {
         for (String process : List.of("LockApp.exe", "LOGONUI.EXE")) {
             Observation observation = filter.filter(sample(process, 7, true), Duration.ZERO);

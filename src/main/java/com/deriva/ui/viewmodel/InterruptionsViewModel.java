@@ -191,7 +191,7 @@ public final class InterruptionsViewModel {
     public String stabilityExplanation(InterruptionRow row) {
         if (row == null) return "";
         return switch (row.status()) {
-            case STABLE -> "Estabilidad comprobada: el contexto se mantuvo 180 s sin cambios.";
+            case STABLE -> "Estabilidad comprobada: el contexto se mantuvo sin cambios hasta la comprobación automática.";
             case OPEN -> "Estabilidad aún no comprobada: el episodio sigue en curso.";
             case UNCONFIRMED -> {
                 String reason = closeReasonText(row.closeReason());

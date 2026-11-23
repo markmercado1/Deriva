@@ -1,10 +1,15 @@
 package com.deriva.app.usecase;
 
+import com.deriva.coach.model.DetectionSettings;
+
 /** UI-facing port for starting, stopping and observing the real capture. */
 public interface CaptureControl {
     CaptureStatus status();
 
     CaptureSnapshot snapshot();
+
+    /** Values used by the current session, or the saved values when stopped. */
+    DetectionSettings effectiveSettings();
 
     void start();
 

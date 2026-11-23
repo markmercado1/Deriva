@@ -96,6 +96,20 @@ class InterruptionsViewModelTest {
     }
 
     @Test
+    void stableExplanationDoesNotHardcodeTheOldThreshold() {
+        FakeRepository repository = new FakeRepository(List.of(
+                stable(1, 0, 10, "MESSAGES", true)));
+        InterruptionsViewModel viewModel = viewModel(repository);
+        InterruptionRow row = viewModel.load(LocalDate.of(2026, 11, 22),
+                StatusFilter.ALL, true).rows().getFirst();
+
+        String text = viewModel.stabilityExplanation(row);
+        assertFalse(text.contains("180"));
+        assertTrue(text.contains("comprobación automática"));
+        assertFalse(text.toLowerCase().contains("concentración"));
+    }
+
+    @Test
     void annotationStateUsesPersistedAnsweredAtNotReasonOrJustified() {
         Instant start = BASE.plusSeconds(15 * 60L);
         DriftEvent savedWithoutReason = new DriftEvent(2, start, start.plusSeconds(60),

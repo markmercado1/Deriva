@@ -11,6 +11,7 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableView;
+import javafx.scene.control.TextField;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
 import javafx.util.Duration;
@@ -94,6 +95,11 @@ final class UiSmoke {
     private static String labelText(Scene scene, String selector) {
         Label label = (Label) scene.lookup(selector);
         return label == null ? "null" : label.getText();
+    }
+
+    private static boolean labelVisible(Scene scene, String selector) {
+        Label label = (Label) scene.lookup(selector);
+        return label != null && label.isVisible();
     }
 
     private static void waitForSaved(Scene scene, int attempts, Runnable onComplete) {
@@ -272,6 +278,145 @@ final class UiSmoke {
             paused.play();
         });
         running.play();
+    }
+
+    static void settingsCycle(Scene scene, Runnable onComplete) {
+        Button settings = (Button) scene.lookup("#settingsButton");
+        if (settings == null) {
+            System.out.println("UI smoke: no se encontró Ajustes");
+            onComplete.run();
+            return;
+        }
+        settings.fire();
+        PauseTransition opened = new PauseTransition(Duration.seconds(0.5));
+        opened.setOnFinished(event -> {
+            TextField switches = (TextField) scene.lookup("#switchesField");
+            TextField window = (TextField) scene.lookup("#windowField");
+            TextField stability = (TextField) scene.lookup("#stabilityField");
+            TextField idle = (TextField) scene.lookup("#idleField");
+            Button save = (Button) scene.lookup("#saveButton");
+            if (switches == null || window == null || stability == null || idle == null || save == null) {
+                System.out.println("UI smoke: no se encontraron los campos de Ajustes");
+                onComplete.run();
+                return;
+            }
+            System.out.println("UI smoke: ajustes iniciales=" + labelText(scene, "#effectiveValues")
+                    + ", guardarDeshabilitado=" + save.isDisabled());
+            switches.setText("8");
+            window.setText("90");
+            stability.setText("240");
+            idle.setText("300");
+
+            PauseTransition edited = new PauseTransition(Duration.seconds(0.3));
+            edited.setOnFinished(editedEvent -> {
+                System.out.println("UI smoke: ajustes editados, guardarDeshabilitado=" + save.isDisabled()
+                        + ", avisoInactividad=" + labelText(scene, "#idleWarningLabel"));
+                save.fire();
+                waitForSettingsSaved(scene, 15, () -> {
+                    System.out.println("UI smoke: ajustes tras guardar="
+                            + labelText(scene, "#saveStatus")
+                            + "; efectivo=" + labelText(scene, "#effectiveValues")
+                            + "; pendiente=" + labelText(scene, "#pendingValues"));
+                    onComplete.run();
+                });
+            });
+            edited.play();
+        });
+        opened.play();
+    }
+
+    static void settingsSessionCycle(Scene scene, Runnable onComplete) {
+        Button capture = (Button) scene.lookup("#captureButton");
+        Button pause = (Button) scene.lookup("#pauseButton");
+        Button settings = (Button) scene.lookup("#settingsButton");
+        if (capture == null || pause == null || settings == null) {
+            System.out.println("UI smoke: no se encontraron los controles de sesión");
+            onComplete.run();
+            return;
+        }
+        capture.fire();
+        PauseTransition running = new PauseTransition(Duration.seconds(2.5));
+        running.setOnFinished(event -> {
+            settings.fire();
+            PauseTransition opened = new PauseTransition(Duration.seconds(0.5));
+            opened.setOnFinished(openedEvent -> {
+                TextField switches = (TextField) scene.lookup("#switchesField");
+                TextField window = (TextField) scene.lookup("#windowField");
+                TextField stability = (TextField) scene.lookup("#stabilityField");
+                TextField idle = (TextField) scene.lookup("#idleField");
+                Button save = (Button) scene.lookup("#saveButton");
+                if (switches == null || window == null || stability == null || idle == null || save == null) {
+                    System.out.println("UI smoke: no se encontraron los campos de sesión");
+                    onComplete.run();
+                    return;
+                }
+                switches.setText("8");
+                window.setText("90");
+                stability.setText("240");
+                idle.setText("300");
+                PauseTransition edited = new PauseTransition(Duration.seconds(0.3));
+                edited.setOnFinished(editedEvent -> {
+                    save.fire();
+                    waitForSettingsSaved(scene, 15, () -> {
+                        System.out.println("UI smoke: efectivo tras guardar con captura="
+                                + labelText(scene, "#effectiveValues")
+                                + "; pendienteVisible=" + labelVisible(scene, "#pendingValues"));
+                        pause.fire();
+                        PauseTransition paused = new PauseTransition(Duration.seconds(2.5));
+                        paused.setOnFinished(pausedEvent -> {
+                            System.out.println("UI smoke: efectivo en pausa="
+                                    + labelText(scene, "#effectiveValues")
+                                    + "; pendienteVisible=" + labelVisible(scene, "#pendingValues"));
+                            pause.fire();
+                            PauseTransition resumed = new PauseTransition(Duration.seconds(2.5));
+                            resumed.setOnFinished(resumedEvent -> {
+                                System.out.println("UI smoke: efectivo tras reanudar="
+                                        + labelText(scene, "#effectiveValues")
+                                        + "; pendienteVisible=" + labelVisible(scene, "#pendingValues"));
+                                capture.fire();
+                                PauseTransition stopped = new PauseTransition(Duration.seconds(2.5));
+                                stopped.setOnFinished(stopEvent -> {
+                                    System.out.println("UI smoke: efectivo tras detener="
+                                            + labelText(scene, "#effectiveValues")
+                                            + "; pendienteVisible=" + labelVisible(scene, "#pendingValues"));
+                                    capture.fire();
+                                    PauseTransition restarted = new PauseTransition(Duration.seconds(2.5));
+                                    restarted.setOnFinished(restartEvent -> {
+                                        System.out.println("UI smoke: efectivo tras iniciar="
+                                                + labelText(scene, "#effectiveValues")
+                                                + "; pendienteVisible=" + labelVisible(scene, "#pendingValues"));
+                                        capture.fire();
+                                        PauseTransition done = new PauseTransition(Duration.seconds(2));
+                                        done.setOnFinished(doneEvent -> onComplete.run());
+                                        done.play();
+                                    });
+                                    restarted.play();
+                                });
+                                stopped.play();
+                            });
+                            resumed.play();
+                        });
+                        paused.play();
+                    });
+                });
+                edited.play();
+            });
+            opened.play();
+        });
+        running.play();
+    }
+
+    private static void waitForSettingsSaved(Scene scene, int attempts, Runnable onComplete) {
+        PauseTransition wait = new PauseTransition(Duration.seconds(0.3));
+        wait.setOnFinished(event -> {
+            String text = labelText(scene, "#saveStatus");
+            if (text.startsWith("Guardado") || text.startsWith("No se pudo") || attempts <= 1) {
+                onComplete.run();
+            } else {
+                waitForSettingsSaved(scene, attempts - 1, onComplete);
+            }
+        });
+        wait.play();
     }
 
     static void showDeleteConfirmation(Scene scene, Runnable onComplete) {
