@@ -209,5 +209,5 @@ powershell -NoProfile -File .\scripts\Start-Ui.ps1 -Database .\work\ui-preview\a
 powershell -NoProfile -File .\scripts\Start-Ui.ps1 -Database .\work\ui-preview\ajustes\settings-final.db -Smoke settings
 
 # Smoke de la regla pausa/reanudación y detener/iniciar
-powershell -NoProfile -File .\scripts\Start-Ui.ps1 -Database .\work\ui-preview\ajustes\session3.db -Smoke settings-session
+powershell -NoProfile -File .\scripts\Start-Ui.ps1 -Database .\work\ui-preview\ajustes\session4.db -Smoke settings-session
 ```

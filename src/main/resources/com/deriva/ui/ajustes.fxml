@@ -27,8 +27,8 @@
                         <Label text="Cuántos cambios entre aplicaciones o sitios deben ocurrir para abrir un episodio."
                                styleClass="settings-help" wrapText="true"/>
                     </VBox>
-                    <HBox spacing="8" alignment="CENTER_RIGHT">
-                        <TextField fx:id="switchesField" prefWidth="90" styleClass="settings-input"/>
+                    <HBox spacing="8" alignment="CENTER_RIGHT" minWidth="190">
+                        <TextField fx:id="switchesField" minWidth="90" prefWidth="90" styleClass="settings-input"/>
                         <Label text="cambios" styleClass="settings-unit"/>
                     </HBox>
                 </HBox>
@@ -39,8 +39,8 @@
                         <Label text="Los cambios deben ocurrir dentro de este periodo, contado hacia atrás desde el último cambio."
                                styleClass="settings-help" wrapText="true"/>
                     </VBox>
-                    <HBox spacing="8" alignment="CENTER_RIGHT">
-                        <TextField fx:id="windowField" prefWidth="90" styleClass="settings-input"/>
+                    <HBox spacing="8" alignment="CENTER_RIGHT" minWidth="300">
+                        <TextField fx:id="windowField" minWidth="90" prefWidth="90" styleClass="settings-input"/>
                         <Label text="segundos" styleClass="settings-unit"/>
                         <Label fx:id="windowHint" text="—" styleClass="settings-hint"/>
                     </HBox>
@@ -53,8 +53,8 @@
                         <Label text="Cuánto debe mantenerse la misma aplicación o sitio, sin un cambio pendiente, para comprobar la estabilidad. Se cuenta desde que empezó ese contexto."
                                styleClass="settings-help" wrapText="true"/>
                     </VBox>
-                    <HBox spacing="8" alignment="CENTER_RIGHT">
-                        <TextField fx:id="stabilityField" prefWidth="90" styleClass="settings-input"/>
+                    <HBox spacing="8" alignment="CENTER_RIGHT" minWidth="300">
+                        <TextField fx:id="stabilityField" minWidth="90" prefWidth="90" styleClass="settings-input"/>
                         <Label text="segundos" styleClass="settings-unit"/>
                         <Label fx:id="stabilityHint" text="—" styleClass="settings-hint"/>
                     </HBox>
@@ -67,8 +67,8 @@
                         <Label text="Al superar este tiempo sin teclado ni ratón, Deriva considera la actividad inactividad. También puede afectar al tiempo en primer plano de Uso diario; si lo aumentas demasiado, puede contar tiempo en que te alejaste del equipo."
                                styleClass="settings-help" wrapText="true"/>
                     </VBox>
-                    <HBox spacing="8" alignment="CENTER_RIGHT">
-                        <TextField fx:id="idleField" prefWidth="90" styleClass="settings-input"/>
+                    <HBox spacing="8" alignment="CENTER_RIGHT" minWidth="300">
+                        <TextField fx:id="idleField" minWidth="90" prefWidth="90" styleClass="settings-input"/>
                         <Label text="segundos" styleClass="settings-unit"/>
                         <Label fx:id="idleHint" text="—" styleClass="settings-hint"/>
                     </HBox>
@@ -92,14 +92,14 @@
                 <Label text="Estos ajustes no cambian las exclusiones ni el bridge. Un «Cierre por exclusión» depende de qué ventana tenía el foco o de si el navegador tenía un sitio autorizado; no de estos números. Tampoco miden concentración ni productividad."
                        styleClass="settings-note" wrapText="true"/>
             </VBox>
-
-            <HBox spacing="10" alignment="CENTER_LEFT">
-                <Button fx:id="restoreButton" text="Restaurar valores predeterminados"
-                        styleClass="secondary-button"/>
-                <Region HBox.hgrow="ALWAYS"/>
-                <Button fx:id="saveButton" text="Guardar" styleClass="primary-button"/>
-            </HBox>
-            <Label fx:id="saveStatus" text="" styleClass="save-status" wrapText="true"/>
         </VBox>
     </ScrollPane>
+
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Button fx:id="restoreButton" text="Restaurar valores predeterminados"
+                styleClass="secondary-button"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Button fx:id="saveButton" text="Guardar" styleClass="primary-button"/>
+    </HBox>
+    <Label fx:id="saveStatus" text="" styleClass="save-status" wrapText="true"/>
 </VBox>
