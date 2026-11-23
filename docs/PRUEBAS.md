@@ -986,3 +986,9 @@ ode --test .\extension\tests\report.test.mjs` → **5 tests, 0 fallos**.
 
 ### 2026-11-23 - Preparación de Git
 Comandos: `git status --short`, `git diff --stat`, `git ls-remote https://github.com/markmercado1/Deriva.git`. Resultado: archivos aún sin seguimiento, sin diff rastreado y remoto accesible sin referencias. Revisión de .gitignore: work/, target/, bases y logs excluidos; se añade docs/pruebas/. No se ejecutan tests de aplicación: no cambia código. La subida se verifica después del commit.
+
+## E032 — 2026-11-23 — Detalle desplazable
+- `mvn '-Dmaven.repo.local=C:\AppTImeControl\work\m2' --offline --batch-mode --no-transfer-progress -DskipTests package`: BUILD SUCCESS; tests omitidos (solo contenedor FXML).
+- `powershell -NoProfile -File .\scripts\Start-Ui.ps1 -Demo -Screenshot C:\AppTImeControl\work\ui-preview\ui-scroll.png`: carga real JavaFX, captura inspeccionada y cierre con 0 hilos de captura.
+- `$probeClasspath = 'C:\AppTImeControl\target\classes;' + (Get-Content work/ui-preview/classpath.txt -Raw).Trim(); java -cp $probeClasspath work/ui-preview/ScrollProbe.java`: PASS 1200x600; contenido supera viewport y bounds de Guardar completamente dentro al poner vvalue=1.
+- Probe temporal en work/, sin base de datos; no es un clic humano ni prueba de captura. La validación XML inicial detectó un cierre de etiqueta faltante, corregido antes de la compilación final y los smokes.

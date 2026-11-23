@@ -231,3 +231,6 @@ Las siguientes entradas deben ser cortas: tarea, cambios, evidencia, límites y 
 
 ### 2026-11-23 — Base inicial de Git
 Preparación del respaldo del código y documentación en GitHub por solicitud del usuario. Capturas reales locales excluidas; sin implementación ni cierre de F6.2.
+
+## 2026-11-23 — UI-SCROLL (E032)
+Detalle de Interrupciones desplazable; compilación, carga JavaFX y accesibilidad geométrica de Guardar tras scroll a 1200x600 comprobadas. F6.2 pendiente.

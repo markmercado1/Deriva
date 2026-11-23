@@ -54,7 +54,8 @@
             </TableView>
         </VBox>
 
-        <VBox styleClass="detail-panel" prefWidth="380" spacing="10">
+        <ScrollPane fitToWidth="true" hbarPolicy="NEVER" vbarPolicy="AS_NEEDED" prefWidth="380" minWidth="380" minHeight="0" styleClass="usage-scroll">
+        <VBox styleClass="detail-panel" spacing="10">
             <Label fx:id="detailTitle" text="Detalle del episodio" styleClass="detail-title"/>
             <Label fx:id="detailTime" text="Selecciona un episodio" styleClass="detail-subtitle" wrapText="true"/>
             <Separator/>
@@ -76,5 +77,6 @@
             <Button fx:id="saveButton" text="Guardar" styleClass="primary-button" maxWidth="Infinity" disable="true"/>
             <Label fx:id="saveStatus" styleClass="save-status" wrapText="true" maxWidth="Infinity"/>
         </VBox>
+        </ScrollPane>
     </HBox>
 </VBox>

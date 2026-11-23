@@ -187,3 +187,6 @@ Estado: aplicable. En Interrupciones, **Anotación** se deriva solo de `drift_ev
 ## A36 - 2026-11-23 - Ajustes sigue fuera de alcance
 
 Estado: aplicable. El botón **Ajustes** continúa visible pero deshabilitado; no se crea una pantalla vacía. El plano v2 §8–9 pide una lista editable de procesos/hosts excluidos mediante configuración local documentada, valores de captura/umbrales, puerto/token del bridge y un panel de conexión. La base ya tiene las tablas `setting`, `excluded_app` y `excluded_site`, pero no hay repositorio, validación, pantalla ni política de reinicio implementados. Recomendación: ocultar o mantener deshabilitado Ajustes hasta una fase propia; si se implementa un mínimo, limitarlo a mostrar la ubicación y los valores efectivos de configuración, la lista de exclusiones y el aviso de reinicio, sin editor visual completo ni opciones inventadas. No se implementa en esta entrega.
+
+## A37 — 2026-11-23 — Detalle desplazable
+Por petición del usuario, envolver únicamente el detalle en ScrollPane: ajuste al ancho, scroll vertical según necesidad y sin scroll horizontal. Guardar permanece dentro del contenido. Sin cambiar barra lateral ni lógica.
