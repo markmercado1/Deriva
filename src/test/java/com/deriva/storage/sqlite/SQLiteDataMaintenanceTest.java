@@ -3,6 +3,9 @@ package com.deriva.storage.sqlite;
 import com.deriva.coach.model.DriftEpisode;
 import com.deriva.coach.model.DriftStatus;
 import com.deriva.coach.model.DriftUpdate;
+import com.deriva.goals.model.Goal;
+import com.deriva.goals.model.GoalAlert;
+import com.deriva.goals.model.GoalMetric;
 import com.deriva.privacy.ObservationKind;
 import com.deriva.tracking.model.ContextKey;
 import com.deriva.tracking.model.Segment;
@@ -34,6 +37,10 @@ class SQLiteDataMaintenanceTest {
                 DriftUpdate.Type.OPENED, new DriftEpisode(1, start, start, start.plusSeconds(10),
                 null, null, DriftStatus.OPEN, null, 10, context, null, Set.of(context))));
 
+        Goal goal = new SQLiteGoalRepository(database).create(Goal.draft(context, 60, null, false));
+        new SQLiteGoalAlertRepository(database)
+                .create(GoalAlert.draft(goal.id(), start, 100, GoalMetric.MINUTES));
+
         try (Connection connection = SQLiteSchema.open(database);
              Statement statement = connection.createStatement()) {
             statement.executeUpdate("INSERT INTO setting(key, value) VALUES ('bridge_token', 'keep-me')");
@@ -49,6 +56,8 @@ class SQLiteDataMaintenanceTest {
             assertEquals(0, count(statement, "segment"));
             assertEquals(0, count(statement, "drift_event"));
             assertEquals(0, count(statement, "drift_context"));
+            assertEquals(0, count(statement, "goal_alerts"));
+            assertEquals(1, count(statement, "goals"));
             assertEquals(2, count(statement, "setting"));
             assertEquals(1, count(statement, "excluded_app"));
             assertEquals(1, count(statement, "excluded_site"));

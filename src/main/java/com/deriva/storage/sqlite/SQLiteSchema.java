@@ -12,11 +12,11 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Objects;
 
-/** SQLite connection settings and V1 migration. */
+/** SQLite connection settings and schema migrations (V1 to V2). */
 final class SQLiteSchema {
-    static final int VERSION = 1;
+    static final int VERSION = 2;
 
-    private static final String[] V1 = {
+    static final String[] V1 = {
             """
             CREATE TABLE segment (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,6 +72,56 @@ final class SQLiteSchema {
             "CREATE TABLE excluded_site (host TEXT PRIMARY KEY)"
     };
 
+    private static final String[] V2 = {
+            """
+            CREATE TABLE IF NOT EXISTS goals (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              process_name TEXT NOT NULL COLLATE NOCASE,
+              site_host TEXT,
+              daily_minutes INTEGER,
+              daily_entries INTEGER,
+              passive INTEGER NOT NULL DEFAULT 0 CHECK (passive IN (0, 1)),
+              active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+              created_at INTEGER NOT NULL,
+              updated_at INTEGER NOT NULL,
+              CHECK (daily_minutes IS NOT NULL OR daily_entries IS NOT NULL),
+              CHECK (daily_minutes IS NULL OR daily_minutes > 0),
+              CHECK (daily_entries IS NULL OR daily_entries > 0),
+              CHECK (length(trim(process_name)) > 0),
+              CHECK (instr(process_name, '/') = 0 AND instr(process_name, '\\') = 0),
+              CHECK (site_host IS NULL OR (
+                  length(trim(site_host)) > 0
+                  AND instr(site_host, '/') = 0 AND instr(site_host, '?') = 0
+                  AND instr(site_host, '#') = 0 AND instr(site_host, ':') = 0
+                  AND instr(site_host, ' ') = 0))
+            )
+            """,
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_goals_app
+              ON goals(process_name) WHERE site_host IS NULL
+            """,
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_goals_site
+              ON goals(process_name, site_host) WHERE site_host IS NOT NULL
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_goals_active ON goals(active)",
+            """
+            CREATE TABLE IF NOT EXISTS goal_alerts (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              goal_id INTEGER NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
+              triggered_at INTEGER NOT NULL,
+              threshold_percent INTEGER NOT NULL CHECK (threshold_percent BETWEEN 1 AND 100),
+              metric TEXT NOT NULL CHECK (metric IN ('MINUTES', 'ENTRIES')),
+              outcome TEXT,
+              justification TEXT CHECK (justification IS NULL OR length(justification) <= 500)
+            )
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_goal_alerts_goal
+              ON goal_alerts(goal_id, triggered_at)
+            """
+    };
+
     private SQLiteSchema() {}
 
     static Connection open(Path databasePath) {
@@ -100,14 +150,20 @@ final class SQLiteSchema {
                     statement.execute("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)");
                 }
                 int version = readVersion(connection);
-                if (version == 0) {
-                    try (Statement statement = connection.createStatement()) {
-                        for (String sql : V1) statement.execute(sql);
-                        statement.execute("INSERT INTO schema_version(version) VALUES (" + VERSION + ")");
-                    }
-                } else if (version != VERSION) {
-                    throw new StorageException("Unsupported schema version: " + version);
+                if (version > VERSION) throw new StorageException("Unsupported schema version: " + version);
+
+                boolean migrated = false;
+                if (version < 1) {
+                    run(connection, V1);
+                    version = 1;
+                    migrated = true;
                 }
+                if (version < 2) {
+                    run(connection, V2);
+                    version = 2;
+                    migrated = true;
+                }
+                if (migrated) writeVersion(connection, version);
                 connection.commit();
             } catch (SQLException e) {
                 connection.rollback();
@@ -118,6 +174,19 @@ final class SQLiteSchema {
             }
         } catch (SQLException e) {
             throw new StorageException("Could not initialize SQLite schema", e);
+        }
+    }
+
+    private static void run(Connection connection, String[] statements) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            for (String sql : statements) statement.execute(sql);
+        }
+    }
+
+    private static void writeVersion(Connection connection, int version) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.executeUpdate("DELETE FROM schema_version");
+            statement.executeUpdate("INSERT INTO schema_version(version) VALUES (" + version + ")");
         }
     }
 

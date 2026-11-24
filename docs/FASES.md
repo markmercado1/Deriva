@@ -35,7 +35,17 @@ Los días de la sección 12 del plano son hitos de alcance. Cada fase puede repa
 | AJUSTES-DETECCION | Cuatro umbrales configurables de detección | HECHO | Ajustes edita cambios/ventana/estabilidad/inactividad, persiste en `setting`, distingue efectivo/pendiente, restaura sin guardar y avisa inactividad≤estabilidad. Pausar/Reanudar conserva; Detener/Iniciar reaplica. Configuración inválida usa predeterminados visibles sin sobrescribir. No cierra F6.2 ni añade exclusiones, bridge o empaquetado (E034) |
 | BRAVE-EXCLUSIONES | UNKNOWN transitorio durante navegación normal | HECHO | Sonda real: UNKNOWN fresco aceptado con Brave en primer plano, sin STALE ni reinicio de sesión; el filtro lo convertía en EXCLUDED y la ventana de deriva se limpiaba. La extensión relee la pestaña de forma acotada ante cambio de revisión o URL no lista en carga, sin reutilizar hosts ni relajar incógnito/foco/perfiles. Verificación real posterior: 38 s NORMAL continuos y episodio abierto con 6 cambios (E035). No cierra F6.2 ni el gate completo de Brave |
 | F6.1 | Prueba sostenida y rendimiento | HECHO | Medición real de 2 h 7 min 30 s con 256 muestras, CPU media 0,15 % (máx. 0,40 % de 16 CPUs), working set 249–416 MB y captura activa con Brave/bridge (E030). Límites: una máquina, resolución 30 s |
+| F6B-1 | Objetivos: modelo de datos | HECHO | Esquema V2 con `goals` y `goal_alerts`, versionado por `schema_version` y migración V1→V2 idempotente; puertos y adaptadores SQLite con crear/leer/actualizar/borrar/listar activos; topes validados por dominio y base; sin URL/ruta/consulta/título (E036) |
+| F6B-0 | Objetivos: actividad pasiva | PENDIENTE | Criterio de cierre por concretar en el prompt de la fase |
+| F6B-2 | Objetivos: motor de cálculo | PENDIENTE | Criterio de cierre por concretar en el prompt de la fase |
+| F6B-3 | Objetivos: UI | PENDIENTE | Criterio de cierre por concretar en el prompt de la fase |
+| F6B-4 | Objetivos: alarma básica | PENDIENTE | Criterio de cierre por concretar en el prompt de la fase |
+| F6B-6 | Objetivos: justificar excesos | PENDIENTE | Criterio de cierre por concretar en el prompt de la fase |
+| F6B-5 | Objetivos: alarma diferida durante deriva | PENDIENTE | Criterio de cierre por concretar en el prompt de la fase |
+| F6B-7 | Objetivos: resumen y gate | PENDIENTE | Criterio de cierre por concretar en el prompt de la fase |
 | F6.2 | Entrega local reproducible | PENDIENTE | Instrucciones verificadas de arranque/test, limitaciones y pendientes claros |
+
+Paquete **F6B (objetivos)**, alcance fijado por el usuario el 2026-11-24: un objetivo es un límite diario definido por el usuario sobre un contexto (una app, o app + sitio), con tope de minutos y/o tope de entradas; no clasifica nada como bueno o malo. Usa los segmentos como fuente y no los modifica; la justificación de un exceso reutiliza el espíritu de la anotación Justificada (E031); la alarma diferida consulta la máquina de deriva sin modificarla. Orden de ejecución indicado: F6B-1, F6B-0, F6B-2, F6B-3, F6B-4, F6B-6, F6B-5, F6B-7. **F6.2 sigue PENDIENTE después de F6B-7.** El modelo de datos de F6B-1 lo entrega el usuario; no se asume nada fuera de él.
 
 Pendiente de revisión de comportamiento, fuera de AJUSTES-DETECCION: enfocar la propia ventana de Deriva puede cerrar un episodio por **EXCLUSION**; no se cambia esa regla aquí ni se afirma que los umbrales la resuelvan.
 
