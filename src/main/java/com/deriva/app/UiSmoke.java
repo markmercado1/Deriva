@@ -406,6 +406,97 @@ final class UiSmoke {
         running.play();
     }
 
+    static void goalsCycle(Scene scene, Runnable onCreated, Runnable onComplete) {
+        Button goals = (Button) scene.lookup("#goalsButton");
+        if (goals == null) {
+            System.out.println("UI smoke: no se encontró Objetivos");
+            onComplete.run();
+            return;
+        }
+        goals.fire();
+        PauseTransition opened = new PauseTransition(Duration.seconds(0.8));
+        opened.setOnFinished(event -> {
+            TextField process = (TextField) scene.lookup("#processField");
+            TextField host = (TextField) scene.lookup("#hostField");
+            TextField minutes = (TextField) scene.lookup("#minutesField");
+            TextField entries = (TextField) scene.lookup("#entriesField");
+            CheckBox passive = (CheckBox) scene.lookup("#passiveCheck");
+            Button save = (Button) scene.lookup("#saveButton");
+            if (process == null || host == null || minutes == null || entries == null
+                    || passive == null || save == null) {
+                System.out.println("UI smoke: no se encontraron los campos de Objetivos");
+                onComplete.run();
+                return;
+            }
+            process.setText("chess.exe");
+            host.setText("");
+            minutes.setText("60");
+            entries.setText("4");
+            passive.setSelected(true);
+
+            PauseTransition edited = new PauseTransition(Duration.seconds(0.3));
+            edited.setOnFinished(editedEvent -> {
+                System.out.println("UI smoke: objetivo a crear=chess.exe 60 min 4 entradas, "
+                        + "guardarDeshabilitado=" + save.isDisabled());
+                save.fire();
+                waitForGoalSaved(scene, 20, () -> {
+                    Label context = (Label) scene.lookup(".goal-context");
+                    Label state = (Label) scene.lookup(".goal-state");
+                    Label progress = (Label) scene.lookup(".goal-progress");
+                    System.out.println("UI smoke: objetivo creado="
+                            + (context == null ? "null" : context.getText())
+                            + "; estado=" + (state == null ? "null" : state.getText())
+                            + "; progreso=" + (progress == null ? "null" : progress.getText()));
+                    onCreated.run();
+                    Button delete = (Button) scene.getRoot().lookupAll(".goal-delete-button").stream()
+                            .findFirst().orElse(null);
+                    if (delete == null) {
+                        System.out.println("UI smoke: no se encontró Borrar objetivo");
+                        onComplete.run();
+                        return;
+                    }
+                    delete.fire();
+                    PauseTransition confirm = new PauseTransition(Duration.seconds(0.4));
+                    confirm.setOnFinished(confirmEvent -> {
+                        System.out.println("UI smoke: confirmación de borrado="
+                                + labelText(scene, "#deleteWarning"));
+                        Button confirmButton = (Button) scene.lookup("#confirmDeleteButton");
+                        if (confirmButton == null) {
+                            System.out.println("UI smoke: no se encontró confirmar borrado");
+                            onComplete.run();
+                            return;
+                        }
+                        confirmButton.fire();
+                        PauseTransition done = new PauseTransition(Duration.seconds(1.5));
+                        done.setOnFinished(doneEvent -> {
+                            System.out.println("UI smoke: objetivo borrado="
+                                    + labelText(scene, "#saveStatus")
+                                    + "; resumen=" + labelText(scene, "#summaryLabel"));
+                            onComplete.run();
+                        });
+                        done.play();
+                    });
+                    confirm.play();
+                });
+            });
+            edited.play();
+        });
+        opened.play();
+    }
+
+    private static void waitForGoalSaved(Scene scene, int attempts, Runnable onComplete) {
+        PauseTransition wait = new PauseTransition(Duration.seconds(0.3));
+        wait.setOnFinished(event -> {
+            String text = labelText(scene, "#saveStatus");
+            if (text.startsWith("Objetivo creado") || text.startsWith("No se pudo") || attempts <= 1) {
+                onComplete.run();
+            } else {
+                waitForGoalSaved(scene, attempts - 1, onComplete);
+            }
+        });
+        wait.play();
+    }
+
     private static void waitForSettingsSaved(Scene scene, int attempts, Runnable onComplete) {
         PauseTransition wait = new PauseTransition(Duration.seconds(0.3));
         wait.setOnFinished(event -> {

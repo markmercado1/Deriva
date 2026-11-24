@@ -29,7 +29,7 @@ public final class PassiveActivity {
     private static final Duration MAX_GAP = Duration.ofSeconds(3);
 
     private final Duration max;
-    private final Set<ContextKey> contexts;
+    private Set<ContextKey> contexts;
     private ContextKey promoted;
     private boolean suppressed;
     private Instant lastTimestamp;
@@ -39,15 +39,30 @@ public final class PassiveActivity {
         if (max.isZero() || max.isNegative()) throw new IllegalArgumentException("max");
         Objects.requireNonNull(goals, "goals");
         this.max = max;
-        this.contexts = goals.stream()
-                .filter(Goal::active)
-                .filter(Goal::passive)
-                .map(Goal::context)
-                .collect(Collectors.toUnmodifiableSet());
+        this.contexts = contextsOf(goals);
+    }
+
+    /**
+     * Applies a new goal list without restarting the capture session. An ongoing
+     * promotion survives when its context is still passive; removing or disabling
+     * that context cuts it. Editing an unrelated goal therefore changes nothing.
+     */
+    public void updateGoals(Collection<Goal> goals) {
+        Objects.requireNonNull(goals, "goals");
+        this.contexts = contextsOf(goals);
+        if (promoted != null && !contexts.contains(promoted)) cut();
     }
 
     public boolean hasContexts() {
         return !contexts.isEmpty();
+    }
+
+    private static Set<ContextKey> contextsOf(Collection<Goal> goals) {
+        return goals.stream()
+                .filter(Goal::active)
+                .filter(Goal::passive)
+                .map(Goal::context)
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     /**

@@ -92,4 +92,36 @@ class SettingsServiceTest {
                 Duration.ofSeconds(90), Duration.ofSeconds(240), Duration.ofSeconds(300))));
         assertEquals(before, service.snapshot());
     }
+
+    @Test
+    void passiveMaximumUsesTenMinutesByDefault() {
+        SettingsService service = new SettingsService(new FakeRepository());
+        assertEquals(Duration.ofMinutes(10), service.passiveMax());
+        assertTrue(service.passiveMaxSnapshot().warnings().isEmpty());
+    }
+
+    @Test
+    void invalidPersistedPassiveMaximumFallsBackVisiblyWithoutOverwrite() {
+        FakeRepository repository = new FakeRepository();
+        repository.values.put(SettingsService.KEY_PASSIVE_MAX, "5");
+        SettingsService service = new SettingsService(repository);
+        assertEquals(Duration.ofMinutes(10), service.passiveMax());
+        assertEquals(1, service.passiveMaxSnapshot().warnings().size());
+        assertEquals("5", repository.values.get(SettingsService.KEY_PASSIVE_MAX));
+    }
+
+    @Test
+    void savesPassiveMaximumSeparatelyFromDetectionThresholds() {
+        FakeRepository repository = new FakeRepository();
+        SettingsService service = new SettingsService(repository);
+        DetectionSettings before = service.current();
+
+        service.savePassiveMax(Duration.ofMinutes(25));
+
+        assertEquals(Duration.ofMinutes(25), service.passiveMax());
+        assertEquals("1500", repository.values.get(SettingsService.KEY_PASSIVE_MAX));
+        assertEquals(before, service.current());
+        assertThrows(IllegalArgumentException.class,
+                () -> service.savePassiveMax(Duration.ofSeconds(30)));
+    }
 }

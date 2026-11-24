@@ -1,14 +1,18 @@
 package com.deriva.app;
 
 import com.deriva.app.usecase.DailyUsageService;
+import com.deriva.app.usecase.GoalsService;
 import com.deriva.app.usecase.InterruptionsService;
 import com.deriva.app.usecase.SettingsService;
 import com.deriva.storage.sqlite.SQLiteDriftRepository;
+import com.deriva.storage.sqlite.SQLiteGoalRepository;
 import com.deriva.storage.sqlite.SQLiteSegmentRepository;
 import com.deriva.storage.sqlite.SQLiteSettingsRepository;
 import com.deriva.ui.fx.MainController;
 import com.deriva.ui.viewmodel.DailyUsageViewModel;
+import com.deriva.ui.viewmodel.GoalsViewModel;
 import com.deriva.ui.viewmodel.InterruptionsViewModel;
+import com.deriva.ui.viewmodel.PassiveMaxSettingsViewModel;
 import com.deriva.ui.viewmodel.SettingsViewModel;
 import javafx.animation.PauseTransition;
 import javafx.application.Application;
@@ -62,14 +66,21 @@ public final class DerivaApp extends Application {
                 DailyUsageService usageService = new DailyUsageService(segmentRepository, clock);
                 SettingsService settingsService =
                         new SettingsService(new SQLiteSettingsRepository(databasePath));
+                GoalsService goalsService = new GoalsService(
+                        new SQLiteGoalRepository(databasePath, clock), segmentRepository, clock);
                 CaptureSession capture = new CaptureSession(databasePath, bridgeConfig(),
-                        clock, settingsService);
+                        clock, settingsService, goalsService);
+                GoalsViewModel goals = new GoalsViewModel(goalsService, zone);
                 SettingsViewModel settings = new SettingsViewModel();
                 settings.load(settingsService.snapshot(), capture.effectiveSettings());
+                PassiveMaxSettingsViewModel passiveMax = new PassiveMaxSettingsViewModel();
+                passiveMax.load(settingsService.passiveMaxSnapshot(), capture.effectivePassiveMax());
                 return new ViewModels(
                         new InterruptionsViewModel(interruptionsService, zone),
                         new DailyUsageViewModel(usageService, zone, capture),
+                        goals,
                         settings,
+                        passiveMax,
                         settingsService,
                         capture);
             } catch (Exception e) {
@@ -88,8 +99,8 @@ public final class DerivaApp extends Application {
             Parent root = loader.load();
             MainController controller = loader.getController();
             controller.init(viewModels.interruptions(), viewModels.usage(),
-                    viewModels.settings(), viewModels.settingsService(),
-                    viewModels.capture(), demo);
+                    viewModels.goals(), viewModels.settings(), viewModels.passiveMax(),
+                    viewModels.settingsService(), viewModels.capture(), demo);
 
             Scene scene = new Scene(root, 1440, 900);
             scene.getStylesheets().add(DerivaApp.class
@@ -120,6 +131,8 @@ public final class DerivaApp extends Application {
 
             if ("usage".equalsIgnoreCase(environment("DERIVA_UI_VIEW", "")))
                 controller.showUsageView();
+            else if ("goals".equalsIgnoreCase(environment("DERIVA_UI_VIEW", "")))
+                controller.showGoalsView();
             else if ("settings".equalsIgnoreCase(environment("DERIVA_UI_VIEW", "")))
                 controller.showSettingsView();
 
@@ -159,6 +172,10 @@ public final class DerivaApp extends Application {
                 UiSmoke.settingsCycle(scene, () -> finish(scene, controller, screenshot));
             } else if ("settings-session".equalsIgnoreCase(smoke)) {
                 UiSmoke.settingsSessionCycle(scene, () -> finish(scene, controller, screenshot));
+            } else if ("goals".equalsIgnoreCase(smoke)) {
+                UiSmoke.goalsCycle(scene,
+                        () -> saveScreenshot(scene, variantPath(screenshot, "-creado")),
+                        () -> finish(scene, controller, screenshot));
             } else if (screenshot != null && !screenshot.isBlank()) {
                 PauseTransition pause = new PauseTransition(Duration.seconds(1.2));
                 pause.setOnFinished(event -> finish(scene, controller, screenshot));
@@ -316,6 +333,7 @@ public final class DerivaApp extends Application {
     }
 
     private record ViewModels(InterruptionsViewModel interruptions, DailyUsageViewModel usage,
-                              SettingsViewModel settings, SettingsService settingsService,
+                              GoalsViewModel goals, SettingsViewModel settings,
+                              PassiveMaxSettingsViewModel passiveMax, SettingsService settingsService,
                               CaptureSession capture) {}
 }

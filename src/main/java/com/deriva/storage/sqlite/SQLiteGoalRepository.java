@@ -131,9 +131,17 @@ public final class SQLiteGoalRepository implements GoalRepository {
 
     @Override
     public List<Goal> listActive() {
+        return list(" WHERE active = 1 ORDER BY process_name, COALESCE(site_host, '')");
+    }
+
+    @Override
+    public List<Goal> listAll() {
+        return list(" ORDER BY active DESC, process_name, COALESCE(site_host, '')");
+    }
+
+    private List<Goal> list(String clause) {
         try (Connection connection = SQLiteSchema.open(databasePath);
-             PreparedStatement statement = connection.prepareStatement(
-                     SELECT + " WHERE active = 1 ORDER BY process_name, COALESCE(site_host, '')");
+             PreparedStatement statement = connection.prepareStatement(SELECT + clause);
              ResultSet result = statement.executeQuery()) {
             List<Goal> goals = new ArrayList<>();
             while (result.next()) goals.add(read(result));

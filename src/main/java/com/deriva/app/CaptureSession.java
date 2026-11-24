@@ -13,6 +13,8 @@ import com.deriva.coach.model.CloseReason;
 import com.deriva.coach.model.DetectionSettings;
 import com.deriva.coach.model.DriftUpdate;
 import com.deriva.goals.PassiveActivity;
+import com.deriva.goals.PassiveGoalProvider;
+import com.deriva.goals.PassiveGoalSnapshot;
 import com.deriva.privacy.Observation;
 import com.deriva.privacy.ObservationKind;
 import com.deriva.privacy.PrivacyFilter;
@@ -22,7 +24,6 @@ import com.deriva.sensor.windows.WindowsWindowSensor;
 import com.deriva.storage.StorageException;
 import com.deriva.storage.sqlite.SQLiteDataMaintenance;
 import com.deriva.storage.sqlite.SQLiteDriftRepository;
-import com.deriva.storage.sqlite.SQLiteGoalRepository;
 import com.deriva.storage.sqlite.SQLitePrivacyCheck;
 import com.deriva.storage.sqlite.SQLiteSegmentRepository;
 import com.deriva.tracking.Segmenter;
@@ -60,6 +61,7 @@ public final class CaptureSession implements CaptureControl {
     private final BridgeConfig bridgeConfig;
     private final Clock clock;
     private final SettingsService settingsService;
+    private final PassiveGoalProvider passiveGoals;
     private final Object lock = new Object();
     private final AtomicBoolean running = new AtomicBoolean(false);
 
@@ -67,14 +69,17 @@ public final class CaptureSession implements CaptureControl {
     private volatile CaptureStatus status = CaptureStatus.stopped();
     private volatile CaptureSnapshot snapshot = CaptureSnapshot.stopped();
     private volatile DetectionSettings effectiveSettings;
+    private volatile Duration effectivePassiveMax;
     private volatile Thread thread;
 
     public CaptureSession(Path databasePath, BridgeConfig bridgeConfig, Clock clock,
-                          SettingsService settingsService) {
+                          SettingsService settingsService, PassiveGoalProvider passiveGoals) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath();
         this.bridgeConfig = bridgeConfig;
         this.clock = Objects.requireNonNull(clock, "clock");
         this.settingsService = Objects.requireNonNull(settingsService, "settingsService");
+        this.passiveGoals = Objects.requireNonNull(passiveGoals, "passiveGoals");
+        this.effectivePassiveMax = settingsService.passiveMax();
     }
 
     @Override
@@ -98,6 +103,16 @@ public final class CaptureSession implements CaptureControl {
     }
 
     @Override
+    public Duration effectivePassiveMax() {
+        CaptureState state = status.state();
+        Duration session = effectivePassiveMax;
+        if (session != null && (state == CaptureState.STARTING || state == CaptureState.RUNNING
+                || state == CaptureState.PAUSED || state == CaptureState.STOPPING))
+            return session;
+        return settingsService.passiveMax();
+    }
+
+    @Override
     public void start() {
         synchronized (lock) {
             CaptureState state = status.state();
@@ -106,6 +121,8 @@ public final class CaptureSession implements CaptureControl {
             pauseRequested = false;
             effectiveSettings = CaptureSettingsPolicy.onStart(state, effectiveSettings,
                     settingsService.current());
+            effectivePassiveMax = CaptureSettingsPolicy.onStart(state, effectivePassiveMax,
+                    settingsService.passiveMax());
             running.set(true);
             status = new CaptureStatus(CaptureState.STARTING, "Iniciando captura…");
             thread = new Thread(this::runLoop, "deriva-capture");
@@ -202,9 +219,11 @@ public final class CaptureSession implements CaptureControl {
             driftRepository = new SQLiteDriftRepository(databasePath);
             driftRepository.recoverOpenEpisodes();
             SQLitePrivacyCheck.verify(databasePath);
-            // Known limitation: goals are read once per capture start. Changes apply after restart.
-            PassiveActivity passiveActivity = new PassiveActivity(PassiveActivity.DEFAULT_MAX,
-                    new SQLiteGoalRepository(databasePath).listActive());
+            Duration sessionPassiveMax = effectivePassiveMax;
+            PassiveGoalSnapshot goalSnapshot = passiveGoals.snapshot();
+            long goalsRevision = goalSnapshot.revision();
+            PassiveActivity passiveActivity = new PassiveActivity(sessionPassiveMax,
+                    goalSnapshot.activeGoals());
 
             BrowserStateStore browserState = new BrowserStateStore(clock, System::nanoTime);
             if (bridgeConfig != null) {
@@ -227,6 +246,11 @@ public final class CaptureSession implements CaptureControl {
 
             while (running.get()) {
                 Instant tickStart = clock.instant();
+                PassiveGoalSnapshot currentGoals = passiveGoals.snapshot();
+                if (currentGoals.revision() != goalsRevision) {
+                    passiveActivity.updateGoals(currentGoals.activeGoals());
+                    goalsRevision = currentGoals.revision();
+                }
                 ActivitySample sample = sensor.sample();
                 Duration idleTime;
                 try {

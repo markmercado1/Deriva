@@ -128,5 +128,10 @@ class DailyUsageServiceTest {
             this.to = to;
             return segments;
         }
+
+        @Override
+        public java.util.List<com.deriva.tracking.model.ContextKey> observedContexts() {
+            return java.util.List.of();
+        }
     }
 }

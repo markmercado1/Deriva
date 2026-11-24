@@ -91,6 +91,12 @@ class SQLiteGoalRepositoryTest {
 
         List<Goal> active = repository.listActive();
         assertEquals(List.of(CHESS, CODING), active.stream().map(Goal::context).toList());
+
+        List<Goal> all = repository.listAll();
+        assertEquals(3, all.size());
+        assertEquals(List.of(CHESS, CODING, new ContextKey("word.exe", null)),
+                all.stream().map(Goal::context).toList());
+        assertTrue(all.getLast().active() == false);
     }
 
     @Test

@@ -4,6 +4,7 @@ import com.deriva.app.usecase.CaptureControl;
 import com.deriva.app.usecase.CaptureState;
 import com.deriva.app.usecase.SettingsService;
 import com.deriva.coach.model.DetectionSettings;
+import com.deriva.ui.viewmodel.PassiveMaxSettingsViewModel;
 import com.deriva.ui.viewmodel.SettingsViewModel;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
@@ -36,6 +37,16 @@ public final class SettingsController {
     @FXML private Label saveStatus;
     @FXML private Button saveButton;
     @FXML private Button restoreButton;
+    @FXML private TextField passiveMaxField;
+    @FXML private Label passiveMaxHint;
+    @FXML private Label passiveEffectiveValues;
+    @FXML private Label passivePendingValues;
+    @FXML private Label passiveUnsavedLabel;
+    @FXML private Label passiveValidationLabel;
+    @FXML private Label passiveLoadWarningLabel;
+    @FXML private Label passiveSaveStatus;
+    @FXML private Button passiveSaveButton;
+    @FXML private Button passiveRestoreButton;
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "deriva-ui-settings");
@@ -44,10 +55,12 @@ public final class SettingsController {
     });
 
     private SettingsViewModel viewModel;
+    private PassiveMaxSettingsViewModel passiveViewModel;
     private SettingsService service;
     private CaptureControl capture;
     private boolean loading;
     private boolean saving;
+    private boolean passiveSaving;
 
     @FXML
     private void initialize() {
@@ -61,25 +74,47 @@ public final class SettingsController {
         }
         saveButton.setOnAction(event -> save());
         restoreButton.setOnAction(event -> restoreDefaults());
+        var passiveNumeric = new TextFormatter<String>(change ->
+                change.getControlNewText().matches("\\d{0,3}") ? change : null);
+        passiveMaxField.setTextFormatter(passiveNumeric);
+        passiveMaxField.textProperty().addListener((observable, old, value) -> {
+            if (!loading) refreshPassive();
+        });
+        passiveSaveButton.setOnAction(event -> savePassive());
+        passiveRestoreButton.setOnAction(event -> restorePassiveDefaults());
         hide(validationLabel);
         hide(pendingValues);
         hide(unsavedLabel);
         hide(idleWarningLabel);
         hide(loadWarningLabel);
+        hide(passiveValidationLabel);
+        hide(passivePendingValues);
+        hide(passiveUnsavedLabel);
+        hide(passiveLoadWarningLabel);
     }
 
-    public void init(SettingsViewModel viewModel, SettingsService service, CaptureControl capture) {
+    public void init(SettingsViewModel viewModel, PassiveMaxSettingsViewModel passiveViewModel,
+                     SettingsService service, CaptureControl capture) {
         this.viewModel = viewModel;
+        this.passiveViewModel = passiveViewModel;
         this.service = service;
         this.capture = capture;
         showFields(viewModel.page());
+        showPassiveFields(passiveViewModel.page());
         refresh();
+        refreshPassive();
     }
 
     public void updateEffective(DetectionSettings effective) {
         if (viewModel == null || saving) return;
         viewModel.setEffective(effective);
         apply(viewModel.page());
+    }
+
+    public void updatePassiveEffective(Duration effective) {
+        if (passiveViewModel == null || passiveSaving) return;
+        passiveViewModel.setEffective(effective);
+        applyPassive(passiveViewModel.page());
     }
 
     public void refresh() {
@@ -139,6 +174,62 @@ public final class SettingsController {
         saveStatus.setText("Predeterminados en el formulario. Pulsa Guardar para aplicarlos.");
     }
 
+    public void refreshPassive() {
+        if (passiveViewModel == null || loading) return;
+        passiveViewModel.update(passiveMaxField.getText());
+        applyPassive(passiveViewModel.page());
+    }
+
+    private void savePassive() {
+        if (passiveViewModel == null || service == null || passiveSaving) return;
+        PassiveMaxSettingsViewModel.Page page = passiveViewModel.page();
+        if (!page.canSave()) return;
+        Duration value;
+        try {
+            value = passiveViewModel.validatedValue();
+        } catch (IllegalStateException e) {
+            showPassiveValidation(e.getMessage());
+            return;
+        }
+
+        passiveSaving = true;
+        passiveSaveButton.setDisable(true);
+        passiveRestoreButton.setDisable(true);
+        passiveSaveStatus.getStyleClass().removeAll("save-ok", "save-error");
+        passiveSaveStatus.setText("Guardando…");
+
+        CompletableFuture.supplyAsync(() -> service.savePassiveMax(value), executor)
+                .whenComplete((snapshot, error) -> Platform.runLater(() -> {
+                    passiveSaving = false;
+                    passiveRestoreButton.setDisable(false);
+                    if (error != null) {
+                        passiveSaveStatus.getStyleClass().add("save-error");
+                        passiveSaveStatus.setText("No se pudo guardar: " + message(error));
+                        refreshPassive();
+                        return;
+                    }
+                    passiveViewModel.applySaved(snapshot);
+                    if (capture != null) passiveViewModel.setEffective(capture.effectivePassiveMax());
+                    passiveSaveStatus.getStyleClass().add("save-ok");
+                    CaptureState state = capture == null ? CaptureState.STOPPED : capture.status().state();
+                    boolean active = state == CaptureState.STARTING || state == CaptureState.RUNNING
+                            || state == CaptureState.PAUSED || state == CaptureState.STOPPING;
+                    passiveSaveStatus.setText(active
+                            ? "Guardado. La sesión actual conserva su máximo; se aplicará al detener e iniciar la captura."
+                            : "Guardado. Se aplicará al iniciar la captura.");
+                    refreshPassive();
+                }));
+    }
+
+    private void restorePassiveDefaults() {
+        if (passiveViewModel == null || passiveSaving) return;
+        passiveViewModel.restoreDefaults();
+        showPassiveFields(passiveViewModel.page());
+        refreshPassive();
+        passiveSaveStatus.getStyleClass().removeAll("save-ok", "save-error");
+        passiveSaveStatus.setText("Predeterminados en el formulario. Pulsa Guardar para aplicarlos.");
+    }
+
     private void apply(SettingsViewModel.Page page) {
         effectiveValues.setText("En uso ahora: " + page.effectiveSummary());
         if (page.pending()) {
@@ -184,6 +275,58 @@ public final class SettingsController {
         saveButton.setDisable(saving || !page.canSave());
         restoreButton.setDisable(saving);
         updateHints();
+    }
+
+    private void applyPassive(PassiveMaxSettingsViewModel.Page page) {
+        passiveEffectiveValues.setText("En uso ahora: " + page.effectiveText());
+        if (page.pending()) {
+            passivePendingValues.setText("Guardado, pendiente de aplicar: " + page.savedText());
+            show(passivePendingValues);
+        } else {
+            hide(passivePendingValues);
+            if (passiveSaveStatus.getStyleClass().contains("save-ok"))
+                passiveSaveStatus.setText("Guardado. El máximo guardado está en uso.");
+        }
+        if (page.unsavedChanges()) show(passiveUnsavedLabel);
+        else hide(passiveUnsavedLabel);
+
+        if (page.valid()) hide(passiveValidationLabel);
+        else showPassiveValidation(page.validationError());
+
+        if (page.loadWarnings().isEmpty()) {
+            hide(passiveLoadWarningLabel);
+        } else {
+            StringBuilder text = new StringBuilder("La configuración guardada tenía valores no válidos. "
+                    + "No se han sobrescrito; estos son los valores en uso:\n" + page.effectiveText());
+            for (String warning : page.loadWarnings()) text.append("\n• ").append(warning);
+            passiveLoadWarningLabel.setText(text.toString());
+            show(passiveLoadWarningLabel);
+        }
+
+        passiveMaxHint.setText(passiveHint(passiveMaxField.getText()));
+        passiveSaveButton.setDisable(passiveSaving || !page.canSave());
+        passiveRestoreButton.setDisable(passiveSaving);
+    }
+
+    private void showPassiveFields(PassiveMaxSettingsViewModel.Page page) {
+        loading = true;
+        passiveMaxField.setText(page.minutesText());
+        loading = false;
+    }
+
+    private void showPassiveValidation(String message) {
+        passiveValidationLabel.setText(message == null ? "Revisa el valor." : message);
+        show(passiveValidationLabel);
+    }
+
+    private static String passiveHint(String text) {
+        try {
+            long minutes = Long.parseLong(text.trim());
+            if (minutes < 0) return "—";
+            return minutes + " min";
+        } catch (NumberFormatException e) {
+            return "—";
+        }
     }
 
     private void showFields(SettingsViewModel.Page page) {

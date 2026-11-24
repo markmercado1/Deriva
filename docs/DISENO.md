@@ -37,7 +37,7 @@ Estados de estabilidad: salvia para **Estable**, ámbar para **En curso** y gris
 
 ## Navegación y captura
 
-Lateral compacta: **Interrupciones**, **Uso diario** y **Ajustes**. Desde AJUSTES-DETECCION, Ajustes está habilitado solo para los cuatro umbrales de detección; no incluye exclusiones, bridge ni empaquetado.
+Lateral compacta: **Interrupciones**, **Uso diario**, **Objetivos** y **Ajustes**. Desde AJUSTES-DETECCION, Ajustes está habilitado solo para los cuatro umbrales de detección; no incluye exclusiones, bridge ni empaquetado.
 
 La barra lateral incluye un panel de captura con estado textual y botón **Iniciar/Detener captura**. Estados: detenida, iniciando, capturando, en pausa, deteniendo y error; nunca solo color. Con la captura activa aparece **Pausar captura**; en pausa el botón pasa a **Reanudar captura** y el estado dice `Captura en pausa.` en ámbar. El cierre de la ventana detiene la captura y espera su salida ordenada cuando no hay bandeja. Sin bridge, los navegadores quedan excluidos; con bridge configurado se permite Chrome o Brave con un perfil (uno a la vez). El gate completo de Brave sigue pendiente.
 
@@ -70,9 +70,17 @@ La barra lateral incluye un panel de captura con estado textual y botón **Inici
 - Con captura detenida, solo se muestran segmentos persistidos. La vista distingue ambos casos y no presenta datos persistidos como actualización en vivo.
 - Sin gráficos avanzados, puntuaciones ni una pantalla llamada “Hoy”.
 
+## Objetivos (F6B-3)
+
+- Pantalla **Objetivos** con lista a la izquierda y formulario a la derecha. Crear, editar topes/pasivo/activo, activar/desactivar y borrar con confirmación; desactivar es la vía normal para dejar de vigilar.
+- Contexto: elegir una app o un sitio ya visto en el registro, o escribir proceso y host opcional. Al editar un objetivo existente el contexto queda bloqueado; para cambiarlo se borra y se crea otro. Mensajes en español para topes ausentes/negativos, proceso con ruta, host con forma de URL y contexto duplicado.
+- Progreso: minutos usados, entradas y estado **En curso ▲**, **Cerca del tope ◆** o **Tope superado ●**, siempre icono + texto. Si puede haber subconteo por exclusión ante duda, se explica en la fila. Línea fija: “Progreso según segmentos ya cerrados; el segmento actual se suma en una fase posterior”.
+- La vista se refresca al abrirse y cada 30 s; el temporizador se detiene al cambiar de vista y al cerrar. El cálculo y la persistencia ocurren fuera del hilo JavaFX.
+- El máximo de actividad pasiva se edita en **Ajustes · Actividad pasiva**, con efectivo/pendiente igual que los umbrales de detección.
+
 ## Restricciones
 
-- Solo tema claro. La pausa y la bandeja son las únicas adiciones de F5.2; no crear pantallas ni secciones nuevas.
+- Solo tema claro. Las pantallas existentes no se amplían fuera de lo previsto; F6B-3 añade la pantalla Objetivos y la sección Actividad pasiva. No crear otras pantallas ni secciones por anticipado.
 - Sin glassmorphism, neón, desenfoques ni modo oscuro.
 - Sin secciones nuevas por anticipado.
 - No modificar los planos ni ampliar el alcance de F4.1/F4.2/F4.3.

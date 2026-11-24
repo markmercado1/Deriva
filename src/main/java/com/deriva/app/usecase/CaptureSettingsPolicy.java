@@ -14,4 +14,11 @@ public final class CaptureSettingsPolicy {
         if (state == CaptureState.PAUSED && sessionSettings != null) return sessionSettings;
         return savedSettings;
     }
+
+    /** Same rule for the passive-activity maximum. */
+    public static java.time.Duration onStart(CaptureState state, java.time.Duration sessionValue,
+                                             java.time.Duration savedValue) {
+        if (state == CaptureState.PAUSED && sessionValue != null) return sessionValue;
+        return savedValue;
+    }
 }

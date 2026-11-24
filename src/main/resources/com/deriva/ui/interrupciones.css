@@ -631,3 +631,113 @@
 .danger-button:hover {
     -fx-background-color: #9E462C;
 }
+
+.goal-row {
+    -fx-background-color: #FFFEFB;
+    -fx-border-color: #E2DDD3;
+    -fx-border-radius: 10;
+    -fx-background-radius: 10;
+    -fx-padding: 12 14;
+}
+
+.goal-row:hover {
+    -fx-border-color: #D6CFC3;
+}
+
+.goal-row-inactive {
+    -fx-background-color: #F9F6F0;
+    -fx-opacity: 0.85;
+}
+
+.goal-context {
+    -fx-text-fill: #302E2A;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+}
+
+.goal-limits {
+    -fx-text-fill: #746F66;
+    -fx-font-size: 12px;
+}
+
+.goal-progress {
+    -fx-text-fill: #302E2A;
+    -fx-font-family: "Consolas";
+    -fx-font-size: 13px;
+}
+
+.goal-state {
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-padding: 3 9;
+    -fx-background-radius: 999;
+}
+
+.goal-state-in-progress {
+    -fx-text-fill: #4F6B57;
+    -fx-background-color: #EAF1EB;
+}
+
+.goal-state-near {
+    -fx-text-fill: #A66A1F;
+    -fx-background-color: #FBF1DC;
+}
+
+.goal-state-exceeded {
+    -fx-text-fill: #9E462C;
+    -fx-background-color: #F8E9DE;
+}
+
+.goal-state-inactive {
+    -fx-text-fill: #7A756C;
+    -fx-background-color: #F0ECE3;
+}
+
+.goal-bar {
+    -fx-pref-height: 8px;
+}
+
+.goal-bar > .track {
+    -fx-background-color: #F0ECE3;
+    -fx-background-radius: 999;
+}
+
+.goal-bar > .bar {
+    -fx-background-color: #B75436;
+    -fx-background-radius: 999;
+    -fx-padding: 0;
+}
+
+.goal-action-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #746F66;
+    -fx-font-size: 11px;
+    -fx-padding: 3 5;
+    -fx-cursor: hand;
+    -fx-underline: true;
+}
+
+.goal-action-button:hover {
+    -fx-text-fill: #302E2A;
+}
+
+.goal-delete-button {
+    -fx-text-fill: #9E462C;
+}
+
+.goal-delete-button:hover {
+    -fx-text-fill: #B75436;
+}
+
+.goal-warning {
+    -fx-text-fill: #7A5A1E;
+    -fx-background-color: #FBF1DC;
+    -fx-background-radius: 8;
+    -fx-padding: 7 9;
+    -fx-font-size: 11px;
+}
+
+.goal-text-input {
+    -fx-alignment: CENTER_LEFT;
+    -fx-font-family: "Segoe UI";
+}

@@ -19,4 +19,7 @@ public interface GoalRepository {
     boolean delete(long id);
 
     List<Goal> listActive();
+
+    /** All goals, active and inactive, in stable context order. */
+    List<Goal> listAll();
 }

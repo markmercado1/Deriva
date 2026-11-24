@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<StackPane xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+           fx:controller="com.deriva.ui.fx.GoalsController">
+    <VBox styleClass="content" spacing="16">
+        <VBox spacing="2">
+            <Label text="Objetivos" styleClass="page-title"/>
+            <Label text="Define límites diarios para las aplicaciones y sitios que ya aparecen en el registro. No clasifican nada como bueno o malo."
+                   styleClass="page-subtitle" wrapText="true"/>
+        </VBox>
+
+        <HBox spacing="18" VBox.vgrow="ALWAYS">
+            <VBox styleClass="usage-panel" spacing="10" HBox.hgrow="ALWAYS">
+                <HBox alignment="CENTER_LEFT" spacing="10">
+                    <Label text="Objetivos del día" styleClass="usage-title"/>
+                    <Region HBox.hgrow="ALWAYS"/>
+                    <Label fx:id="summaryLabel" text="Sin objetivos" styleClass="data-note"/>
+                </HBox>
+                <Label text="Progreso según segmentos ya cerrados; el segmento actual se suma en una fase posterior"
+                       styleClass="usage-note" wrapText="true"/>
+                <Label fx:id="listStatusLabel" text="" styleClass="usage-status" wrapText="true"/>
+                <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" styleClass="usage-scroll">
+                    <VBox fx:id="goalsList" spacing="8"/>
+                </ScrollPane>
+            </VBox>
+
+            <VBox styleClass="usage-panel" spacing="10" prefWidth="410" minWidth="380">
+                <Label fx:id="formTitle" text="Nuevo objetivo" styleClass="usage-title"/>
+                <Label text="Elige un contexto ya visto o escríbelo. Al editar solo se cambian los topes y los indicadores; para otro contexto, borra y crea uno nuevo."
+                       styleClass="settings-help" wrapText="true"/>
+
+                <Label text="Contexto ya visto" styleClass="settings-label"/>
+                <ComboBox fx:id="contextCombo" maxWidth="Infinity" styleClass="filter-control"
+                          promptText="Elegir una aplicación o un sitio"/>
+
+                <HBox spacing="10">
+                    <VBox spacing="4" HBox.hgrow="ALWAYS">
+                        <Label text="Proceso" styleClass="settings-label"/>
+                        <TextField fx:id="processField" promptText="code.exe"
+                                   styleClass="settings-input goal-text-input"/>
+                    </VBox>
+                    <VBox spacing="4" HBox.hgrow="ALWAYS">
+                        <Label text="Host (opcional)" styleClass="settings-label"/>
+                        <TextField fx:id="hostField" promptText="chess.com"
+                                   styleClass="settings-input goal-text-input"/>
+                    </VBox>
+                </HBox>
+                <Label text="El proceso es el nombre del ejecutable, sin rutas. El host es solo el dominio, sin URL, ruta ni puerto."
+                       styleClass="settings-note" wrapText="true"/>
+
+                <HBox spacing="10">
+                    <VBox spacing="4" HBox.hgrow="ALWAYS">
+                        <Label text="Tope de minutos" styleClass="settings-label"/>
+                        <HBox spacing="6" alignment="CENTER_LEFT">
+                            <TextField fx:id="minutesField" promptText="60" styleClass="settings-input" prefWidth="90"/>
+                            <Label text="min" styleClass="settings-unit"/>
+                        </HBox>
+                    </VBox>
+                    <VBox spacing="4" HBox.hgrow="ALWAYS">
+                        <Label text="Tope de entradas" styleClass="settings-label"/>
+                        <HBox spacing="6" alignment="CENTER_LEFT">
+                            <TextField fx:id="entriesField" promptText="4" styleClass="settings-input" prefWidth="90"/>
+                            <Label text="entradas" styleClass="settings-unit"/>
+                        </HBox>
+                    </VBox>
+                </HBox>
+                <Label text="Indica al menos un tope. Una entrada empieza cuando vuelves al contexto tras al menos 3 s fuera."
+                       styleClass="settings-note" wrapText="true"/>
+
+                <HBox spacing="18">
+                    <CheckBox fx:id="passiveCheck" text="Pasivo"/>
+                    <CheckBox fx:id="activeCheck" text="Activo" selected="true"/>
+                </HBox>
+                <Label text="Pasivo permite contar el tiempo sin teclado ni ratón dentro del máximo configurado en Ajustes, si el contexto sigue en primer plano."
+                       styleClass="settings-note" wrapText="true"/>
+
+                <Label fx:id="validationLabel" text="" styleClass="settings-error"
+                       wrapText="true" managed="false" visible="false"/>
+                <HBox spacing="10" alignment="CENTER_RIGHT">
+                    <Button fx:id="newButton" text="Nuevo" styleClass="secondary-button"/>
+                    <Button fx:id="cancelButton" text="Cancelar edición" styleClass="secondary-button"
+                            managed="false" visible="false"/>
+                    <Button fx:id="saveButton" text="Crear objetivo" styleClass="primary-button"/>
+                </HBox>
+                <Label fx:id="saveStatus" text="" styleClass="save-status" wrapText="true"/>
+            </VBox>
+        </HBox>
+    </VBox>
+
+    <StackPane fx:id="deleteOverlay" styleClass="modal-backdrop" visible="false" managed="false">
+        <VBox styleClass="modal-card" maxWidth="500" maxHeight="240" spacing="12">
+            <Label text="Borrar objetivo" styleClass="modal-title"/>
+            <Label fx:id="deleteWarning"
+                   text="Se borrará este objetivo y sus avisos. Los segmentos de actividad y el historial de uso no se tocan. Si solo quieres dejar de vigilarlo, desactívalo."
+                   styleClass="modal-text" wrapText="true"/>
+            <Region VBox.vgrow="ALWAYS"/>
+            <HBox alignment="CENTER_RIGHT" spacing="10">
+                <Button text="Cancelar" styleClass="secondary-button" onAction="#cancelDelete"/>
+                <Button fx:id="confirmDeleteButton" text="Borrar objetivo"
+                        styleClass="danger-button" onAction="#confirmDelete"/>
+            </HBox>
+        </VBox>
+    </StackPane>
+</StackPane>

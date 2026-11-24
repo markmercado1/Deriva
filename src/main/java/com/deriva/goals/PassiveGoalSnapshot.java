@@ -1,0 +1,17 @@
+package com.deriva.goals;
+
+import com.deriva.goals.model.Goal;
+
+import java.util.List;
+import java.util.Objects;
+
+/**
+ * Coherent snapshot of the active goals used by the passive-activity rule.
+ * The revision changes whenever a goal is created, edited, activated, deactivated or deleted.
+ */
+public record PassiveGoalSnapshot(long revision, List<Goal> activeGoals) {
+    public PassiveGoalSnapshot {
+        if (revision < 0) throw new IllegalArgumentException("revision");
+        activeGoals = List.copyOf(Objects.requireNonNull(activeGoals, "activeGoals"));
+    }
+}

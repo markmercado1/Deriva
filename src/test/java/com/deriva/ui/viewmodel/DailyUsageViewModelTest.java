@@ -137,6 +137,11 @@ class DailyUsageViewModelTest {
         }
 
         @Override
+        public java.time.Duration effectivePassiveMax() {
+            return java.time.Duration.ofMinutes(10);
+        }
+
+        @Override
         public void start() {}
 
         @Override
@@ -167,6 +172,11 @@ class DailyUsageViewModelTest {
         @Override
         public List<Segment> between(Instant from, Instant to) {
             return segments;
+        }
+
+        @Override
+        public java.util.List<com.deriva.tracking.model.ContextKey> observedContexts() {
+            return java.util.List.of();
         }
     }
 }

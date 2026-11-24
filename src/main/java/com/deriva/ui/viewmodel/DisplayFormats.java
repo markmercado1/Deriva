@@ -13,7 +13,8 @@ public final class DisplayFormats {
             "windowsterminal.exe", "Terminal",
             "explorer.exe", "Explorador",
             "chrome.exe", "Chrome",
-            "brave.exe", "Brave");
+            "brave.exe", "Brave",
+            "chess.exe", "Ajedrez");
     private static final Map<String, String> SITE_NAMES = Map.of(
             "instagram.com", "Instagram",
             "web.whatsapp.com", "WhatsApp Web",

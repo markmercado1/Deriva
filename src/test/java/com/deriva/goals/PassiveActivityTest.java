@@ -143,6 +143,34 @@ class PassiveActivityTest {
     }
 
     @Test
+    void editingAnUnrelatedGoalDoesNotCutAnOngoingPromotion() {
+        PassiveActivity passive = activity(passiveGoal(NOTEPAD));
+        assertEquals(ObservationKind.OBSERVED, passive.apply(boundaryAt(ObservationKind.IDLE, 0),
+                observedAt("notepad.exe", null, 0), Duration.ofMinutes(1)).kind());
+
+        passive.updateGoals(List.of(passiveGoal(NOTEPAD),
+                passiveGoal(new ContextKey("writer.exe", null))));
+        assertEquals(ObservationKind.OBSERVED, passive.apply(boundaryAt(ObservationKind.IDLE, 1),
+                observedAt("notepad.exe", null, 1), Duration.ofMinutes(1)).kind());
+
+        passive.updateGoals(List.of(Goal.draft(NOTEPAD, 60, 4, true),
+                passiveGoal(new ContextKey("writer.exe", null))));
+        assertEquals(ObservationKind.OBSERVED, passive.apply(boundaryAt(ObservationKind.IDLE, 2),
+                observedAt("notepad.exe", null, 2), Duration.ofMinutes(1)).kind());
+    }
+
+    @Test
+    void removingThePromotedContextCutsTheRule() {
+        PassiveActivity passive = activity(passiveGoal(NOTEPAD));
+        assertEquals(ObservationKind.OBSERVED, passive.apply(boundaryAt(ObservationKind.IDLE, 0),
+                observedAt("notepad.exe", null, 0), Duration.ofMinutes(1)).kind());
+
+        passive.updateGoals(List.of(passiveGoal(new ContextKey("writer.exe", null))));
+        assertEquals(ObservationKind.IDLE, passive.apply(boundaryAt(ObservationKind.IDLE, 1),
+                observedAt("notepad.exe", null, 1), Duration.ofMinutes(1)).kind());
+    }
+
+    @Test
     void suspensionGapCutsTheRuleUntilActivityResumes() {
         PassiveActivity passive = activity(passiveGoal(NOTEPAD));
 
