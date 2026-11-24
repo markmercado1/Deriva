@@ -256,3 +256,9 @@ Guardar sin cambios queda deshabilitado; controles bloqueados durante escritura/
 - Probado: Maven verify offline 177 tests Java, 0 fallos (19 nuevos); migración con datos V1 sin pérdida, doble inicialización, base nueva en V2, CRUD con reapertura, cascada objetivo→alertas, FK, límites de justificación y umbral, rechazos por `CHECK`, y `deleteActivity` borrando alertas sin tocar objetivos.
 - Límites: bases temporales `@TempDir`; no se migró la base real (la hará el usuario con respaldo y SHA-256); V2 no la abre el código V1; `SQLitePrivacyCheck` no se amplía hasta F6B-7. Sin UI, sensor ni máquina de deriva.
 - Siguiente: F6B-0 (actividad pasiva); F6.2 sigue pendiente después de F6B-7.
+
+## 2026-11-24 - F6B-0 actividad pasiva (E037)
+- Funciona: un objetivo activo `passive=true` mantiene su contexto como `OBSERVED` sin teclado ni mouse hasta 10 min desde la última entrada; después vuelve a `IDLE`. `UNAVAILABLE` (bloqueo/suspensión), los huecos >3 s y `EXCLUDED` mandan; cambiar de ventana corta la promoción hasta que vuelva la actividad. Objetivo de app solo coincide sin host; objetivo de sitio exige proceso+host exactos.
+- Probado: Maven verify offline 189 tests Java, 0 fallos (12 nuevos); 14 tests JS, 0 fallos. `SegmenterTest` conserva 16 tests y `PrivacyFilterTest` 17, sin editar esos archivos.
+- Límites: pruebas puras con tiempo simulado, sin sesión real de 10 min ni vídeo/ajedrez; los objetivos se leen una vez al iniciar la captura y sus cambios se aplican al reiniciar (F6B-3). El máximo de 10 min no se persiste todavía. P1 queda resuelto solo para contextos con objetivo pasivo. Sin UI ni cambio de esquema; no se abrió la base real.
+- Siguiente: F6B-2 (motor de cálculo); F6.2 sigue pendiente después de F6B-7.

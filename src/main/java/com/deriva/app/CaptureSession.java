@@ -12,7 +12,9 @@ import com.deriva.coach.DriftStateMachine;
 import com.deriva.coach.model.CloseReason;
 import com.deriva.coach.model.DetectionSettings;
 import com.deriva.coach.model.DriftUpdate;
+import com.deriva.goals.PassiveActivity;
 import com.deriva.privacy.Observation;
+import com.deriva.privacy.ObservationKind;
 import com.deriva.privacy.PrivacyFilter;
 import com.deriva.sensor.ActivitySample;
 import com.deriva.sensor.windows.WindowsIdleDetector;
@@ -20,6 +22,7 @@ import com.deriva.sensor.windows.WindowsWindowSensor;
 import com.deriva.storage.StorageException;
 import com.deriva.storage.sqlite.SQLiteDataMaintenance;
 import com.deriva.storage.sqlite.SQLiteDriftRepository;
+import com.deriva.storage.sqlite.SQLiteGoalRepository;
 import com.deriva.storage.sqlite.SQLitePrivacyCheck;
 import com.deriva.storage.sqlite.SQLiteSegmentRepository;
 import com.deriva.tracking.Segmenter;
@@ -199,6 +202,9 @@ public final class CaptureSession implements CaptureControl {
             driftRepository = new SQLiteDriftRepository(databasePath);
             driftRepository.recoverOpenEpisodes();
             SQLitePrivacyCheck.verify(databasePath);
+            // Known limitation: goals are read once per capture start. Changes apply after restart.
+            PassiveActivity passiveActivity = new PassiveActivity(PassiveActivity.DEFAULT_MAX,
+                    new SQLiteGoalRepository(databasePath).listActive());
 
             BrowserStateStore browserState = new BrowserStateStore(clock, System::nanoTime);
             if (bridgeConfig != null) {
@@ -231,6 +237,11 @@ public final class CaptureSession implements CaptureControl {
                 }
 
                 Observation observation = filter.filter(sample, idleTime);
+                Observation foreground = observation.kind() == ObservationKind.IDLE
+                        && passiveActivity.hasContexts()
+                        ? filter.filter(sample, Duration.ZERO)
+                        : observation;
+                observation = passiveActivity.apply(observation, foreground, idleTime);
                 TickResult result = segmenter.onObservation(observation);
                 saveSegments(segmentRepository, result.completedSegments());
 
