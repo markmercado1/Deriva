@@ -3,10 +3,10 @@ package com.deriva.ui.viewmodel;
 import com.deriva.coach.model.DriftStatus;
 
 public enum StatusFilter {
-    ALL("Todos los estados"),
-    OPEN("Abiertas"),
+    ALL("Todas las estabilidades"),
+    OPEN("En curso"),
     STABLE("Estables"),
-    UNCONFIRMED("Sin confirmar");
+    UNCONFIRMED("No comprobadas");
 
     private final String label;
 

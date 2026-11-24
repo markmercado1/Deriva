@@ -10,7 +10,7 @@ El piloto recibe reportes **en memoria**, no registra actividad ni escribe hosts
 
 ```powershell
 mvn '-Dmaven.repo.local=C:\AppTImeControl\work\m2' --offline --batch-mode --no-transfer-progress verify
-node --test extension/tests/report.test.mjs
+node --test extension/tests/report.test.mjs extension/tests/sampling.test.mjs extension/tests/background.test.mjs
 powershell -NoProfile -File .\scripts\Start-BridgePilot.ps1 -ExtensionId IDENTIFICADOR_REAL
 ```
 

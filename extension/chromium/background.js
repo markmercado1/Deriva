@@ -1,4 +1,7 @@
-import {classifyTab} from "./report.js";
+import {inspectTab} from "./report.js";
+import {settleObservation} from "./sampling.js";
+
+const OBSERVATION_RETRY_MS = 150;
 
 let session = null;
 let sequence = 0;
@@ -22,18 +25,17 @@ async function post(c, path, body) {
 async function observe() {
   const windows = await chrome.windows.getAll({windowTypes: ["normal"]});
   const focused = windows.filter(w => w.focused);
-  if (focused.length !== 1 || focused[0].incognito) return {state: "UNKNOWN", host: null};
+  if (focused.length !== 1 || focused[0].incognito) return {state: "UNKNOWN", host: null, retry: false};
   const w = focused[0];
   const tabs = await chrome.tabs.query({windowId: w.id, active: true});
-  if (tabs.length !== 1) return {state: "UNKNOWN", host: null};
+  if (tabs.length !== 1) return {state: "UNKNOWN", host: null, retry: false};
   const verified = await chrome.windows.get(w.id);
-  return classifyTab(verified, tabs[0]);
+  return inspectTab(verified, tabs[0]);
 }
 
 async function sample() {
   if (busy) return; // No backlog and no replay of old observations.
   busy = true;
-  const version = revision;
   try {
     const c = await config();
     if (!c) { lastStatus = "Sin configurar"; return; }
@@ -43,9 +45,10 @@ async function sample() {
       session = (await handshake.json()).session;
       sequence = 0;
     }
-    let report = await observe();
-    if (version !== revision) report = {state: "UNKNOWN", host: null};
-    const response = await post(c, "tab", {browser: "chrome", session, seq: ++sequence, ...report});
+    const report = await settleObservation(observe, () => revision,
+        () => new Promise(resolve => setTimeout(resolve, OBSERVATION_RETRY_MS)));
+    const response = await post(c, "tab", {browser: "chrome", session, seq: ++sequence,
+        state: report.state, host: report.host});
     if (response.status === 409) session = null;
     lastStatus = response.ok ? "Bridge conectado; captura deshabilitada" : `Rechazado (${response.status})`;
   } catch {

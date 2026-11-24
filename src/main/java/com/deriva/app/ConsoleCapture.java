@@ -40,6 +40,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * for the same port and token.
  */
 public final class ConsoleCapture {
+    // Diagnostic console entry point: it intentionally keeps the product defaults and
+    // does not read the UI settings. The JavaFX capture reads the persisted settings.
     private static final Duration IDLE_THRESHOLD = Duration.ofSeconds(120);
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm:ss");
 

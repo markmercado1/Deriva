@@ -46,14 +46,17 @@ public final class InterruptionsController {
     @FXML private TableView<InterruptionRow> table;
     @FXML private TableColumn<InterruptionRow, String> startColumn;
     @FXML private TableColumn<InterruptionRow, String> statusColumn;
+    @FXML private TableColumn<InterruptionRow, String> annotationColumn;
     @FXML private TableColumn<InterruptionRow, String> firstChangeColumn;
     @FXML private TableColumn<InterruptionRow, String> switchColumn;
     @FXML private TableColumn<InterruptionRow, String> stabilityColumn;
     @FXML private Label detailTitle;
     @FXML private Label detailTime;
     @FXML private Label detailFirstChange;
+    @FXML private Label detailState;
     @FXML private Label detailStability;
     @FXML private Label detailCloseReason;
+    @FXML private Label detailAnnotation;
     @FXML private FlowPane contextsPane;
     @FXML private ComboBox<ReasonOption> reasonCombo;
     @FXML private CheckBox justifiedCheck;
@@ -71,6 +74,7 @@ public final class InterruptionsController {
     private String savedStatusText;
     private boolean appDemo;
     private boolean demoMode;
+    private boolean saving;
 
     @FXML
     private void initialize() {
@@ -89,6 +93,7 @@ public final class InterruptionsController {
         table.setPlaceholder(new Label("Sin datos registrados para este rango de fechas."));
         startColumn.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue().startText()));
         statusColumn.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue().statusText()));
+        annotationColumn.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue().annotationText()));
         firstChangeColumn.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue().firstChange()));
         switchColumn.setCellValueFactory(data -> new ReadOnlyStringWrapper(String.valueOf(data.getValue().switchCount())));
         stabilityColumn.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue().stabilityText()));
@@ -96,6 +101,7 @@ public final class InterruptionsController {
         switchColumn.setCellFactory(column -> monoCell());
         stabilityColumn.setCellFactory(column -> monoCell());
         statusColumn.setCellFactory(column -> statusCell());
+        annotationColumn.setCellFactory(column -> annotationCell());
 
         table.getSelectionModel().selectedItemProperty().addListener((observable, old, row) -> {
             updateDetail(row);
@@ -109,7 +115,10 @@ public final class InterruptionsController {
             updateSaveEnabled();
             clearSavedNote();
         });
-        justifiedCheck.selectedProperty().addListener((observable, old, value) -> clearSavedNote());
+        justifiedCheck.selectedProperty().addListener((observable, old, value) -> {
+            updateSaveEnabled();
+            clearSavedNote();
+        });
         demoButton.setOnAction(event -> toggleDemoMode());
         saveButton.setOnAction(event -> save());
     }
@@ -157,7 +166,11 @@ public final class InterruptionsController {
     }
 
     private void refreshAsync() {
-        if (viewModel == null) return;
+        refreshAsync(false);
+    }
+
+    private void refreshAsync(boolean finishSave) {
+        if (viewModel == null || (saving && !finishSave)) return;
         LocalDate from = fromPicker.getValue() == null ? LocalDate.now() : fromPicker.getValue();
         LocalDate to = toPicker.getValue() == null ? LocalDate.now() : toPicker.getValue();
         if (from.isAfter(to)) {
@@ -177,8 +190,10 @@ public final class InterruptionsController {
                         : viewModel.load(from, to, filter, include), executor)
                 .whenComplete((page, error) -> Platform.runLater(() -> {
                     if (request != refreshRequest.get()) return;
+                    if (finishSave) saving = false;
                     if (error != null) showLoadError(error);
                     else applyPage(page, selectedId);
+                    updateSaveEnabled();
                 }));
     }
 
@@ -252,8 +267,10 @@ public final class InterruptionsController {
             detailTitle.setText("Detalle del episodio");
             detailTime.setText("Selecciona un episodio");
             detailFirstChange.setText("—");
+            detailState.setText("—");
             detailStability.setText("—");
             detailCloseReason.setText("");
+            detailAnnotation.setText("—");
             reasonCombo.setValue(null);
             justifiedCheck.setSelected(false);
             updateSaveEnabled();
@@ -263,15 +280,10 @@ public final class InterruptionsController {
         detailTitle.setText("Episodio · " + row.startText());
         detailTime.setText(row.statusText() + " · " + row.firstChange());
         detailFirstChange.setText(row.firstChange());
+        detailState.setText(row.statusText());
         detailStability.setText(row.stabilityText());
-        detailCloseReason.setText(switch (row.status()) {
-            case STABLE -> "Estabilidad confirmada tras 180 s sin cambios.";
-            case OPEN -> "Episodio en curso; se cierra al estabilizarse o al perder la actividad.";
-            case UNCONFIRMED -> {
-                String reason = viewModel.closeReasonText(row.closeReason());
-                yield reason.isBlank() ? "Sin motivo de cierre registrado." : reason;
-            }
-        });
+        detailCloseReason.setText(viewModel.stabilityExplanation(row));
+        detailAnnotation.setText(viewModel.annotationDetail(row));
         for (var context : row.contexts()) {
             Label chip = new Label(viewModel.display(context));
             chip.getStyleClass().add("chip");
@@ -283,19 +295,34 @@ public final class InterruptionsController {
     }
 
     private void updateSaveEnabled() {
-        saveButton.setDisable(demoMode || table.getSelectionModel().getSelectedItem() == null
-                || reasonCombo.getValue() == null);
+        InterruptionRow row = table.getSelectionModel().getSelectedItem();
+        ReasonOption reason = reasonCombo.getValue();
+        boolean changed = row != null && row.hasAnnotationChanges(
+                reason == null ? null : reason.code(), justifiedCheck.isSelected());
+        saveButton.setDisable(saving || demoMode || !changed);
+        saveButton.setText(saving ? "Guardando…" : row != null && row.answeredAt() != null
+                ? (changed ? "Guardar cambios" : "Guardado ✓") : "Guardar");
+        reasonCombo.setDisable(saving || demoMode);
+        justifiedCheck.setDisable(saving || demoMode);
+        table.setDisable(saving);
+        fromPicker.setDisable(saving);
+        toPicker.setDisable(saving);
+        statusFilter.setDisable(saving);
+        includeJustified.setDisable(saving);
+        demoButton.setDisable(saving);
     }
 
     private void save() {
-        if (demoMode) return;
+        if (demoMode || saving) return;
         InterruptionRow row = table.getSelectionModel().getSelectedItem();
         ReasonOption reason = reasonCombo.getValue();
-        if (row == null || reason == null) return;
+        if (row == null || reason == null
+                || !row.hasAnnotationChanges(reason.code(), justifiedCheck.isSelected())) return;
         boolean justified = justifiedCheck.isSelected();
 
-        saveButton.setDisable(true);
-        saveButton.setText("Guardando…");
+        saving = true;
+        refreshRequest.incrementAndGet();
+        updateSaveEnabled();
         saveStatus.getStyleClass().removeAll("save-ok", "save-error");
         saveStatus.setText("Guardando…");
         CompletableFuture.runAsync(
@@ -303,8 +330,8 @@ public final class InterruptionsController {
                         executor)
                 .whenComplete((ignored, error) -> Platform.runLater(() -> {
                     if (error != null) {
-                        saveButton.setText("Guardar");
-                        saveButton.setDisable(false);
+                        saving = false;
+                        updateSaveEnabled();
                         saveStatus.setText("No se pudo guardar: " + message(error));
                         saveStatus.getStyleClass().removeAll("save-ok");
                         saveStatus.getStyleClass().add("save-error");
@@ -312,12 +339,10 @@ public final class InterruptionsController {
                         savedStatusText = "Guardado · " + reason.label()
                                 + (justified ? " · Justificada" : "")
                                 + " · " + SAVED_TIME.format(LocalTime.now());
-                        saveButton.setText("Guardar");
-                        updateSaveEnabled();
                         saveStatus.setText(savedStatusText);
                         saveStatus.getStyleClass().removeAll("save-error");
                         saveStatus.getStyleClass().add("save-ok");
-                        refreshAsync();
+                        refreshAsync(true);
                     }
                 }));
     }
@@ -326,7 +351,7 @@ public final class InterruptionsController {
         savedStatusText = null;
         saveStatus.setText("");
         saveStatus.getStyleClass().removeAll("save-ok", "save-error");
-        saveButton.setText("Guardar");
+        updateSaveEnabled();
     }
 
     private void clearSavedNote() {
@@ -334,6 +359,23 @@ public final class InterruptionsController {
             saveStatus.setText("");
             saveStatus.getStyleClass().remove("save-ok");
         }
+    }
+
+    private static TableCell<InterruptionRow, String> annotationCell() {
+        return new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                getStyleClass().removeAll("annotation-saved", "annotation-pending");
+                if (empty || item == null) {
+                    setText(null);
+                    return;
+                }
+                setText(item);
+                getStyleClass().add("Guardada".equals(item)
+                        ? "annotation-saved" : "annotation-pending");
+            }
+        };
     }
 
     private static TableCell<InterruptionRow, String> monoCell() {

@@ -132,6 +132,11 @@ class DailyUsageViewModelTest {
         }
 
         @Override
+        public com.deriva.coach.model.DetectionSettings effectiveSettings() {
+            return com.deriva.coach.model.DetectionSettings.defaults();
+        }
+
+        @Override
         public void start() {}
 
         @Override

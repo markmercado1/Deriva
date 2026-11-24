@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.deriva.ui.fx.SettingsController"
+      styleClass="content" spacing="16">
+    <VBox spacing="2">
+        <Label text="Ajustes" styleClass="page-title"/>
+        <Label text="Configura cómo Deriva detecta los cambios frecuentes."
+               styleClass="page-subtitle"/>
+    </VBox>
+
+    <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" styleClass="settings-scroll">
+        <VBox spacing="14">
+            <VBox styleClass="settings-panel" spacing="12">
+                <Label text="Detección de cambios frecuentes" styleClass="usage-title"/>
+                <Label text="Estos valores deciden cuándo Deriva registra un episodio de cambios entre aplicaciones o sitios y cuándo lo cierra. No miden concentración ni productividad."
+                       styleClass="settings-help" wrapText="true"/>
+                <Label text="Solo cuentan los cambios confirmados; los cambios de menos de 3 s no cuentan."
+                       styleClass="settings-note" wrapText="true"/>
+
+                <HBox spacing="14" alignment="CENTER_LEFT" styleClass="settings-row">
+                    <VBox spacing="2" HBox.hgrow="ALWAYS">
+                        <Label text="Cambios para abrir un episodio" styleClass="settings-label"/>
+                        <Label text="Cuántos cambios entre aplicaciones o sitios deben ocurrir para abrir un episodio."
+                               styleClass="settings-help" wrapText="true"/>
+                    </VBox>
+                    <HBox spacing="8" alignment="CENTER_RIGHT" minWidth="190">
+                        <TextField fx:id="switchesField" minWidth="90" prefWidth="90" styleClass="settings-input"/>
+                        <Label text="cambios" styleClass="settings-unit"/>
+                    </HBox>
+                </HBox>
+
+                <HBox spacing="14" alignment="CENTER_LEFT" styleClass="settings-row">
+                    <VBox spacing="2" HBox.hgrow="ALWAYS">
+                        <Label text="Ventana de tiempo" styleClass="settings-label"/>
+                        <Label text="Los cambios deben ocurrir dentro de este periodo, contado hacia atrás desde el último cambio."
+                               styleClass="settings-help" wrapText="true"/>
+                    </VBox>
+                    <HBox spacing="8" alignment="CENTER_RIGHT" minWidth="300">
+                        <TextField fx:id="windowField" minWidth="90" prefWidth="90" styleClass="settings-input"/>
+                        <Label text="segundos" styleClass="settings-unit"/>
+                        <Label fx:id="windowHint" text="—" styleClass="settings-hint"/>
+                    </HBox>
+                </HBox>
+
+                <HBox spacing="14" alignment="CENTER_LEFT" styleClass="settings-row">
+                    <VBox spacing="2" HBox.hgrow="ALWAYS">
+                        <Label text="Tiempo en el mismo contexto para comprobar estabilidad"
+                               styleClass="settings-label"/>
+                        <Label text="Cuánto debe mantenerse la misma aplicación o sitio, sin un cambio pendiente, para comprobar la estabilidad. Se cuenta desde que empezó ese contexto."
+                               styleClass="settings-help" wrapText="true"/>
+                    </VBox>
+                    <HBox spacing="8" alignment="CENTER_RIGHT" minWidth="300">
+                        <TextField fx:id="stabilityField" minWidth="90" prefWidth="90" styleClass="settings-input"/>
+                        <Label text="segundos" styleClass="settings-unit"/>
+                        <Label fx:id="stabilityHint" text="—" styleClass="settings-hint"/>
+                    </HBox>
+                </HBox>
+
+                <HBox spacing="14" alignment="CENTER_LEFT" styleClass="settings-row">
+                    <VBox spacing="2" HBox.hgrow="ALWAYS">
+                        <Label text="Tiempo sin teclado ni ratón para considerar inactividad"
+                               styleClass="settings-label"/>
+                        <Label text="Al superar este tiempo sin teclado ni ratón, Deriva considera la actividad inactividad. También puede afectar al tiempo en primer plano de Uso diario; si lo aumentas demasiado, puede contar tiempo en que te alejaste del equipo."
+                               styleClass="settings-help" wrapText="true"/>
+                    </VBox>
+                    <HBox spacing="8" alignment="CENTER_RIGHT" minWidth="300">
+                        <TextField fx:id="idleField" minWidth="90" prefWidth="90" styleClass="settings-input"/>
+                        <Label text="segundos" styleClass="settings-unit"/>
+                        <Label fx:id="idleHint" text="—" styleClass="settings-hint"/>
+                    </HBox>
+                </HBox>
+            </VBox>
+
+            <VBox styleClass="settings-panel" spacing="8">
+                <Label text="Valores" styleClass="settings-section-title"/>
+                <Label fx:id="effectiveValues" text="En uso ahora: —" styleClass="settings-effective" wrapText="true"/>
+                <Label fx:id="pendingValues" text="" styleClass="settings-pending" wrapText="true"/>
+                <Label fx:id="unsavedLabel" text="Cambios sin guardar." styleClass="settings-pending" wrapText="true"/>
+                <Label fx:id="validationLabel" text="" styleClass="settings-error" wrapText="true"/>
+                <Label fx:id="loadWarningLabel" text="" styleClass="settings-error" wrapText="true"/>
+                <Label fx:id="idleWarningLabel" text="" styleClass="settings-warning" wrapText="true"/>
+            </VBox>
+
+            <VBox styleClass="settings-panel" spacing="8">
+                <Label text="Cómo se aplica" styleClass="settings-section-title"/>
+                <Label text="Guardar no cambia la captura en curso. Pausar y Reanudar conservan los valores de la sesión; Detener y volver a Iniciar aplica los valores guardados. No se recalculan episodios ni historial."
+                       styleClass="settings-help" wrapText="true"/>
+                <Label text="Estos ajustes no cambian las exclusiones ni el bridge. Un «Cierre por exclusión» depende de qué ventana tenía el foco o de si el navegador tenía un sitio autorizado; no de estos números. Tampoco miden concentración ni productividad."
+                       styleClass="settings-note" wrapText="true"/>
+            </VBox>
+        </VBox>
+    </ScrollPane>
+
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Button fx:id="restoreButton" text="Restaurar valores predeterminados"
+                styleClass="secondary-button"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Button fx:id="saveButton" text="Guardar" styleClass="primary-button"/>
+    </HBox>
+    <Label fx:id="saveStatus" text="" styleClass="save-status" wrapText="true"/>
+</VBox>

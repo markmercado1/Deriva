@@ -179,3 +179,28 @@ Estado: aplicable. F5.2b usa `java.awt.SystemTray` desde `com.deriva.app.AppTray
 ## A34 — 2026-11-23 — Medición sostenida F6.1 aceptada
 
 Estado: aplicable. La medición de F6.1 se acepta con `work/f6/ui-resources.csv` (SHA-256 `2DF7C43703890F7A43D6086E7ED6F3A27CC8542A8B7C6EF129FFC19175FA0EDD`): 256 muestras cada 30 s durante 2 h 7 min 30 s, con captura activa y bridge/Brave según los segmentos de la base de la sesión. Se registran CPU media 0,15 %, máxima 0,40 % y p95 0,24 % sobre 16 CPUs lógicas; working set 394,7→249,0 MB (máx. 416,4 MB); memoria privada ≤484,0 MB; hilos 67–70 y handles 750–760. El CSV no tiene huecos mayores de 30,025 s. Es una sola máquina y una resolución de 30 s; no se extrapola a otros equipos ni a sesiones de varias horas. La sesión posterior de la mañana (capturas en `docs/pruebas/`) no tiene CSV y no se usa para las cifras. La base protegida `work/console-day/deriva.db` no se tocó. Evidencia E030.
+
+## A35 - 2026-11-23 - Anotación y estabilidad son datos distintos
+
+Estado: aplicable. En Interrupciones, **Anotación** se deriva solo de `drift_event.answered_at`: `NULL` → **Pendiente**; no nulo → **Guardada**. No se usa `reason` ni `justified` para inferirlo. **Estabilidad** sustituye a «Estado» y usa **En curso** (`OPEN`), **Estable** (`STABLE`) y **No comprobada** (`UNCONFIRMED`); el filtro y el detalle usan esas mismas etiquetas. Para `UNCONFIRMED`, el detalle explica la ausencia de comprobación con el `close_reason` persistido. Guardar sigue ejecutando solo `UPDATE drift_event SET reason, justified, answered_at`; no toca `status`, `closed_at` ni `close_reason`, por lo que no reabre ni cierra el episodio. Sin cambios de esquema. Evidencia E031.
+
+## A36 - 2026-11-23 - Ajustes sigue fuera de alcance
+
+Estado: aplicable. El botón **Ajustes** continúa visible pero deshabilitado; no se crea una pantalla vacía. El plano v2 §8–9 pide una lista editable de procesos/hosts excluidos mediante configuración local documentada, valores de captura/umbrales, puerto/token del bridge y un panel de conexión. La base ya tiene las tablas `setting`, `excluded_app` y `excluded_site`, pero no hay repositorio, validación, pantalla ni política de reinicio implementados. Recomendación: ocultar o mantener deshabilitado Ajustes hasta una fase propia; si se implementa un mínimo, limitarlo a mostrar la ubicación y los valores efectivos de configuración, la lista de exclusiones y el aviso de reinicio, sin editor visual completo ni opciones inventadas. No se implementa en esta entrega.
+
+## A37 — 2026-11-23 — Detalle desplazable
+Por petición del usuario, envolver únicamente el detalle en ScrollPane: ajuste al ancho, scroll vertical según necesidad y sin scroll horizontal. Guardar permanece dentro del contenido. Sin cambiar barra lateral ni lógica.
+
+
+## A38 — 2026-11-23 — Guardar solo cambios pendientes
+Comparación pura en InterruptionRow entre motivo/Justificada y valores persistidos; answered_at nulo permite la primera anotación con motivo válido. El controller bloquea reentrada, invalida lecturas anteriores y mantiene bloqueo hasta recargar el resultado. No cambia esquema ni reglas de episodios.
+
+## A39 — 2026-11-23 — Cuatro umbrales de detección configurables
+
+Estado: aplicable. Ajustes implementa solo cuatro claves sobre la tabla `setting` existente: `drift_switches`, `drift_window_s`, `stable_s` e `idle_threshold_s`. Predeterminados conservados: **10 / 120 / 180 / 120**. Límites iniciales de producto (no científicos): cambios 4–30; ventana 30–600 s; estabilidad 30–900 s; inactividad 30–1800 s. La validación es pura en `DetectionSettings`; un valor persistido ausente usa el predeterminado sin aviso, y uno inválido usa el predeterminado del campo afectado, muestra qué valores están en uso y **no** sobrescribe lo guardado. La sesión congela sus valores al iniciar; **Pausar/Reanudar conserva** y **Detener/Iniciar relee**. Guardar no modifica el episodio en curso ni recalcula historial. `DriftEpisode`/`DriftEvent` exigen `switchCount > 0`, no 10, para admitir umbrales menores. La consola diagnóstica conserva los predeterminados y no lee la configuración. El aviso inactividad≤estabilidad es informativo y no bloquea. Sin editor de exclusiones, bridge ni cierre de F6.2. Evidencia E034.
+
+## A40 — 2026-11-23 — UNKNOWN transitorio de la extensión no debe cortar la deriva
+
+Estado: aplicable. La sonda real mostró que, con Brave normal en primer plano, la extensión enviaba un reporte **UNKNOWN fresco** y aceptado durante ~0,5–0,8 s al navegar. No era STALE (los reportes seguían a ~1/s), no era un rechazo ni un reinicio de sesión, y el usuario no usó incógnito ni cambió de perfil. El `PrivacyFilter` lo convertía correctamente en EXCLUDED y `DriftStateMachine` limpiaba la ventana. El origen en la extensión era doble: el contador de revisión invalidaba una lectura en curso y la URL podía estar vacía mientras la pestaña cargaba.
+
+Corrección: `settleObservation` relee la pestaña de forma acotada (hasta 3 intentos con 150 ms entre reintentos y una lectura final) cuando cambia la revisión o cuando un UNKNOWN es reintentable por URL aún no lista en una pestaña `loading`. Cada intento hace una lectura nueva; no se reutiliza ningún host anterior. Incógnito, ventana no enfocada, pestaña inactiva/cerrada, página interna y URL inválida estable no se reintentan y siguen produciendo UNKNOWN/INTERNAL de inmediato. El plazo de frescura de 3 s, la semántica de EXCLUDED, los umbrales y el `PrivacyFilter` de Java no cambian. Si tras los reintentos la lectura sigue sin ser NORMAL, se envía UNKNOWN; la privacidad no se relaja. Evidencia E035.

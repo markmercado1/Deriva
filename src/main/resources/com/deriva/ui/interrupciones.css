@@ -215,6 +215,16 @@
     -fx-fill: #A66A1F;
 }
 
+.table .table-cell.annotation-saved {
+    -fx-text-fill: #4F6B57;
+    -fx-font-size: 12px;
+}
+
+.table .table-cell.annotation-pending {
+    -fx-text-fill: #7A756C;
+    -fx-font-size: 12px;
+}
+
 .status-dot-unconfirmed {
     -fx-fill: transparent;
     -fx-stroke: #7A756C;
@@ -393,6 +403,106 @@
 .usage-status {
     -fx-text-fill: #746F66;
     -fx-font-size: 12px;
+}
+
+.settings-scroll {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+    -fx-padding: 0;
+}
+
+.settings-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
+.settings-panel {
+    -fx-background-color: #FFFEFB;
+    -fx-border-color: #E2DDD3;
+    -fx-border-radius: 10;
+    -fx-background-radius: 10;
+    -fx-padding: 18;
+}
+
+.settings-row {
+    -fx-border-color: transparent transparent #F0ECE3 transparent;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 10 0;
+}
+
+.settings-label {
+    -fx-text-fill: #302E2A;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+
+.settings-help {
+    -fx-text-fill: #746F66;
+    -fx-font-size: 12px;
+    -fx-line-spacing: 2px;
+}
+
+.settings-note {
+    -fx-text-fill: #746F66;
+    -fx-font-size: 11px;
+    -fx-line-spacing: 2px;
+}
+
+.settings-unit {
+    -fx-text-fill: #746F66;
+    -fx-font-size: 12px;
+}
+
+.settings-hint {
+    -fx-text-fill: #746F66;
+    -fx-font-size: 11px;
+    -fx-font-family: "Consolas";
+    -fx-min-width: 118px;
+}
+
+.settings-input {
+    -fx-background-color: #FFFEFB;
+    -fx-border-color: #D6CFC3;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-font-family: "Consolas";
+    -fx-font-size: 13px;
+    -fx-alignment: CENTER_RIGHT;
+}
+
+.settings-section-title {
+    -fx-text-fill: #302E2A;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+}
+
+.settings-effective {
+    -fx-text-fill: #302E2A;
+    -fx-font-size: 13px;
+    -fx-font-family: "Consolas";
+}
+
+.settings-pending {
+    -fx-text-fill: #A66A1F;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+
+.settings-warning {
+    -fx-text-fill: #7A5A1E;
+    -fx-background-color: #FBF1DC;
+    -fx-background-radius: 8;
+    -fx-padding: 10 12;
+    -fx-font-size: 12px;
+    -fx-line-spacing: 2px;
+}
+
+.settings-error {
+    -fx-text-fill: #9E462C;
+    -fx-background-color: #F8E9DE;
+    -fx-background-radius: 8;
+    -fx-padding: 10 12;
+    -fx-font-size: 12px;
+    -fx-line-spacing: 2px;
 }
 
 .capture-panel {

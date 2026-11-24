@@ -44,24 +44,30 @@
         <VBox HBox.hgrow="ALWAYS" spacing="8">
             <TableView fx:id="table" styleClass="table" VBox.vgrow="ALWAYS">
                 <columns>
-                    <TableColumn fx:id="startColumn" text="Inicio" prefWidth="104"/>
-                    <TableColumn fx:id="statusColumn" text="Estado" prefWidth="128"/>
-                    <TableColumn fx:id="firstChangeColumn" text="Primer cambio detectado" prefWidth="230"/>
-                    <TableColumn fx:id="switchColumn" text="Cambios" prefWidth="80"/>
-                    <TableColumn fx:id="stabilityColumn" text="Tiempo hasta estabilidad" prefWidth="170"/>
+                    <TableColumn fx:id="startColumn" text="Inicio" prefWidth="116" minWidth="116"/>
+                    <TableColumn fx:id="statusColumn" text="Estabilidad" prefWidth="140" minWidth="136"/>
+                    <TableColumn fx:id="annotationColumn" text="Anotación" prefWidth="104" minWidth="100"/>
+                    <TableColumn fx:id="firstChangeColumn" text="Primer cambio detectado" prefWidth="175"/>
+                    <TableColumn fx:id="switchColumn" text="Cambios" prefWidth="84"/>
+                    <TableColumn fx:id="stabilityColumn" text="Tiempo hasta estabilidad" prefWidth="160"/>
                 </columns>
             </TableView>
         </VBox>
 
-        <VBox styleClass="detail-panel" prefWidth="380" spacing="10">
+        <ScrollPane fitToWidth="true" hbarPolicy="NEVER" vbarPolicy="AS_NEEDED" prefWidth="380" minWidth="380" minHeight="0" styleClass="usage-scroll">
+        <VBox styleClass="detail-panel" spacing="10">
             <Label fx:id="detailTitle" text="Detalle del episodio" styleClass="detail-title"/>
             <Label fx:id="detailTime" text="Selecciona un episodio" styleClass="detail-subtitle" wrapText="true"/>
             <Separator/>
             <Label text="Primer cambio detectado" styleClass="detail-label"/>
             <Label fx:id="detailFirstChange" text="—" styleClass="detail-value"/>
+            <Label text="Estabilidad" styleClass="detail-label"/>
+            <Label fx:id="detailState" text="—" styleClass="detail-value"/>
             <Label text="Tiempo hasta actividad estable" styleClass="detail-label"/>
             <Label fx:id="detailStability" text="—" styleClass="detail-value, mono"/>
             <Label fx:id="detailCloseReason" text="" styleClass="detail-note" wrapText="true"/>
+            <Label text="Anotación" styleClass="detail-label"/>
+            <Label fx:id="detailAnnotation" text="Pendiente de guardar" styleClass="detail-value"/>
             <Label text="Contextos observados" styleClass="detail-label"/>
             <FlowPane fx:id="contextsPane" hgap="6" vgap="6"/>
             <Separator/>
@@ -71,5 +77,6 @@
             <Button fx:id="saveButton" text="Guardar" styleClass="primary-button" maxWidth="Infinity" disable="true"/>
             <Label fx:id="saveStatus" styleClass="save-status" wrapText="true" maxWidth="Infinity"/>
         </VBox>
+        </ScrollPane>
     </HBox>
 </VBox>

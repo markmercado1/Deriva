@@ -1,13 +1,16 @@
 package com.deriva.app;
 
 import com.deriva.app.usecase.CaptureControl;
+import com.deriva.app.usecase.CaptureSettingsPolicy;
 import com.deriva.app.usecase.CaptureSnapshot;
 import com.deriva.app.usecase.CaptureState;
 import com.deriva.app.usecase.CaptureStatus;
+import com.deriva.app.usecase.SettingsService;
 import com.deriva.bridge.BrowserStateStore;
 import com.deriva.bridge.http.LocalBridgeServer;
 import com.deriva.coach.DriftStateMachine;
 import com.deriva.coach.model.CloseReason;
+import com.deriva.coach.model.DetectionSettings;
 import com.deriva.coach.model.DriftUpdate;
 import com.deriva.privacy.Observation;
 import com.deriva.privacy.PrivacyFilter;
@@ -53,21 +56,22 @@ public final class CaptureSession implements CaptureControl {
     private final Path databasePath;
     private final BridgeConfig bridgeConfig;
     private final Clock clock;
-    private final Duration idleThreshold;
+    private final SettingsService settingsService;
     private final Object lock = new Object();
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     private volatile boolean pauseRequested;
     private volatile CaptureStatus status = CaptureStatus.stopped();
     private volatile CaptureSnapshot snapshot = CaptureSnapshot.stopped();
+    private volatile DetectionSettings effectiveSettings;
     private volatile Thread thread;
 
     public CaptureSession(Path databasePath, BridgeConfig bridgeConfig, Clock clock,
-                          Duration idleThreshold) {
+                          SettingsService settingsService) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath();
         this.bridgeConfig = bridgeConfig;
         this.clock = Objects.requireNonNull(clock, "clock");
-        this.idleThreshold = Objects.requireNonNull(idleThreshold, "idleThreshold");
+        this.settingsService = Objects.requireNonNull(settingsService, "settingsService");
     }
 
     @Override
@@ -81,12 +85,24 @@ public final class CaptureSession implements CaptureControl {
     }
 
     @Override
+    public DetectionSettings effectiveSettings() {
+        CaptureState state = status.state();
+        DetectionSettings session = effectiveSettings;
+        if (session != null && (state == CaptureState.STARTING || state == CaptureState.RUNNING
+                || state == CaptureState.PAUSED || state == CaptureState.STOPPING))
+            return session;
+        return settingsService.current();
+    }
+
+    @Override
     public void start() {
         synchronized (lock) {
             CaptureState state = status.state();
             if (state == CaptureState.STARTING || state == CaptureState.RUNNING
                     || state == CaptureState.STOPPING) return;
             pauseRequested = false;
+            effectiveSettings = CaptureSettingsPolicy.onStart(state, effectiveSettings,
+                    settingsService.current());
             running.set(true);
             status = new CaptureStatus(CaptureState.STARTING, "Iniciando captura…");
             thread = new Thread(this::runLoop, "deriva-capture");
@@ -174,7 +190,8 @@ public final class CaptureSession implements CaptureControl {
         SQLiteSegmentRepository segmentRepository = null;
         SQLiteDriftRepository driftRepository = null;
         Segmenter segmenter = new Segmenter();
-        DriftStateMachine drift = new DriftStateMachine();
+        DetectionSettings sessionSettings = effectiveSettings;
+        DriftStateMachine drift = new DriftStateMachine(sessionSettings);
         boolean failed = false;
         String failure = null;
         try {
@@ -189,7 +206,8 @@ public final class CaptureSession implements CaptureControl {
                         bridgeConfig.extensionId(), browserState, System::nanoTime);
                 bridge.start();
             }
-            PrivacyFilter filter = new PrivacyFilter(ProcessHandle.current().pid(), idleThreshold,
+            PrivacyFilter filter = new PrivacyFilter(ProcessHandle.current().pid(),
+                    sessionSettings.idle(),
                     bridge == null ? Optional::empty : browserState::freshNormalHost,
                     CAPTURE_BROWSERS);
 

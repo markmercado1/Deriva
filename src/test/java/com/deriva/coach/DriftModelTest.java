@@ -2,6 +2,7 @@ package com.deriva.coach;
 
 import com.deriva.coach.model.CloseReason;
 import com.deriva.coach.model.DriftEpisode;
+import com.deriva.coach.model.DriftEvent;
 import com.deriva.coach.model.DriftStatus;
 import com.deriva.tracking.model.ContextKey;
 import org.junit.jupiter.api.Test;
@@ -47,10 +48,20 @@ class DriftModelTest {
     }
 
     @Test
-    void firstContextMustBeIncludedAndThresholdIsTen() {
+    void firstContextMustBeIncludedAndSwitchCountMustBePositive() {
         assertThrows(IllegalArgumentException.class, () -> new DriftEpisode(1, T0, T1, T1, null, null,
                 DriftStatus.OPEN, null, 10, A, null, Set.of(B)));
         assertThrows(IllegalArgumentException.class, () -> new DriftEpisode(1, T0, T1, T1, null, null,
-                DriftStatus.OPEN, null, 9, A, null, Set.of(A)));
+                DriftStatus.OPEN, null, 0, A, null, Set.of(A)));
+        assertDoesNotThrow(() -> new DriftEpisode(1, T0, T1, T1, null, null,
+                DriftStatus.OPEN, null, 4, A, null, Set.of(A)));
+    }
+
+    @Test
+    void persistedEventAlsoAcceptsSwitchCountBelowTen() {
+        assertDoesNotThrow(() -> new DriftEvent(1, T0, T1, T1, null, null,
+                DriftStatus.OPEN, null, 4, A, null, null, false, null, Set.of(A)));
+        assertThrows(IllegalArgumentException.class, () -> new DriftEvent(1, T0, T1, T1, null, null,
+                DriftStatus.OPEN, null, 0, A, null, null, false, null, Set.of(A)));
     }
 }

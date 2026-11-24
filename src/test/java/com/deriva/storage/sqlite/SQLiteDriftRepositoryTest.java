@@ -147,6 +147,27 @@ class SQLiteDriftRepositoryTest {
         assertEquals("OTHER", event.reason());
         assertTrue(event.justified());
         assertEquals(at(12), event.answeredAt());
+        assertEquals(DriftStatus.OPEN, event.status());
+        assertNull(event.closedAt());
+        assertNull(event.closeReason());
+    }
+
+    @Test
+    void annotationDoesNotReopenClosedEpisode() {
+        SQLiteDriftRepository repository = new SQLiteDriftRepository(database());
+        repository.upsertDetection(new DriftUpdate(DriftUpdate.Type.OPENED,
+                open(1, 10, 10, A, Set.of(A))));
+        long id = repository.between(at(0), at(20)).getFirst().id();
+        DriftEpisode stable = new DriftEpisode(1, at(0), at(10), at(190), at(190), at(190),
+                DriftStatus.STABLE, null, 10, A, 190_000L, Set.of(A));
+        repository.upsertDetection(new DriftUpdate(DriftUpdate.Type.CLOSED, stable));
+
+        repository.annotate(id, "BREAK", true, at(200));
+
+        DriftEvent event = repository.between(at(0), at(300)).getFirst();
+        assertEquals(DriftStatus.STABLE, event.status());
+        assertEquals(at(190), event.closedAt());
+        assertEquals(at(200), event.answeredAt());
     }
 
     @Test

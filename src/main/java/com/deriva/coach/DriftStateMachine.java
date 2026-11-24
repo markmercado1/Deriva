@@ -3,6 +3,7 @@ package com.deriva.coach;
 import com.deriva.analysis.Change;
 import com.deriva.analysis.ChangeCounter;
 import com.deriva.coach.model.CloseReason;
+import com.deriva.coach.model.DetectionSettings;
 import com.deriva.coach.model.DriftEpisode;
 import com.deriva.coach.model.DriftStatus;
 import com.deriva.coach.model.DriftUpdate;
@@ -22,20 +23,25 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Pure D1/D2 state machine. It opens one episode at the tenth confirmed change
- * inside 120 seconds, updates that same episode while it remains open, and closes
- * it as STABLE after 180 seconds of the current context or as UNCONFIRMED on a
- * boundary.
+ * Pure D1/D2 state machine. It opens one episode when the configured number of
+ * confirmed changes fits inside the configured window, updates that same episode
+ * while it remains open, and closes it as STABLE after the configured stability
+ * time in the current context or as UNCONFIRMED on a boundary.
  */
 public final class DriftStateMachine implements DriftDetector {
-    private static final int THRESHOLD = 10;
-    private static final Duration WINDOW = Duration.ofSeconds(120);
-    private static final Duration STABILITY = Duration.ofSeconds(180);
-
+    private final DetectionSettings settings;
     private final ChangeCounter changeCounter = new ChangeCounter();
     private final Deque<Change> window = new ArrayDeque<>();
     private OpenEpisode open;
     private long nextId = 1;
+
+    public DriftStateMachine() {
+        this(DetectionSettings.defaults());
+    }
+
+    public DriftStateMachine(DetectionSettings settings) {
+        this.settings = Objects.requireNonNull(settings, "settings");
+    }
 
     @Override
     public List<DriftUpdate> onTick(StableTick tick) {
@@ -64,7 +70,7 @@ public final class DriftStateMachine implements DriftDetector {
             }
             if (!tick.pendingChange()) {
                 Duration stable = Duration.between(tick.contextSince(), tick.timestamp());
-                if (stable.compareTo(STABILITY) >= 0) {
+                if (stable.compareTo(settings.stability()) >= 0) {
                     updates.add(new DriftUpdate(DriftUpdate.Type.CLOSED,
                             open.stable(tick.timestamp(), tick.contextSince())));
                     open = null;
@@ -76,11 +82,11 @@ public final class DriftStateMachine implements DriftDetector {
 
         if (change.isPresent()) {
             window.addLast(change.get());
-            Instant cutoff = tick.timestamp().minus(WINDOW);
+            Instant cutoff = tick.timestamp().minus(settings.window());
             while (!window.isEmpty() && !window.getFirst().timestamp().isAfter(cutoff))
                 window.removeFirst();
 
-            if (window.size() >= THRESHOLD) {
+            if (window.size() >= settings.switches()) {
                 open = OpenEpisode.from(nextId++, window, tick);
                 window.clear();
                 updates.add(new DriftUpdate(DriftUpdate.Type.OPENED, open.openSnapshot()));

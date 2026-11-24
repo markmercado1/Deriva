@@ -67,3 +67,7 @@ Antes de modificar esquema o contrato, comprobar consumidores y casos de prueba;
 ## Uso diario — ampliación autorizada
 
 DailyUsageCalculator vive en analysis y es puro: recorta intervalos al día/zona y agrupa por proceso y host. app.usecase obtiene una instantánea coherente del registro persistido, pendiente y abierto mediante puertos; nunca consulta JDBC directamente. El adaptador SQLite consulta segmentos por solapamiento; tracking expone solo instantáneas inmutables. ui.viewmodel presenta totales/cobertura; ui.fx renderiza las listas. El tiempo del sitio es desglose del navegador. Sin nuevas tablas ni seguimiento de audio de fondo. Véase plano v2 §7.6–7.7.
+
+## Ajustes de detección — ampliación autorizada
+
+`DetectionSettings` es un record puro en `coach.model` con los cuatro valores, predeterminados, rangos y validación. `SettingsRepository` en `storage.port` abstrae la tabla `setting`; `SQLiteSettingsRepository` solo lee/escribe claves y valores. `SettingsService` en `app.usecase` interpreta las claves, aplica fallback visible y conserva la instantánea guardada. `CaptureSettingsPolicy` fija la regla de sesión; `CaptureSession` congela la configuración al iniciar, la conserva al pausar/reanudar y la relee al detener/iniciar. `SettingsViewModel` valida y presenta; `SettingsController` escribe fuera del hilo FX. `DriftStateMachine` y `PrivacyFilter` reciben los valores ya validados. La consola diagnóstica no lee esta configuración. Sin cambio de esquema.

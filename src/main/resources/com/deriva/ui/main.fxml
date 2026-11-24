@@ -17,9 +17,8 @@
                         styleClass="nav-button" onAction="#showInterruptions"/>
                 <Button fx:id="usageButton" text="Uso diario" maxWidth="Infinity"
                         styleClass="nav-button" onAction="#showUsage"/>
-                <Button text="Ajustes" maxWidth="Infinity" styleClass="nav-button" disable="true">
-                    <tooltip><Tooltip text="Pendiente de una fase posterior"/></tooltip>
-                </Button>
+                <Button fx:id="settingsButton" text="Ajustes" maxWidth="Infinity"
+                        styleClass="nav-button" onAction="#showSettings"/>
             </VBox>
             <VBox styleClass="capture-panel" spacing="6">
                 <Label fx:id="captureStatus" text="Captura detenida"

@@ -222,5 +222,31 @@ Las siguientes entradas deben ser cortas: tarea, cambios, evidencia, límites y 
 - Límites: una máquina, resolución 30 s, solo el proceso de la UI; la sesión posterior de la mañana no tiene CSV; no sustituye una prueba de varias horas ni de otro equipo. La base protegida no se tocó.
 - Siguiente: F6.2 entrega local reproducible, pendiente de autorización. Ajustes, Brave completo, P1/P2 y USE-02 siguen fuera.
 
+## E031 — 2026-11-23 — Anotación guardada vs. estabilidad no comprobada
+
+- Funciona: la columna **Anotación** muestra **Pendiente/Guardada** según `answered_at` persistido; **Estabilidad** usa **En curso/Estable/No comprobada**; el detalle explica por qué no se comprobó la estabilidad con el motivo real de cierre. Guardar mantiene la confirmación visible y no altera el estado automático ni reabre el episodio.
+- Probado: Maven verify offline **127 tests Java, 0 fallos**; smoke `annotate` sobre base sintética → banner `Guardado · Mensajes · Justificada · 10:44`; reapertura de la misma base → `Guardada · 23/11 10:44` sin volver a guardar; trigger SQLite → banner rojo y fila **Pendiente**; episodio UNCONFIRMED → `No se comprobó la estabilidad: el cierre por inactividad.` Capturas en `work/ui-preview/ui-claridad/`.
+- Límites: smokes de controles, no clics humanos; bases sintéticas, no captura real; fallo inducido con trigger. F6.2 no se inició ni cerró; Ajustes no se implementó.
+- Siguiente: revisar la recomendación de Ajustes (A36) y decidir el alcance de F6.2 con autorización explícita.
+
 ### 2026-11-23 — Base inicial de Git
 Preparación del respaldo del código y documentación en GitHub por solicitud del usuario. Capturas reales locales excluidas; sin implementación ni cierre de F6.2.
+
+## 2026-11-23 — UI-SCROLL (E032)
+Detalle de Interrupciones desplazable; compilación, carga JavaFX y accesibilidad geométrica de Guardar tras scroll a 1200x600 comprobadas. F6.2 pendiente.
+
+
+## 2026-11-23 — UI-SAVE (E033)
+Guardar sin cambios queda deshabilitado; controles bloqueados durante escritura/recarga, con reintento en error. 129 tests Java sin fallos y smoke JavaFX de clics repetidos/cambios/reversión/error. Sin cierre de F6.2.
+
+## 2026-11-23 - AJUSTES-DETECCION (E034)
+- Funciona: Ajustes con cuatro umbrales de detección (cambios, ventana, estabilidad e inactividad), persistencia en `setting`, valores efectivos vs. pendientes, restaurar predeterminados sin guardar, aviso inactividad≤estabilidad y fallback visible sin sobrescribir configuración inválida.
+- Probado: Maven verify offline 158 tests Java, 0 fallos (29 nuevos); smokes `settings` y `settings-session` sobre bases temporales; persistencia y reapertura; configuración inválida intacta; regla Pausar/Reanudar conserva y Detener/Iniciar aplica; captura con 0 OPEN y hilos 0. Capturas en `work/ui-preview/ajustes/`.
+- Límites: smokes de controles, no clics humanos; sin episodio real de deriva con umbral distinto; consola diagnóstica conserva defaults; el hallazgo de EXCLUSION al enfocar Deriva queda pendiente de revisión separada. No se implementaron exclusiones, bridge ni F6.2.
+- Siguiente: F6.2 sigue pendiente; revisar el comportamiento de EXCLUSION por foco como tarea aparte.
+
+## 2026-11-23 - BRAVE-EXCLUSIONES (E035)
+- Funciona: la extensión ya no convierte en UNKNOWN un cambio de revisión durante la lectura ni una URL aún vacía de una pestaña que carga; relee la pestaña de forma acotada (hasta 3 intentos con 150 ms entre reintentos y una lectura final) sin reutilizar hosts. Incógnito, foco perdido, página interna y pestaña cerrada siguen excluyéndose de inmediato. El núcleo Java, la frescura de 3 s, la semántica de EXCLUDED y los umbrales no cambian.
+- Probado: sonda real de solo lectura sobre el bridge (250 ms, sin hosts/URLs/títulos/tokens) mostró UNKNOWN frescos de ~0,5-0,8 s con Brave en primer plano, sin STALE ni reinicio de sesión, coincidiendo con EXCLUDED y con el cierre del episodio 3. Tras recargar la extensión, 38 s NORMAL continuos durante la navegación y episodio 4 abierto con 6 cambios. 14 tests JS y 158 tests Java, 0 fallos. Artefactos en `work/diagnostico-continuidad-brave/`; base protegida intacta.
+- Límites: una máquina y un perfil/ventana de Brave; sin repetición real de incógnito, pérdida de foco, caducidad o segundo perfil. El gate completo de Brave y F6.2 siguen pendientes. La UI indica bridge configurado, no frescura del sitio.
+- Siguiente: F6.2 pendiente; completar el gate reducido de Brave (segundo perfil, reinicio, 1 h, colisión Chrome/Brave) y decidir aparte el mensaje de estado del bridge.

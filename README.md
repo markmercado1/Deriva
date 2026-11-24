@@ -57,7 +57,7 @@ El resto de paquetes se creará cuando tenga implementación real. JavaFX/JNA/SQ
 
 Git local inicializado, sin remoto y sin commits en F1.1. Los archivos existentes se conservaron; revisar git status antes de la siguiente tarea. No publicar datos de actividad ni la caché work/.
 
-Estado actual: **F0–F5.2 y F6.1 HECHO; F6.2 pendiente** (2026-11-23). GATE-Q2 PASS para Chrome + un perfil; F2.4 implementó la allowlist, F2.4b añadió Brave con gate reducido, F3.1 la máquina de deriva, F3.1b la captura mínima por consola, F3.2 la persistencia de episodios, F4.1 la pantalla de Interrupciones, F4.2 el rango por solapamiento, F4.3 Uso diario, F5.1 la captura real con borrado y cierre, F5.2 la pausa manual y la bandeja, y F6.1 la medición sostenida. Uso diario incluye el abierto confirmado como provisional y muestra el pendiente sin sumarlo. Con bridge se permite Chrome o Brave con un perfil; sin bridge los navegadores quedan excluidos. Ctrl+C no validado limpiamente (P2). Ajustes sigue deshabilitado.
+Estado actual: **F0–F5.2 y F6.1 HECHO; AJUSTES-DETECCION HECHO; F6.2 pendiente** (2026-11-23). GATE-Q2 PASS para Chrome + un perfil; F2.4 implementó la allowlist, F2.4b añadió Brave con gate reducido, F3.1 la máquina de deriva, F3.1b la captura mínima por consola, F3.2 la persistencia de episodios, F4.1 la pantalla de Interrupciones, F4.2 el rango por solapamiento, F4.3 Uso diario, F5.1 la captura real con borrado y cierre, F5.2 la pausa manual y la bandeja, F6.1 la medición sostenida y AJUSTES-DETECCION los cuatro umbrales de detección. Uso diario incluye el abierto confirmado como provisional y muestra el pendiente sin sumarlo. Con bridge se permite Chrome o Brave con un perfil; sin bridge los navegadores quedan excluidos. Ctrl+C no validado limpiamente (P2). El editor de exclusiones, el panel de bridge y F6.2 siguen pendientes.
 
 ## Piloto F1.2 validado (2026-11-22)
 
@@ -135,7 +135,7 @@ powershell -NoProfile -File .\scripts\Start-Ui.ps1 -Demo -Database .\work\ui-pre
 powershell -NoProfile -File .\scripts\Start-Ui.ps1 -Demo -Database .\work\ui-preview\f4-2\final-demo.db -Smoke invalid-range
 ```
 
-El rango incluye episodios que cruzan medianoche sin duplicarlos. El inicio se muestra como `dd/MM HH:mm`. Uso diario está implementado en F4.3; Ajustes sigue deshabilitado. Capturas: `work/ui-preview/f4-2/rango.png`, `guardado.png`, `reabierto.png`, `vacio.png`, `error.png`, `rango-invalido.png`.
+El rango incluye episodios que cruzan medianoche sin duplicarlos. El inicio se muestra como `dd/MM HH:mm`. Uso diario está implementado en F4.3 y Ajustes tiene los cuatro umbrales de detección desde AJUSTES-DETECCION; el editor de exclusiones sigue pendiente. Capturas: `work/ui-preview/f4-2/rango.png`, `guardado.png`, `reabierto.png`, `vacio.png`, `error.png`, `rango-invalido.png`.
 
 ## Uso diario F4.3 (2026-11-22)
 
@@ -194,3 +194,20 @@ powershell -NoProfile -File .\scripts\Start-Ui.ps1 -Database .\work\ui-preview\f
 ```
 
 Medición F6.1 aceptada: `work/f6/ui-resources.csv`, 256 muestras cada 30 s durante 2 h 7 min 30 s; CPU media 0,15 % (máx. 0,40 % de 16 CPUs lógicas), working set 249–416 MB, memoria privada ≤484 MB, hilos 67–70, con captura activa y Brave/bridge. Protocolo y límites en [F6_MEDICION](docs/F6_MEDICION.md); evidencia E030 en [PRUEBAS](docs/PRUEBAS.md). Capturas de UI de esta entrega: `work/ui-preview/f5-2/{guardado,pause-paused,pause,tray}.png`. Los smokes invocan los controles/callbacks, no son clics humanos.
+
+## Ajustes de detección (2026-11-23)
+
+Ajustes permite editar solo cuatro valores: cambios para abrir un episodio (`drift_switches`), ventana de cambios (`drift_window_s`), estabilidad (`stable_s`) e inactividad (`idle_threshold_s`). Predeterminados: **10 / 120 / 180 / 120**. Los rangos iniciales de producto son 4–30, 30–600 s, 30–900 s y 30–1800 s.
+
+Guardar persiste en la tabla `setting`, pero no cambia la sesión en curso. **Pausar/Reanudar conserva** los valores de la sesión; **Detener/Iniciar** relee los guardados. La pantalla distingue **En uso ahora** de **Guardado, pendiente de aplicar**, avisa si inactividad ≤ estabilidad y, si la configuración guardada es inválida, usa el predeterminado afectado sin sobrescribirla. La consola diagnóstica `ConsoleCapture` conserva los predeterminados y no lee esta configuración. No incluye editor de exclusiones, bridge ni empaquetado. Evidencia E034.
+
+```powershell
+# Ver Ajustes con una base temporal
+powershell -NoProfile -File .\scripts\Start-Ui.ps1 -Database .\work\ui-preview\ajustes\defaults.db -View settings
+
+# Smoke de guardado y reapertura
+powershell -NoProfile -File .\scripts\Start-Ui.ps1 -Database .\work\ui-preview\ajustes\settings-final.db -Smoke settings
+
+# Smoke de la regla pausa/reanudación y detener/iniciar
+powershell -NoProfile -File .\scripts\Start-Ui.ps1 -Database .\work\ui-preview\ajustes\session4.db -Smoke settings-session
+```

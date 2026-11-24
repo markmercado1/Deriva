@@ -90,8 +90,59 @@ class InterruptionsViewModelTest {
         assertEquals("Instagram", row.firstChange());
         assertEquals("Estable", row.statusText());
         assertEquals("2 min 14 s", row.stabilityText());
+        assertEquals("Pendiente", row.annotationText());
         assertEquals("Mensajes", row.reasonText());
         assertTrue(row.justified());
+    }
+
+    @Test
+    void stableExplanationDoesNotHardcodeTheOldThreshold() {
+        FakeRepository repository = new FakeRepository(List.of(
+                stable(1, 0, 10, "MESSAGES", true)));
+        InterruptionsViewModel viewModel = viewModel(repository);
+        InterruptionRow row = viewModel.load(LocalDate.of(2026, 11, 22),
+                StatusFilter.ALL, true).rows().getFirst();
+
+        String text = viewModel.stabilityExplanation(row);
+        assertFalse(text.contains("180"));
+        assertTrue(text.contains("comprobación automática"));
+        assertFalse(text.toLowerCase().contains("concentración"));
+    }
+
+    @Test
+    void annotationStateUsesPersistedAnsweredAtNotReasonOrJustified() {
+        Instant start = BASE.plusSeconds(15 * 60L);
+        DriftEvent savedWithoutReason = new DriftEvent(2, start, start.plusSeconds(60),
+                start.plusSeconds(134), start.plusSeconds(134), start.plusSeconds(134),
+                DriftStatus.STABLE, null, 10, A, 134_000L, null, false,
+                start.plusSeconds(200), Set.of(A));
+        FakeRepository repository = new FakeRepository(List.of(
+                stable(1, 0, 10, "MESSAGES", true), savedWithoutReason));
+        InterruptionsViewModel viewModel = viewModel(repository);
+        List<InterruptionRow> rows = viewModel.load(LocalDate.of(2026, 11, 22),
+                StatusFilter.ALL, true).rows();
+
+        InterruptionRow pending = rows.stream().filter(row -> row.id() == 1).findFirst().orElseThrow();
+        InterruptionRow saved = rows.stream().filter(row -> row.id() == 2).findFirst().orElseThrow();
+
+        assertEquals("Pendiente", pending.annotationText());
+        assertNull(pending.answeredAt());
+        assertEquals("Guardada", saved.annotationText());
+        assertEquals("Guardada · 22/11 11:26", viewModel.annotationDetail(saved));
+    }
+
+    @Test
+    void unconfirmedStabilityIsNotCheckedAndExplainsPersistedCloseReason() {
+        FakeRepository repository = new FakeRepository(List.of(unconfirmed(3, 30, 14)));
+        InterruptionsViewModel viewModel = viewModel(repository);
+        InterruptionRow row = viewModel.load(LocalDate.of(2026, 11, 22),
+                StatusFilter.ALL, true).rows().getFirst();
+
+        assertEquals("No comprobada", row.statusText());
+        assertEquals("—", row.stabilityText());
+        assertTrue(viewModel.stabilityExplanation(row).contains("No se comprobó la estabilidad"));
+        assertTrue(viewModel.stabilityExplanation(row).contains("inactividad"));
+        assertEquals("No comprobadas", StatusFilter.UNCONFIRMED.toString());
     }
 
     @Test
@@ -153,10 +204,32 @@ class InterruptionsViewModelTest {
 
     @Test
     void emptyDurationAndUnknownDisplayFallbacksAreVisible() {
-        assertEquals("Sin confirmar", InterruptionsViewModel.duration(null));
+        assertEquals("—", InterruptionsViewModel.duration(null));
         assertEquals("0 s", InterruptionsViewModel.duration(0L));
         ContextKey unknown = new ContextKey("unknown.exe", null);
         assertEquals("unknown", viewModel(new FakeRepository(List.of())).display(unknown));
+    }
+
+    @Test
+    void savedAnnotationOnlyEnablesSavingWhenValuesDiffer() {
+        var row = viewModel(new FakeRepository(List.of()))
+                .demoPage(LocalDate.of(2026, 11, 23), StatusFilter.ALL, true)
+                .rows().stream().filter(r -> r.answeredAt() != null).findFirst().orElseThrow();
+        assertFalse(row.hasAnnotationChanges(row.reasonCode(), row.justified()));
+        assertTrue(row.hasAnnotationChanges("OTHER", row.justified()));
+        assertTrue(row.hasAnnotationChanges(row.reasonCode(), !row.justified()));
+        assertFalse(row.hasAnnotationChanges(row.reasonCode(), row.justified()));
+        assertFalse(row.hasAnnotationChanges(null, !row.justified()));
+    }
+
+    @Test
+    void firstAnnotationRequiresReasonEvenWhenJustifiedChanges() {
+        var row = viewModel(new FakeRepository(List.of()))
+                .demoPage(LocalDate.of(2026, 11, 23), StatusFilter.ALL, true)
+                .rows().stream().filter(r -> r.answeredAt() == null).findFirst().orElseThrow();
+        assertFalse(row.hasAnnotationChanges(null, false));
+        assertFalse(row.hasAnnotationChanges(null, true));
+        assertTrue(row.hasAnnotationChanges("OTHER", false));
     }
 
     private static final class FakeRepository implements DriftRepository {

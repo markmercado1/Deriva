@@ -25,7 +25,7 @@ public record DriftEpisode(
 
     public DriftEpisode {
         if (id <= 0 || startTs == null || detectedAt == null || lastObservedTs == null
-                || status == null || switchCount < 10 || firstChangeContext == null
+                || status == null || switchCount < 1 || firstChangeContext == null
                 || contexts == null || contexts.isEmpty())
             throw new IllegalArgumentException("Invalid drift episode");
         contexts = Set.copyOf(contexts);

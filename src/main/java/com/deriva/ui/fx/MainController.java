@@ -3,8 +3,10 @@ package com.deriva.ui.fx;
 import com.deriva.app.usecase.CaptureControl;
 import com.deriva.app.usecase.CaptureState;
 import com.deriva.app.usecase.CaptureStatus;
+import com.deriva.app.usecase.SettingsService;
 import com.deriva.ui.viewmodel.DailyUsageViewModel;
 import com.deriva.ui.viewmodel.InterruptionsViewModel;
+import com.deriva.ui.viewmodel.SettingsViewModel;
 import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
@@ -29,6 +31,7 @@ public final class MainController {
     @FXML private StackPane content;
     @FXML private Button interruptionsButton;
     @FXML private Button usageButton;
+    @FXML private Button settingsButton;
     @FXML private Button captureButton;
     @FXML private Button pauseButton;
     @FXML private Label captureStatus;
@@ -47,13 +50,16 @@ public final class MainController {
 
     private Parent interruptionsRoot;
     private Parent usageRoot;
+    private Parent settingsRoot;
     private InterruptionsController interruptionsController;
     private UsageController usageController;
+    private SettingsController settingsController;
     private CaptureControl capture;
     private boolean initialized;
     private boolean deleting;
 
     public void init(InterruptionsViewModel interruptions, DailyUsageViewModel usage,
+                     SettingsViewModel settings, SettingsService settingsService,
                      CaptureControl capture, boolean demo) throws IOException {
         this.capture = Objects.requireNonNull(capture, "capture");
 
@@ -68,6 +74,12 @@ public final class MainController {
         usageRoot = usageLoader.load();
         usageController = usageLoader.getController();
         usageController.init(usage, demo);
+
+        FXMLLoader settingsLoader = new FXMLLoader(
+                MainController.class.getResource("/com/deriva/ui/ajustes.fxml"));
+        settingsRoot = settingsLoader.load();
+        settingsController = settingsLoader.getController();
+        settingsController.init(settings, settingsService, capture);
 
         initialized = true;
         setContent(interruptionsRoot);
@@ -93,6 +105,15 @@ public final class MainController {
         setActive(usageButton);
         usageController.startAutoRefresh();
         usageController.refresh();
+    }
+
+    @FXML
+    private void showSettings() {
+        if (!initialized) return;
+        setContent(settingsRoot);
+        setActive(settingsButton);
+        usageController.stopAutoRefresh();
+        settingsController.refresh();
     }
 
     @FXML
@@ -163,12 +184,17 @@ public final class MainController {
         showUsage();
     }
 
+    public void showSettingsView() {
+        showSettings();
+    }
+
     public void shutdown() {
         capturePoll.stop();
         actionExecutor.shutdownNow();
         if (capture != null) capture.shutdown();
         if (interruptionsController != null) interruptionsController.shutdown();
         if (usageController != null) usageController.shutdown();
+        if (settingsController != null) settingsController.shutdown();
     }
 
     private void updateCaptureStatus() {
@@ -202,6 +228,8 @@ public final class MainController {
                 || status.state() == CaptureState.STARTING
                 || status.state() == CaptureState.STOPPING);
         if (deleteButton != null) deleteButton.setDisable(deleting || confirming);
+        if (settingsController != null && capture != null)
+            settingsController.updateEffective(capture.effectiveSettings());
     }
 
     private void setContent(Parent root) {
@@ -209,7 +237,7 @@ public final class MainController {
     }
 
     private void setActive(Button active) {
-        for (Button button : List.of(interruptionsButton, usageButton))
+        for (Button button : List.of(interruptionsButton, usageButton, settingsButton))
             button.getStyleClass().remove("nav-active");
         active.getStyleClass().add("nav-active");
     }
