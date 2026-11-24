@@ -234,5 +234,5 @@ Guardar solo con cambios pendientes y bloquear solicitudes simultáneas. F6.2 pe
 - [x] Causa demostrada: UNKNOWN fresco y aceptado (~0,5–0,8 s) con Brave normal en primer plano; no fue STALE, rechazo, reinicio de sesión, incógnito ni cambio de perfil. El filtro lo convirtió en EXCLUDED y la máquina de deriva limpió la ventana.
 - [x] Corrección en la extensión: relectura acotada (3 intentos, 150 ms) ante cambio de revisión o URL no lista durante carga; cada intento lee de nuevo y nunca reutiliza un host; incógnito, foco perdido, página interna y pestaña cerrada no se reintentan.
 - [x] Sin cambios en Java, `PrivacyFilter`, frescura de 3 s, semántica de EXCLUDED ni umbrales.
-- [x] 13 tests JS (report/sampling/background) y 158 tests Java, 0 fallos; verificación real posterior con 38 s NORMAL continuos y episodio abierto con 6 cambios.
+- [x] 14 tests JS (report/sampling/background) y 158 tests Java, 0 fallos; verificación real posterior con 38 s NORMAL continuos y episodio abierto con 6 cambios.
 - Límites: una máquina y un perfil/ventana de Brave; no se repitieron incógnito, pérdida de foco real ni caducidad real en navegador. El gate completo de Brave y F6.2 siguen pendientes. La UI muestra que el bridge está configurado, no que reciba un sitio fresco; queda como mejora separada.
