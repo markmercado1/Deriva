@@ -52,6 +52,20 @@ test('a genuine UNKNOWN is returned immediately and is not retried', async () =>
   assert.equal(delays, 0);
 });
 
+test('a genuine UNKNOWN is not delayed by a revision event during the read', async () => {
+  let revision = 0;
+  let reads = 0;
+  let delays = 0;
+  const report = await settleObservation(async () => {
+    reads++;
+    revision++; // e.g. the focus event that produced the UNKNOWN
+    return unknown();
+  }, () => revision, async () => { delays++; });
+  assert.deepEqual(report, unknown());
+  assert.equal(reads, 1);
+  assert.equal(delays, 0);
+});
+
 test('the retry is bounded and falls back to one last fresh read', async () => {
   let reads = 0;
   let delays = 0;
