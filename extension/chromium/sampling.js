@@ -11,7 +11,11 @@ export async function settleObservation(observe, currentRevision, delay, attempt
   for (let attempt = 0; attempt < attempts; attempt++) {
     const version = currentRevision();
     const report = await observe();
-    if (version === currentRevision() && !report.retry) return report;
+    // A genuine UNKNOWN (incognito, lost focus, closed tab, stable invalid URL) is
+    // reported immediately even if an event raced the read: never delay a privacy
+    // boundary. NORMAL/INTERNAL observations are re-read when the revision changed,
+    // because they may describe the previous tab.
+    if (!report.retry && (version === currentRevision() || report.state === "UNKNOWN")) return report;
     if (attempt < attempts - 1) await delay();
   }
   // Bounded fallback: the latest fresh read. If it is UNKNOWN, the caller
