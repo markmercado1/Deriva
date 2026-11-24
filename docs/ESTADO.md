@@ -2,6 +2,14 @@
 
 Actualizado: 2026-11-23 (America/Lima).
 
+## BRAVE-EXCLUSIONES HECHO (2026-11-23)
+
+Rama `codex/diagnostico-continuidad-brave`, creada desde `codex/ajustes-deteccion` (1452443). **Causa demostrada:** con Brave normal en primer plano, la extensión enviaba UNKNOWN frescos y aceptados de ~0,5–0,8 s durante la navegación; no era STALE, rechazo, reinicio de sesión, incógnito ni cambio de perfil. `PrivacyFilter` los convertía correctamente en EXCLUDED y `DriftStateMachine` limpiaba la ventana. La ruta de código era doble: cambio de revisión durante la lectura y URL vacía mientras la pestaña cargaba. **Corrección:** `extension/chromium/sampling.js` relee la pestaña hasta 3 veces (150 ms entre reintentos) ante esos dos casos; `report.js` expone `inspectTab` con `retry`; `background.js` envía solo `state`/`host`. Nunca se reutiliza un host; incógnito, foco perdido, página interna, pestaña cerrada y URL inválida estable no se reintentan. Sin cambios en Java, frescura de 3 s, semántica de EXCLUDED, umbrales ni esquema. **Evidencia E035.** F6.2 sigue PENDIENTE y el gate completo de Brave sigue abierto.
+
+- Archivos: `extension/chromium/{background.js,report.js,sampling.js}`; `extension/tests/{report.test.mjs,sampling.test.mjs,background.test.mjs}`; docs E035.
+- Pruebas: `node --test extension/tests/report.test.mjs extension/tests/sampling.test.mjs extension/tests/background.test.mjs` -> 13 JS, 0 fallos; `mvn ... verify` offline -> 158 Java, 0 fallos. Sonda real pre/post y verificación en Brave real: 38 s NORMAL continuos y episodio 4 abierto con 6 cambios.
+- Límites: una máquina, un perfil/ventana de Brave y una secuencia corta; sin repetición real de incógnito, pérdida de foco, caducidad o segundo perfil. La UI indica bridge configurado, no frescura del sitio. Artefactos en `work/diagnostico-continuidad-brave/` (ignorados); base protegida intacta (`0446AE5D…`).
+
 ## AJUSTES-DETECCION HECHO (2026-11-23)
 
 Rama `codex/ajustes-deteccion`, creada desde `codex/claridad-anotaciones` (6c90c8f) con el árbol limpio. Implementa solo cuatro ajustes (`drift_switches`, `drift_window_s`, `stable_s`, `idle_threshold_s`) sobre `setting`, pantalla Ajustes, valores efectivos/pendientes y aviso inactividad≤estabilidad. Se conserva 10/120/180/120. Regla: Pausar/Reanudar conserva la configuración de la sesión; Detener/Iniciar relee la guardada. Sin editor de exclusiones, bridge, empaquetado ni cierre de F6.2. La consola diagnóstica conserva los predeterminados y no lee la configuración. Evidencia E034. **Pendiente separado:** enfocar Deriva puede cerrar un episodio por EXCLUSION; no se cambió esa regla ni se afirma que los umbrales la resuelvan.
@@ -51,7 +59,7 @@ Existe un bridge HTTP local, extensión MV3, sensor Windows real con filtro de p
 
 ## Siguiente paso exacto
 
-**AJUSTES-DETECCION cerrado** (E034); **F6.2 sigue PENDIENTE de autorización explícita** y no se inició. Siguiente bloque real: **F6.2 — entrega local reproducible**. Para F6.2 hay que verificar instrucciones de arranque/test con el README, dejar claras las limitaciones y los pendientes (Brave completo, P1/P2, USE-02, SEN-01 PARCIAL, S3/hibernación no disponibles, editor de exclusiones/bridge no implementados) y comprobar que no se depende de rutas o datos personales. **Ajustes:** ya existen los cuatro umbrales de detección; el editor de exclusiones y el panel de conexión del plano v2 §8–9 siguen fuera. **Pendiente separado:** revisar el cierre por EXCLUSION cuando el foco está en Deriva; no cambiar la regla dentro de Ajustes. Antes de F6.2, revisar que la base protegida `work/console-day/deriva.db` siga intacta (SHA-256 `0446AE5D…`, comprobada en E034).
+**AJUSTES-DETECCION y BRAVE-EXCLUSIONES cerrados** (E034/E035); **F6.2 sigue PENDIENTE de autorización explícita** y no se inició. Siguiente bloque real: **F6.2 - entrega local reproducible**. Para F6.2 hay que verificar instrucciones de arranque/test con el README, dejar claras las limitaciones y los pendientes (Brave completo, P1/P2, USE-02, SEN-01 PARCIAL, S3/hibernación no disponibles, editor de exclusiones/bridge no implementados, mensaje de bridge sin frescura en la UI) y comprobar que no se depende de rutas o datos personales. **Ajustes:** ya existen los cuatro umbrales de detección; el editor de exclusiones y el panel de conexión del plano v2 §8–9 siguen fuera. **Pendientes separados:** completar el gate reducido de Brave (segundo perfil, reinicio, 1 h, colisión Chrome/Brave); decidir si el mensaje de captura debe reflejar frescura del sitio; revisar el cierre por EXCLUSION cuando el foco está en Deriva. Antes de F6.2, revisar que la base protegida `work/console-day/deriva.db` siga intacta (SHA-256 `0446AE5D…`, comprobada también en E035).
 
 ## Punto de continuidad — F5.1 HECHO
 

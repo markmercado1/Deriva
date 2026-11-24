@@ -33,6 +33,7 @@ Los días de la sección 12 del plano son hitos de alcance. Cada fase puede repa
 | UI-CLARIDAD | Claridad anotación vs. estabilidad | HECHO | Columna Anotación desde `answered_at`, Estabilidad con En curso/Estable/No comprobada, explicación por motivo de cierre y filtros coherentes; guardar no altera el estado. No cierra F6.2 ni implementa Ajustes (E031) |
 | EXCLUSION-FOCO | Revisión de cierre por foco en Deriva | PENDIENTE | Decidir si enfocar la propia ventana debe cerrar el episodio por EXCLUSION; no se cambia desde Ajustes ni se añaden registros diagnósticos sin aprobación |
 | AJUSTES-DETECCION | Cuatro umbrales configurables de detección | HECHO | Ajustes edita cambios/ventana/estabilidad/inactividad, persiste en `setting`, distingue efectivo/pendiente, restaura sin guardar y avisa inactividad≤estabilidad. Pausar/Reanudar conserva; Detener/Iniciar reaplica. Configuración inválida usa predeterminados visibles sin sobrescribir. No cierra F6.2 ni añade exclusiones, bridge o empaquetado (E034) |
+| BRAVE-EXCLUSIONES | UNKNOWN transitorio durante navegación normal | HECHO | Sonda real: UNKNOWN fresco aceptado con Brave en primer plano, sin STALE ni reinicio de sesión; el filtro lo convertía en EXCLUDED y la ventana de deriva se limpiaba. La extensión relee la pestaña de forma acotada ante cambio de revisión o URL no lista en carga, sin reutilizar hosts ni relajar incógnito/foco/perfiles. Verificación real posterior: 38 s NORMAL continuos y episodio abierto con 6 cambios (E035). No cierra F6.2 ni el gate completo de Brave |
 | F6.1 | Prueba sostenida y rendimiento | HECHO | Medición real de 2 h 7 min 30 s con 256 muestras, CPU media 0,15 % (máx. 0,40 % de 16 CPUs), working set 249–416 MB y captura activa con Brave/bridge (E030). Límites: una máquina, resolución 30 s |
 | F6.2 | Entrega local reproducible | PENDIENTE | Instrucciones verificadas de arranque/test, limitaciones y pendientes claros |
 
@@ -225,3 +226,13 @@ Corrección autorizada: desplazar únicamente el detalle de Interrupciones. F6.2
 
 ## UI-SAVE — HECHO (E033)
 Guardar solo con cambios pendientes y bloquear solicitudes simultáneas. F6.2 pendiente.
+
+## Avance BRAVE-EXCLUSIONES (E035)
+
+- [x] Paso 0 con consultas de solo lectura: sin los cortes, 4 cambios confirmados dentro de 30 s a las 11:59:06; con los cortes, la ventana y la continuidad se reinician y no hay episodio.
+- [x] Sonda opt-in de 250 ms sobre el bridge real: solo timestamp, estado, secuencia/contadores, `hostPresent` y categoría de foco; nunca host, URL, título ni token.
+- [x] Causa demostrada: UNKNOWN fresco y aceptado (~0,5–0,8 s) con Brave normal en primer plano; no fue STALE, rechazo, reinicio de sesión, incógnito ni cambio de perfil. El filtro lo convirtió en EXCLUDED y la máquina de deriva limpió la ventana.
+- [x] Corrección en la extensión: relectura acotada (3 intentos, 150 ms) ante cambio de revisión o URL no lista durante carga; cada intento lee de nuevo y nunca reutiliza un host; incógnito, foco perdido, página interna y pestaña cerrada no se reintentan.
+- [x] Sin cambios en Java, `PrivacyFilter`, frescura de 3 s, semántica de EXCLUDED ni umbrales.
+- [x] 13 tests JS (report/sampling/background) y 158 tests Java, 0 fallos; verificación real posterior con 38 s NORMAL continuos y episodio abierto con 6 cambios.
+- Límites: una máquina y un perfil/ventana de Brave; no se repitieron incógnito, pérdida de foco real ni caducidad real en navegador. El gate completo de Brave y F6.2 siguen pendientes. La UI muestra que el bridge está configurado, no que reciba un sitio fresco; queda como mejora separada.
