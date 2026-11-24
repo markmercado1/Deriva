@@ -220,3 +220,17 @@ Estado: aplicable. `PassiveActivity` (paquete `goals`) es una regla pura que rec
 Coincidencia de contexto: un objetivo de app (`siteHost == null`) coincide solo con una muestra sin host; un objetivo de sitio coincide solo con el proceso normalizado y el host exactos. Un objetivo de app sobre un navegador no cubre sus sitios. Se conserva `ContextKey` y la privacidad: un navegador sin host fresco sigue `EXCLUDED` y no se promueve. El máximo queda como parámetro inyectado (10 min por defecto); su persistencia y la semántica efectivo/pendiente de E034 se posponen.
 
 Limitación conocida: `CaptureSession` lee `GoalRepository.listActive()` una sola vez al iniciar la captura; crear, editar o borrar objetivos no cambia la sesión en curso y se aplica al reiniciar. **F6B-3** debe recargar la lista al crear, editar o borrar un objetivo y persistir el máximo con efectivo/pendiente. Sin cambios de esquema, `Segmenter`, `PrivacyFilter`, UI ni `SQLitePrivacyCheck`. Evidencia E037.
+
+## A44 — 2026-11-24 — Motor de cálculo de objetivos
+
+Estado: aplicable. `GoalProgressCalculator` (paquete `goals`) es puro: recibe el día local, los segmentos cerrados y los objetivos activos, y devuelve minutos usados, entradas, estado y aviso de tiempo no medible. No conoce SQLite, UI, alarmas, hilos ni reloj. Solo los segmentos `OBSERVED` suman; `IDLE`, `EXCLUDED`, `UNAVAILABLE` y los huecos no suman. El recorte al día local se extrajo a `analysis.DayWindow` y lo comparte `DailyUsageService`; las pruebas E020 no se modificaron.
+
+**Coincidencia distinta de A43.** Para límites, un objetivo de app coincide con **todo** el tiempo observado de su proceso, con o sin host; un objetivo de sitio exige proceso y host exactos. Los objetivos son límites independientes: si coexisten una app y un sitio del mismo proceso, el tiempo del sitio suma a ambos, pero dentro de cada objetivo cada instante se cuenta una sola vez (unión de intervalos). A43 sigue siendo la regla de **promoción de IDLE a OBSERVED** de la actividad pasiva: allí un objetivo de app solo coincide con muestras sin host para no promover un sitio de navegador bajo un objetivo de app y para no relajar la privacidad. Aplicar A43 a los límites haría que un objetivo de app sobre un navegador ignorase todo su tiempo con host; son propósitos distintos y no se sustituyen.
+
+**Entradas.** La primera presencia del día cuenta como 1. Una nueva entrada exige al menos 3 s fuera del contexto; 3 s exactos cuentan y menos de 3 s continúa la misma entrada. `IDLE`/`EXCLUDED`/`UNAVAILABLE` no suman minutos, pero un hueco suyo de 3 s o más separa entradas.
+
+**Estado.** Se evalúan todos los topes configurados: `EXCEEDED` si alguno llega al 100 %, si no `NEAR` si alguno llega al 80 %, si no `IN_PROGRESS`. La comparación es exacta sobre milisegundos y entradas, sin redondeo de minutos.
+
+**Tiempo no medible.** Si el día contiene algún segmento `EXCLUDED`, se marca `unmeasurable` en objetivos de sitio y en objetivos de app cuyo proceso esté en la lista compartida de navegadores de `PrivacyFilter` (Chrome/Brave y el resto de navegadores ya enumerados). Otras apps no se marcan. Es conservador porque `EXCLUDED` no lleva identidad y puede incluir la propia ventana de Deriva; `IDLE` y `UNAVAILABLE` no activan el aviso.
+
+**F6B-4.** El motor no incluye todavía el segmento abierto. Cuando llegue la alarma básica, F6B-4 debe pasar el segmento en curso **cortado en «ahora»** como un segmento más de la lista; la API no cambia. Sin persistencia, UI, alarmas ni migración en esta fase. Evidencia E038.

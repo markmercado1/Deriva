@@ -262,3 +262,9 @@ Guardar sin cambios queda deshabilitado; controles bloqueados durante escritura/
 - Probado: Maven verify offline 189 tests Java, 0 fallos (12 nuevos); 14 tests JS, 0 fallos. `SegmenterTest` conserva 16 tests y `PrivacyFilterTest` 17, sin editar esos archivos.
 - Límites: pruebas puras con tiempo simulado, sin sesión real de 10 min ni vídeo/ajedrez; los objetivos se leen una vez al iniciar la captura y sus cambios se aplican al reiniciar (F6B-3). El máximo de 10 min no se persiste todavía. P1 queda resuelto solo para contextos con objetivo pasivo. Sin UI ni cambio de esquema; no se abrió la base real.
 - Siguiente: F6B-2 (motor de cálculo); F6.2 sigue pendiente después de F6B-7.
+
+## 2026-11-24 - F6B-2 motor de cálculo de objetivos (E038)
+- Funciona: `GoalProgressCalculator` puro calcula por objetivo minutos usados, entradas, estado (`IN_PROGRESS`/`NEAR`/`EXCEEDED`) y aviso de tiempo no medible. Recorta al día local con `analysis.DayWindow`; objetivo de app suma todo el proceso con o sin host, objetivo de sitio exige proceso+host; los límites son independientes y cada instante se cuenta una vez dentro de cada objetivo. Entradas nuevas a partir de 3 s fuera; solo `OBSERVED` suma.
+- Probado: Maven verify offline 201 tests Java, 0 fallos (12 nuevos); 14 tests JS, 0 fallos. Cubre medianoche, umbrales 79/80/100 %, uno/dos topes, huecos de sitio, app+sitio, navegador con host, `IDLE`/`EXCLUDED`/`UNAVAILABLE`, solapes y segmentos fuera del día. Las 3 pruebas de `DailyUsageServiceTest` (E020) siguen intactas y verdes.
+- Límites: sin UI, alarmas, base ni reloj; no incluye el segmento en curso (F6B-4 lo pasará cortado en «ahora»). `unmeasurable` es conservador porque `EXCLUDED` no lleva identidad. F6.2 sigue pendiente después de F6B-7.
+- Siguiente: F6B-3 (UI de objetivos).
