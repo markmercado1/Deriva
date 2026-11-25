@@ -24,8 +24,10 @@ function Install-Deriva([string]$target, [bool]$desktop, [bool]$startMenu, [scri
         $entries = @($zip.Entries)
         for ($i = 0; $i -lt $entries.Count; $i++) {
             $entry = $entries[$i]
-            $destination = Join-Path $target $entry.FullName
-            if ($entry.FullName.EndsWith('/')) { New-Item -ItemType Directory -Path $destination -Force | Out-Null; continue }
+            # Compress-Archive (Windows PowerShell 5.1) guarda las rutas con "\": se normalizan antes de usarlas.
+            $entryName = $entry.FullName -replace '\\', '/'
+            $destination = Join-Path $target ($entryName -replace '/', '\')
+            if ($entryName.EndsWith('/') -or $entry.Name -eq '') { New-Item -ItemType Directory -Path $destination -Force | Out-Null; continue }
             New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
             [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $destination, $true)
             if ($progress -and ($i % 20 -eq 0 -or $i -eq $entries.Count - 1)) {
