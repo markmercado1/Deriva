@@ -1,6 +1,6 @@
 # Estado — 2026-11-25
 
-**Trabajo actual — ENTREGA-FINAL EN_CURSO:** rama `entrega-final`; ejecutable, instalador, capturas y documentos de entrega. Próximo: ruta de datos de la app empaquetada.
+**Última entrega — ENTREGA-FINAL HECHO (E053, A59):** rama `entrega-final`. `Deriva.exe` (jpackage), portable e instalador IExpress (`scripts/Build-Package.ps1`); la app empaquetada guarda datos en `%LOCALAPPDATA%\Deriva`. Documentos de entrega y capturas en `dist/Entrega Deriva` (generadores en `work/entrega`). 290/290 Java + 14 JS. Falta: fusionar `entrega-final` y que el usuario pruebe el instalador con doble clic.
 
 ## Situación
 

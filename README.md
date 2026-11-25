@@ -49,7 +49,7 @@ mvn "-Dmaven.repo.local=$PWD\work\m2" --batch-mode --no-transfer-progress clean 
 node --test extension/tests/report.test.mjs extension/tests/sampling.test.mjs extension/tests/background.test.mjs
 ```
 
-Resultado esperado: `Tests run: 286, Failures: 0, Errors: 0` y `BUILD SUCCESS`; en Node, `# pass 14`. `verify` también deja `target\deriva-0.1.0-SNAPSHOT.jar` y `target\classpath.txt`, que usan los scripts de arranque. Desde `cmd` usa la misma orden con `-Dmaven.repo.local=%CD%\work\m2` entre comillas dobles.
+Resultado esperado: `Tests run: 290, Failures: 0, Errors: 0` y `BUILD SUCCESS`; en Node, `# pass 14`. `verify` también deja `target\deriva-0.1.0-SNAPSHOT.jar` y `target\classpath.txt`, que usan los scripts de arranque. Desde `cmd` usa la misma orden con `-Dmaven.repo.local=%CD%\work\m2` entre comillas dobles.
 
 Si `LocalBridgeServerTest` falla con «Unable to establish loopback connection», el entorno bloquea conexiones locales (pasa en algunos sandboxes); en una terminal normal pasa. Para generar igualmente el JAR en ese entorno: añade `'-Dtest=!LocalBridgeServerTest'` y anótalo como limitación.
 
@@ -75,13 +75,21 @@ Pantallas: **Interrupciones** (episodios de deriva, anotaciones), **Uso** (tiemp
 
 El JAR (`java -jar target\deriva-0.1.0-SNAPSHOT.jar`) solo imprime un mensaje de arranque; la interfaz se abre siempre con `Start-Ui.ps1`.
 
+### Ejecutable e instalador (sin Java instalado)
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Build-Package.ps1
+```
+
+Tras `verify`, genera en `target\dist`: la carpeta `Deriva\` con `Deriva.exe` y su propio runtime Java (jpackage), `Deriva-0.1.0-portable.zip` y `Deriva-0.1.0-Setup.exe` (instalador por usuario hecho con IExpress de Windows: copia a `%LOCALAPPDATA%\Programs\Deriva`, crea accesos directos y una entrada en «Aplicaciones instaladas»; `uninstall.ps1` la quita y conserva los datos). El ejecutable no está firmado: Windows SmartScreen puede pedir «Más información › Ejecutar de todas formas». La app empaquetada guarda su base en `%LOCALAPPDATA%\Deriva\deriva.db` y lee la configuración de la extensión de `%LOCALAPPDATA%\Derivaridge.properties` (`extensionId`, `token`, `port`).
+
 ### Extensión (sitios de Chrome/Brave)
 
 Sin extensión, los navegadores quedan **excluidos**: su tiempo no se atribuye a ningún sitio. Para registrar sitios: genera el token una vez con `scripts\Start-BridgePilot.ps1` (y detenlo), carga `extension\chromium` como extensión desempaquetada, copia su ID y arranca con `-ExtensionId`. Guía detallada en [PILOTO_NAVEGADOR](docs/PILOTO_NAVEGADOR.md). Solo se guarda el dominio, nunca la URL, ruta, título ni contenido; incógnito y pestañas internas quedan excluidos. **No uses Chrome y Brave a la vez** contra el mismo bridge.
 
 ### Tus datos
 
-- Todo vive en el archivo `.db` que abre la app (y sus `-wal`/`-shm` mientras está abierta). La carpeta `work\` está ignorada por Git: no se sube nada.
+- Todo vive en el archivo `.db` que abre la app (`%LOCALAPPDATA%\Deriva\deriva.db` en la versión instalada) (y sus `-wal`/`-shm` mientras está abierta). La carpeta `work\` está ignorada por Git: no se sube nada.
 - **Respaldo:** sal de la app desde la bandeja (**Salir**) y copia el archivo, por ejemplo `Copy-Item .\work\f6\deriva-f6.db .\work\respaldos\deriva-$(Get-Date -Format yyyy-MM-dd).db`.
 - **Restaurar:** con la app cerrada, copia el respaldo sobre el archivo original.
 - **Actualizaciones de esquema:** al abrir una base antigua la app la migra sola (versión actual V5). La migración solo añade tablas y columnas; no borra segmentos, episodios ni objetivos, pero no se puede deshacer: haz un respaldo antes de abrir una base con una versión nueva.

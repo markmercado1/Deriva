@@ -325,3 +325,6 @@ Desde/Hasta en Objetivos con resumen por objetivo y detalle por día; borrados v
 
 ## 2026-11-25 — F6.2 entrega local reproducible (E052)
 README con guía verificada desde un clon limpio y limitaciones; corregido el arranque en clones nuevos (classpath generado por `verify`, scripts sin rutas absolutas). 278 Java sin bridge + 14 JS en el clon; app demo abre y cierra sin hilos. Respaldo de la base real hecho. Usuario: 286/286 con el pom nuevo. Falta fusionar.
+
+## 2026-11-25 — ENTREGA-FINAL (E053)
+Deriva.exe (jpackage), versión portable e instalador IExpress; datos de la app empaquetada en %LOCALAPPDATA%\Deriva; tres documentos de entrega (código fuente, para ejecutar, manual de uso) con capturas reales sobre datos sintéticos. 290/290 Java + 14 JS en la terminal del usuario. Carpeta `dist/Entrega Deriva` (no versionada).
