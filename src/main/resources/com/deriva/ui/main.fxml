@@ -4,7 +4,7 @@
 <?import javafx.scene.layout.*?>
 
 <BorderPane xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
-            fx:controller="com.deriva.ui.fx.MainController"
+            fx:controller="com.deriva.ui.fx.EmMainController"
             styleClass="app-root">
     <left>
         <VBox styleClass="sidebar" prefWidth="220">

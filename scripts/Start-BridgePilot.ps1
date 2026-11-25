@@ -30,7 +30,7 @@ try {
     Write-Host "Token local en $tokenFile (no lo compartas). Usa ese valor en las opciones de la extensión."
     Write-Host "Registro de diagnostico en $reportLogFile (hora, seq, state, hostSi/No; sin hosts)."
     Write-Host 'Ctrl+C detiene el piloto. Captura deshabilitada; reportes solo en memoria.'
-    & java -cp $jar com.deriva.app.BridgePilot $ExtensionId $Port
+    & java -cp $jar com.deriva.app.EmBridgePilot $ExtensionId $Port
     if ($LASTEXITCODE -ne 0) { throw "El piloto terminó con código $LASTEXITCODE" }
 } finally {
     if ($null -eq $previousToken) { Remove-Item Env:DERIVA_BRIDGE_TOKEN -ErrorAction SilentlyContinue }

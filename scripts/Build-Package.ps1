@@ -31,7 +31,7 @@ foreach ($entry in (Get-Content -LiteralPath $classpathFile -Raw).Trim().Split('
 & jpackage --type app-image --name Deriva --app-version $Version `
     --vendor 'Deriva' --description 'Deriva - actividad local' `
     --icon (Join-Path $projectRoot 'packaging\deriva.ico') `
-    --input $staging --main-jar $jarName --main-class com.deriva.app.Launcher `
+    --input $staging --main-jar $jarName --main-class com.deriva.app.EmLauncher `
     --dest $dist
 if ($LASTEXITCODE -ne 0) { throw "jpackage terminó con código $LASTEXITCODE" }
 $appImage = Join-Path $dist 'Deriva'

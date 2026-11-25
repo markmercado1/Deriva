@@ -4,7 +4,7 @@
 <?import javafx.scene.layout.*?>
 
 <VBox xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
-      fx:controller="com.deriva.ui.fx.SettingsController"
+      fx:controller="com.deriva.ui.fx.EmSettingsController"
       styleClass="content" spacing="16">
     <VBox spacing="2">
         <Label text="Ajustes" styleClass="page-title"/>

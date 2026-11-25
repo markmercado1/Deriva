@@ -60,7 +60,7 @@ try {
     if ($View) { Write-Host "Vista inicial: $View" }
     if ($Screenshot) { Write-Host "Captura de UI: $Screenshot" }
     if ($Smoke) { Write-Host "Smoke de UI: $Smoke (ruta de controles, no clic humano)." }
-    & java -cp $classpath com.deriva.app.Launcher
+    & java -cp $classpath com.deriva.app.EmLauncher
     if ($LASTEXITCODE -ne 0) { throw "DerivaApp termino con codigo $LASTEXITCODE" }
 } finally {
     if ($null -eq $previousDemo) { Remove-Item Env:DERIVA_UI_DEMO -ErrorAction SilentlyContinue }
