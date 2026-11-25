@@ -111,6 +111,7 @@
             <Label fx:id="justifyContextLabel" text="" styleClass="modal-text" wrapText="true"/>
             <Label text="El motivo es opcional (máximo 500 caracteres). Se guarda tal cual y no se envía a ningún sitio. Solo descuenta el exceso marcado; los registros de actividad no cambian."
                    styleClass="modal-text" wrapText="true"/>
+            <Label text="Evita pegar direcciones o datos personales." styleClass="settings-note" wrapText="true"/>
             <TextArea fx:id="justifyReasonField" prefRowCount="4" wrapText="true"
                       styleClass="goal-reason-input"/>
             <HBox alignment="CENTER_RIGHT" spacing="10">

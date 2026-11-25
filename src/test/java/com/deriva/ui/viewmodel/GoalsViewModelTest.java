@@ -365,6 +365,33 @@ class GoalsViewModelTest {
                         observed.observed(GoalAlert.OUTCOME_DISCARDED, NOW, null)));
     }
 
+    @Test
+    void dailySummarySeparatesJustifiedAndExceededMinutesAndListsAlertOutcomes() {
+        segments.add(observed("chess.exe", null,
+                "2026-11-24T09:00:00Z", "2026-11-24T10:12:00Z"));
+        long id = createChessGoal().page().goals().getFirst().id();
+        alerts.add(GoalAlert.draft(id, NOW, 80, GoalMetric.MINUTES));
+        GoalAlert full = alerts.add(GoalAlert.draft(id, NOW, 100, GoalMetric.MINUTES))
+                .notified(NOW.plusSeconds(30), NOW.plusSeconds(150))
+                .observed(GoalAlert.OUTCOME_NO_DRIFT, NOW.plusSeconds(150), null);
+        alerts.update(full);
+
+        GoalRow exceeded = viewModel.load().goals().getFirst();
+        assertEquals("Justificado: 0 min · Excedido sin justificar: 12 min",
+                exceeded.balanceText());
+        assertEquals(2, exceeded.alertLines().size());
+        assertEquals("Aviso 80 % de minutos · 12:00 — " + GoalsViewModel.PENDING_NOTICE_TEXT,
+                exceeded.alertLines().get(0));
+        assertEquals("Aviso 100 % de minutos · 12:00 — " + GoalsViewModel.NO_DRIFT_TEXT,
+                exceeded.alertLines().get(1));
+
+        viewModel.justify(id, "Torneo");
+        GoalRow justified = viewModel.load().goals().getFirst();
+        assertEquals("Justificado: 12 min · Excedido sin justificar: 0 min",
+                justified.balanceText());
+        assertEquals(2, justified.alertLines().size());
+    }
+
     private static Segment observed(String process, String host, String start, String end) {
         return new Segment(0, ObservationKind.OBSERVED, new ContextKey(process, host),
                 null, null, Instant.parse(start), Instant.parse(end));

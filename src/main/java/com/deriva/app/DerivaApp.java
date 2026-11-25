@@ -283,10 +283,15 @@ public final class DerivaApp extends Application {
     }
 
     private static void reportCaptureThreads() {
-        long alive = Thread.getAllStackTraces().keySet().stream()
-                .filter(thread -> thread.isAlive() && "deriva-capture".equals(thread.getName()))
+        System.out.println("UI shutdown: hilos deriva-capture vivos="
+                + liveThreads("deriva-capture") + "; deriva-goals vivos="
+                + liveThreads("deriva-goals"));
+    }
+
+    private static long liveThreads(String name) {
+        return Thread.getAllStackTraces().keySet().stream()
+                .filter(thread -> thread.isAlive() && name.equals(thread.getName()))
                 .count();
-        System.out.println("UI shutdown: hilos deriva-capture vivos=" + alive);
     }
 
     private static void saveSnapshot(Scene scene, Path target) throws Exception {
@@ -344,7 +349,7 @@ public final class DerivaApp extends Application {
     private static int holdSeconds() {
         try {
             int seconds = Integer.parseInt(environment("DERIVA_UI_HOLD_SECONDS", "60"));
-            return seconds >= 5 && seconds <= 600 ? seconds : 60;
+            return seconds >= 5 && seconds <= 7200 ? seconds : 60;
         } catch (NumberFormatException e) {
             return 60;
         }

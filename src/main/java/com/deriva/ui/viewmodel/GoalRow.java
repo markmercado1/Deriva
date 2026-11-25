@@ -2,6 +2,9 @@ package com.deriva.ui.viewmodel;
 
 import com.deriva.goals.model.GoalState;
 
+import java.util.List;
+import java.util.Objects;
+
 /** Presentation row for one persisted goal on the current local day. */
 public record GoalRow(
         long id,
@@ -17,10 +20,13 @@ public record GoalRow(
         boolean passive,
         boolean unmeasurable,
         GoalJustificationView justification,
-        String alertOutcomeText) {
+        String alertOutcomeText,
+        String balanceText,
+        List<String> alertLines) {
 
     public GoalRow {
         if (id <= 0) throw new IllegalArgumentException("id");
         if (ratio < 0 || ratio > 1) throw new IllegalArgumentException("ratio");
+        alertLines = List.copyOf(Objects.requireNonNull(alertLines, "alertLines"));
     }
 }

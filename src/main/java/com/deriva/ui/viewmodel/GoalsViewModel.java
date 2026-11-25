@@ -11,6 +11,7 @@ import com.deriva.tracking.model.ContextKey;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -43,6 +44,9 @@ public final class GoalsViewModel {
             "Después del aviso no se pudo observar el resultado: la captura se pausó o la aplicación se cerró.";
     public static final String DISCARDED_TEXT =
             "Aviso no enviado: la aplicación se reinició antes de entregarlo.";
+    public static final String OBSERVING_TEXT =
+            "Aviso enviado; resultado posterior pendiente de la observación de 2 min.";
+    public static final String NO_OUTCOME_TEXT = "Aviso registrado sin resultado posterior.";
 
     public record Outcome(GoalsPage page, String message, boolean error) {
         public boolean saved() {
@@ -53,6 +57,7 @@ public final class GoalsViewModel {
     private final GoalsService service;
     private final ZoneId zone;
     private final OpenSegmentProvider openSegments;
+    private final DateTimeFormatter timeFormat;
 
     private List<Goal> goals = List.of();
     private List<GoalContextOption> contexts = List.of();
@@ -76,6 +81,7 @@ public final class GoalsViewModel {
         this.service = Objects.requireNonNull(service, "service");
         this.zone = Objects.requireNonNull(zone, "zone");
         this.openSegments = Objects.requireNonNull(openSegments, "openSegments");
+        this.timeFormat = DateTimeFormatter.ofPattern("HH:mm").withZone(zone);
     }
 
     public GoalsPage load() {
@@ -321,7 +327,7 @@ public final class GoalsViewModel {
             return new GoalRow(goal.id(), contextLabel, limits,
                     "Sin progreso mientras está desactivado.", null, "Desactivado", "—",
                     "inactive", 0, false, goal.passive(), false, null,
-                    alertOutcomeText(goal.id()));
+                    alertOutcomeText(goal.id()), null, alertLines(goal.id()));
         }
         GoalState state = progress.state();
         String label = stateLabel(state);
@@ -338,7 +344,49 @@ public final class GoalsViewModel {
                 label, icon, key, ratio(goal, progress, state), true, goal.passive(),
                 progress.unmeasurable(),
                 justificationView(goal, progress, fullAlerts, anyJustified, anyUnanswered),
-                alertOutcomeText(goal.id()));
+                alertOutcomeText(goal.id()), balanceText(goal, progress), alertLines(goal.id()));
+    }
+
+    /**
+     * Separates the certified-by-the-user minutes from the minutes still over the limit.
+     * The justification only covers the excess accumulated when it was marked.
+     */
+    private static String balanceText(Goal goal, GoalProgress progress) {
+        if (goal.dailyMinutes() == null) return null;
+        long limit = goal.dailyMinutes() * 60_000L;
+        long excess = Math.max(0, progress.usedMillis() - limit);
+        long justified = Math.min(excess, progress.justifiedMillis());
+        long uncovered = excess - justified;
+        return "Justificado: " + minutesText(justified)
+                + " · Excedido sin justificar: " + minutesText(uncovered);
+    }
+
+    private static String minutesText(long millis) {
+        return millis == 0 ? "0 min" : DisplayFormats.duration(millis);
+    }
+
+    /** One line per recorded alert, with its threshold, local time and later observation. */
+    private List<String> alertLines(long goalId) {
+        return alertsByGoal.getOrDefault(goalId, List.of()).stream()
+                .sorted(Comparator.comparing(GoalAlert::triggeredAt))
+                .map(this::alertLine)
+                .toList();
+    }
+
+    private String alertLine(GoalAlert alert) {
+        String metric = alert.metric() == GoalMetric.MINUTES ? "minutos" : "entradas";
+        String result;
+        if (alert.isPendingNotice()) {
+            result = PENDING_NOTICE_TEXT;
+        } else if (alert.outcome() != null) {
+            result = outcomeText(alert);
+        } else if (alert.isObserving()) {
+            result = OBSERVING_TEXT;
+        } else {
+            result = NO_OUTCOME_TEXT;
+        }
+        return "Aviso " + alert.thresholdPercent() + " % de " + metric + " · "
+                + timeFormat.format(alert.triggeredAt()) + " — " + result;
     }
 
     private String alertOutcomeText(long goalId) {

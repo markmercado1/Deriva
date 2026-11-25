@@ -75,13 +75,14 @@ La barra lateral incluye un panel de captura con estado textual y botón **Inici
 - Pantalla **Objetivos** con lista a la izquierda y formulario a la derecha. Crear, editar topes/pasivo/activo, activar/desactivar y borrar con confirmación; desactivar es la vía normal para dejar de vigilar.
 - Contexto: elegir una app o un sitio ya visto en el registro, o escribir proceso y host opcional. Al editar un objetivo existente el contexto queda bloqueado; para cambiarlo se borra y se crea otro. Mensajes en español para topes ausentes/negativos, proceso con ruta, host con forma de URL y contexto duplicado.
 - Progreso: minutos usados, entradas y estado **En curso ▲**, **Cerca del tope ◆**, **Excedido ●**, **Justificado por ti ✓** o **Sin responder ○**, siempre icono + texto. Si puede haber subconteo por exclusión ante duda, se explica en la fila. Línea fija: “Progreso con segmentos cerrados y el segmento abierto confirmado, cortado en la última muestra; no se cierra ningún segmento”.
+- **Resumen de hoy** dentro de cada tarjeta: minutos justificados separados de los excedidos sin justificar y una línea por aviso registrado con umbral, métrica, hora local y el resultado posterior de A48; pendiente y sin resultado se muestran como tales. No hay pantalla ni escritura nueva.
 - La vista se refresca al abrirse y cada 30 s; el temporizador se detiene al cambiar de vista y al cerrar. El cálculo y la persistencia ocurren fuera del hilo JavaFX.
 - El máximo de actividad pasiva se edita en **Ajustes · Actividad pasiva**, con efectivo/pendiente igual que los umbrales de detección.
 
 ## Justificar excesos (F6B-6)
 
 - Con una alerta al 100 % registrada, la fila ofrece **Justificar exceso** o **Justificar de nuevo** si el uso posterior ya superó la cobertura anterior.
-- El diálogo pide un motivo opcional de 500 caracteres como máximo. Se guarda tal cual y no se envía a ningún sitio; guardar no cambia segmentos, episodios ni contextos.
+- El diálogo pide un motivo opcional de 500 caracteres como máximo, con la nota «Evita pegar direcciones o datos personales.». Se guarda tal cual y no se envía a ningún sitio; guardar no cambia segmentos, episodios ni contextos.
 - La justificación cubre el exceso acumulado al marcarla con la misma base que la alarma (segmentos cerrados y el abierto confirmado), no el resto del día. Se puede quitar y el cálculo vuelve al valor anterior.
 - **Sin responder** lleva la línea «Sin responder es solo una anotación tuya; no cambia los registros de actividad.». **Justificado por ti** muestra el motivo y el exceso cubierto. No se usan «aprobado», «válido» ni «comprobado».
 

@@ -359,6 +359,23 @@ public final class GoalsController {
         bar.setMaxWidth(190);
 
         card.getChildren().addAll(heading, details);
+        if (row.balanceText() != null || !row.alertLines().isEmpty()) {
+            Label summaryTitle = new Label("Resumen de hoy");
+            summaryTitle.getStyleClass().add("goal-summary-title");
+            card.getChildren().add(summaryTitle);
+        }
+        if (row.balanceText() != null) {
+            Label balance = new Label(row.balanceText());
+            balance.getStyleClass().add("goal-balance");
+            balance.setWrapText(true);
+            card.getChildren().add(balance);
+        }
+        for (String line : row.alertLines()) {
+            Label alert = new Label(line);
+            alert.getStyleClass().add("goal-alert-line");
+            alert.setWrapText(true);
+            card.getChildren().add(alert);
+        }
         GoalJustificationView justification = row.justification();
         if (justification != null && justification.reason() != null) {
             Label reason = new Label("Motivo: " + justification.reason());
@@ -378,13 +395,6 @@ public final class GoalsController {
             note.setWrapText(true);
             card.getChildren().add(note);
         }
-        if (row.alertOutcomeText() != null) {
-            Label outcome = new Label(row.alertOutcomeText());
-            outcome.getStyleClass().add("goal-alert-outcome");
-            outcome.setWrapText(true);
-            card.getChildren().add(outcome);
-        }
-
         HBox actions = new HBox(8);
         actions.setAlignment(Pos.CENTER_RIGHT);
         if (justification != null && justification.canJustify()) {

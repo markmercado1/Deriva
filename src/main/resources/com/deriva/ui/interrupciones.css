@@ -774,6 +774,24 @@
     -fx-font-size: 11px;
 }
 
+.goal-summary-title {
+    -fx-text-fill: #746F66;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-padding: 2 0 0 0;
+}
+
+.goal-balance {
+    -fx-text-fill: #302E2A;
+    -fx-font-family: "Consolas";
+    -fx-font-size: 11px;
+}
+
+.goal-alert-line {
+    -fx-text-fill: #746F66;
+    -fx-font-size: 11px;
+}
+
 .goal-alert-outcome {
     -fx-text-fill: #746F66;
     -fx-background-color: #F5F2EC;

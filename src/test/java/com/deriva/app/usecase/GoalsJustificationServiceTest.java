@@ -157,6 +157,32 @@ class GoalsJustificationServiceTest {
         assertEquals(before, activityFingerprint());
     }
 
+    /**
+     * Gate F6B-7: in a controlled step, without capture, the activity tables keep the
+     * same fingerprint through goal creation, an alarm evaluation, justify and remove.
+     */
+    @Test
+    void goalCreationAlarmAndJustificationKeepActivityTablesByteIdentical() throws Exception {
+        save("2026-11-24T09:00:00Z", "2026-11-24T09:12:00Z");
+        insertDriftRows();
+        String before = activityFingerprint();
+        System.out.println("F6B-7 activity fingerprint: " + before);
+
+        Goal goal = service.create(Goal.draft(CODE, 10, null, false));
+        assertEquals(before, activityFingerprint(), "creating a goal wrote activity rows");
+
+        GoalAlertService alarm = new GoalAlertService(goals, segments, alerts,
+                notice -> { }, clock, ZONE);
+        assertFalse(alarm.evaluate(NOW, now -> Optional.empty()).isEmpty());
+        assertEquals(before, activityFingerprint(), "evaluating the alarm wrote activity rows");
+
+        service.justify(goal.id(), "Torneo", ZONE, now -> Optional.empty());
+        assertEquals(before, activityFingerprint(), "justifying wrote activity rows");
+
+        service.removeJustification(goal.id(), ZONE);
+        assertEquals(before, activityFingerprint(), "removing a justification wrote activity rows");
+    }
+
     private GoalProgress progressOf(long goalId, com.deriva.goals.OpenSegmentProvider openSegments) {
         return service.progressForDay(DAY, ZONE, openSegments).stream()
                 .filter(item -> item.goal().id() == goalId)

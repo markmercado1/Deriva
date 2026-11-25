@@ -15,9 +15,11 @@ class SQLitePrivacyCheckTest {
     @TempDir Path tempDirectory;
 
     @Test
-    void acceptsTheV1SegmentSchema() {
+    void acceptsTheCurrentSchemaWithGoalsAndAlerts() {
         Path database = tempDirectory.resolve("ok.db");
         new SQLiteSegmentRepository(database);
+        new SQLiteGoalRepository(database, java.time.Clock.systemUTC());
+        new SQLiteGoalAlertRepository(database);
         assertDoesNotThrow(() -> SQLitePrivacyCheck.verify(database));
     }
 
@@ -43,5 +45,78 @@ class SQLitePrivacyCheckTest {
                     """);
         }
         assertThrows(StorageException.class, () -> SQLitePrivacyCheck.verify(database));
+    }
+
+    @Test
+    void rejectsForbiddenColumnsInGoalsAndGoalAlerts() throws Exception {
+        Path goals = tempDirectory.resolve("goals-column.db");
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + goals);
+             Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE goals (process_name TEXT, url TEXT)");
+        }
+        assertThrows(StorageException.class, () -> SQLitePrivacyCheck.verify(goals));
+
+        Path alerts = tempDirectory.resolve("alerts-column.db");
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + alerts);
+             Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE goals (process_name TEXT, site_host TEXT)");
+            statement.execute("CREATE TABLE goal_alerts (goal_id INTEGER, title TEXT)");
+        }
+        assertThrows(StorageException.class, () -> SQLitePrivacyCheck.verify(alerts));
+    }
+
+    @Test
+    void rejectsUrlLikeOrPathLikeGoalIdentity() throws Exception {
+        Path url = tempDirectory.resolve("goal-url.db");
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + url);
+             Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE goals (process_name TEXT, site_host TEXT)");
+            statement.execute("INSERT INTO goals VALUES ('https://evil.example', NULL)");
+        }
+        assertThrows(StorageException.class, () -> SQLitePrivacyCheck.verify(url));
+
+        Path path = tempDirectory.resolve("goal-path.db");
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + path);
+             Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE goals (process_name TEXT, site_host TEXT)");
+            statement.execute("INSERT INTO goals VALUES ('C:\\tools\\code.exe', NULL)");
+        }
+        assertThrows(StorageException.class, () -> SQLitePrivacyCheck.verify(path));
+
+        Path host = tempDirectory.resolve("goal-host.db");
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + host);
+             Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE goals (process_name TEXT, site_host TEXT)");
+            statement.execute("INSERT INTO goals VALUES ('chrome.exe', 'chess.com/play?x=1')");
+        }
+        assertThrows(StorageException.class, () -> SQLitePrivacyCheck.verify(host));
+    }
+
+    @Test
+    void rejectsFreeTextInTheOutcomeColumn() throws Exception {
+        Path database = tempDirectory.resolve("outcome.db");
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database);
+             Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE goals (process_name TEXT, site_host TEXT)");
+            statement.execute("CREATE TABLE goal_alerts (goal_id INTEGER, outcome TEXT)");
+            statement.execute("INSERT INTO goals VALUES ('code.exe', NULL)");
+            statement.execute("INSERT INTO goal_alerts VALUES (1, 'https://example.com/title')");
+        }
+        assertThrows(StorageException.class, () -> SQLitePrivacyCheck.verify(database));
+    }
+
+    @Test
+    void acceptsFreeUserJustificationTextEvenIfItLooksLikeUrlOrPath() throws Exception {
+        Path database = tempDirectory.resolve("justification.db");
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database);
+             Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE goals (process_name TEXT, site_host TEXT)");
+            statement.execute("CREATE TABLE goal_alerts (goal_id INTEGER, justification TEXT)");
+            statement.execute("INSERT INTO goals VALUES ('code.exe', NULL)");
+            statement.execute("""
+                    INSERT INTO goal_alerts VALUES (1, 'Pegué https://example.com/a?b y C:\\notas')
+                    """);
+        }
+        assertDoesNotThrow(() -> SQLitePrivacyCheck.verify(database));
     }
 }
