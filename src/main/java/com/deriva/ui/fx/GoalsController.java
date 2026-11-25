@@ -20,6 +20,7 @@ import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
+import javafx.scene.control.TitledPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -28,6 +29,8 @@ import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -74,6 +77,7 @@ public final class GoalsController {
 
     private GoalsViewModel viewModel;
     private GoalsPage current;
+    private final Set<Long> expandedSummaries = new HashSet<>();
     private boolean loadingFields;
     private boolean loading;
     private boolean busy;
@@ -316,6 +320,7 @@ public final class GoalsController {
     }
 
     private void render(List<GoalRow> rows) {
+        expandedSummaries.retainAll(rows.stream().map(GoalRow::id).toList());
         goalsList.getChildren().clear();
         if (rows.isEmpty()) {
             Label empty = new Label("Todavía no hay objetivos. Crea uno con el formulario de la derecha.");
@@ -359,22 +364,29 @@ public final class GoalsController {
         bar.setMaxWidth(190);
 
         card.getChildren().addAll(heading, details);
-        if (row.balanceText() != null || !row.alertLines().isEmpty()) {
-            Label summaryTitle = new Label("Resumen de hoy");
-            summaryTitle.getStyleClass().add("goal-summary-title");
-            card.getChildren().add(summaryTitle);
-        }
+        VBox summaryContent = new VBox(8);
         if (row.balanceText() != null) {
             Label balance = new Label(row.balanceText());
             balance.getStyleClass().add("goal-balance");
             balance.setWrapText(true);
-            card.getChildren().add(balance);
+            summaryContent.getChildren().add(balance);
         }
         for (String line : row.alertLines()) {
             Label alert = new Label(line);
             alert.getStyleClass().add("goal-alert-line");
             alert.setWrapText(true);
-            card.getChildren().add(alert);
+            summaryContent.getChildren().add(alert);
+        }
+        if (!summaryContent.getChildren().isEmpty()) {
+            TitledPane summary = new TitledPane("Resumen de hoy", summaryContent);
+            summary.getStyleClass().add("goal-summary");
+            summary.setAnimated(false);
+            summary.setExpanded(expandedSummaries.contains(row.id()));
+            summary.expandedProperty().addListener((observable, old, expanded) -> {
+                if (expanded) expandedSummaries.add(row.id());
+                else expandedSummaries.remove(row.id());
+            });
+            card.getChildren().add(summary);
         }
         GoalJustificationView justification = row.justification();
         if (justification != null && justification.reason() != null) {
@@ -388,12 +400,6 @@ public final class GoalsController {
             coverage.getStyleClass().add("goal-justification-coverage");
             coverage.setWrapText(true);
             card.getChildren().add(coverage);
-        }
-        if (justification != null && justification.note() != null) {
-            Label note = new Label(justification.note());
-            note.getStyleClass().add("goal-justification-note");
-            note.setWrapText(true);
-            card.getChildren().add(note);
         }
         HBox actions = new HBox(8);
         actions.setAlignment(Pos.CENTER_RIGHT);
@@ -422,13 +428,6 @@ public final class GoalsController {
         actions.getChildren().addAll(edit, toggle, delete);
 
         card.getChildren().add(actions);
-        if (row.unmeasurable()) {
-            Label note = new Label("Puede haber subconteo: parte del tiempo excluido ante duda no se "
-                    + "puede atribuir a este contexto.");
-            note.getStyleClass().add("goal-warning");
-            note.setWrapText(true);
-            card.getChildren().add(note);
-        }
         return card;
     }
 

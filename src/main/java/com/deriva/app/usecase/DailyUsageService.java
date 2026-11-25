@@ -34,12 +34,19 @@ public final class DailyUsageService {
      * is deliberately not counted until it is confirmed, so it cannot be duplicated.
      */
     public DailyUsage forDay(LocalDate day, ZoneId zone, CaptureSnapshot snapshot) {
+        return forRange(day, day, zone, snapshot);
+    }
+
+    public DailyUsage forRange(LocalDate day, LocalDate through, ZoneId zone, CaptureSnapshot snapshot) {
         Objects.requireNonNull(day, "day");
+        Objects.requireNonNull(through, "through");
+        if (through.isBefore(day)) throw new IllegalArgumentException("Desde debe ser anterior o igual a Hasta.");
         Objects.requireNonNull(zone, "zone");
         CaptureSnapshot live = snapshot == null ? CaptureSnapshot.stopped() : snapshot;
         LocalDate today = clock.instant().atZone(zone).toLocalDate();
-        if (!day.equals(today)) live = CaptureSnapshot.stopped();
-        DayWindow window = DayWindow.of(day, zone);
+        if (today.isBefore(day) || today.isAfter(through)) live = CaptureSnapshot.stopped();
+        DayWindow window = new DayWindow(day.atStartOfDay(zone).toInstant(),
+                through.plusDays(1).atStartOfDay(zone).toInstant());
         Instant dayStart = window.start();
         Instant dayEnd = window.end();
         List<Segment> persisted = repository.between(dayStart, dayEnd);

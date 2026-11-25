@@ -266,3 +266,29 @@ Guardar solo con cambios pendientes y bloquear solicitudes simultáneas. F6.2 pe
 - [x] Cierre limpio: `deriva-capture` y `deriva-goals` vivos=0; solo queda la UI 18972 abierta antes de la fase, visible y ajena a la corrida.
 - [x] Suite: 278 tests Java + 14 JS, 0 fallos. Huella de `segment`/`drift_event`/`drift_context` idéntica antes/después de crear objetivo, alarma, justificar y quitar; copia V1→V4 con 14 segmentos y hash idéntico, original intacta.
 - Límites para F6.2: subconteo de sitios por exclusión ante duda; P1 solo en objetivos pasivos; aviso de bandeja no verificado con clic humano y mensaje de dos topes solo con notificador falso; progreso con segmentos cerrados (hasta 30 s tarde); máximo pasivo fijo por sesión; migración real por el usuario con respaldo.
+
+## UI-VENTANA — HECHO (2026-11-25, E044)
+Petición del usuario: barra nativa accesible al arrancar (minimizar/maximizar/cerrar y arrastrar). Ajustar tamaño y posición al área útil del monitor; conservar colores y comportamiento de bandeja. F6.2 permanece pendiente.
+
+Compilación y arranque JavaFX real verificados: ventana DECORATED/redimensionable dentro del área útil con escala 125 %. Sin prueba de clic/arrastre humano (E044).
+
+## UI-OBJETIVOS-RESUMEN — HECHO (2026-11-25)
+Resumen de hoy plegable por objetivo y eliminación de las dos burbujas señaladas por el usuario. Mantener paleta y lógica de objetivos. F6.2 pendiente.
+Evidencia E045: compilación y sonda JavaFX correctas; sin clic humano.
+
+## UI-AJUSTES-MENU — HECHO (2026-11-25)
+Cuatro tarjetas de acceso a apartados de Ajustes, regreso claro y conservación del formulario. Mantener guardado y validaciones. F6.2 pendiente.
+E046: build, navegación programática, conservación de borrador y snapshot revisado.
+
+## USO-RANGOS — HECHO (2026-11-25)
+Autorizado: Día/Semana/Mes/Año/Personalizado, fechas inclusivas y totales del intervalo sin doble conteo. F6.2 pendiente.
+E047: 281 tests aprobados, sonda FXML y captura revisada; rendimiento masivo sin medir.
+
+## USO-DIA-HOY — HECHO (E048) (2026-11-25)
+Al cambiar a Día, seleccionar hoy local; conservar selección manual posterior.
+
+## AJUSTES-AYUDA — HECHO (E049) (2026-11-25)
+Tres tarjetas; ayudas plegadas y valores/aplicación dentro de Detección.
+
+## OBJETIVOS-HISTORIAL — EN_CURSO (2026-11-25)
+Selector diario, historial de versiones y archivado al borrar, lectura histórica sin modificar el pasado. Migración V5; no reconstruir datos antiguos perdidos. Pruebas SQLite/migración/UI necesarias.

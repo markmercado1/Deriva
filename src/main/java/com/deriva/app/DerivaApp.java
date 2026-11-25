@@ -22,6 +22,7 @@ import javafx.animation.PauseTransition;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -30,6 +31,7 @@ import javafx.scene.image.PixelReader;
 import javafx.scene.image.WritableImage;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import javafx.stage.Screen;
 import javafx.util.Duration;
 
 import javax.imageio.ImageIO;
@@ -125,9 +127,8 @@ public final class DerivaApp extends Application {
             scene.getStylesheets().add(DerivaApp.class
                     .getResource("/com/deriva/ui/interrupciones.css").toExternalForm());
             stage.setTitle("Deriva — Actividad");
-            stage.setMinWidth(1180);
-            stage.setMinHeight(720);
             stage.setScene(scene);
+            fitInitialWindow(stage);
 
             String smoke = environment("DERIVA_UI_SMOKE", "");
             boolean trayAllowed = smoke.isBlank() || "tray".equalsIgnoreCase(smoke);
@@ -229,6 +230,20 @@ public final class DerivaApp extends Application {
         stage.setMinHeight(280);
         stage.setScene(scene);
         stage.show();
+    }
+
+    private static void fitInitialWindow(Stage stage) {
+        // Visual bounds are logical pixels: they account for Windows scaling and
+        // exclude the taskbar. Size the whole decorated window, not just its scene.
+        Rectangle2D bounds = Screen.getPrimary().getVisualBounds();
+        double width = Math.min(1440, bounds.getWidth() * 0.94);
+        double height = Math.min(900, bounds.getHeight() * 0.94);
+        stage.setMinWidth(Math.min(1180, width));
+        stage.setMinHeight(Math.min(720, height));
+        stage.setWidth(width);
+        stage.setHeight(height);
+        stage.setX(bounds.getMinX() + (bounds.getWidth() - width) / 2);
+        stage.setY(bounds.getMinY() + (bounds.getHeight() - height) / 2);
     }
 
     private static void saveLiveSnapshot(Scene scene, String screenshot) {

@@ -30,7 +30,7 @@ public final class SQLiteGoalRepository implements GoalRepository {
             UPDATE goals
             SET process_name = ?, site_host = ?, daily_minutes = ?, daily_entries = ?, passive = ?, active = ?,
                 updated_at = ?
-            WHERE id = ?
+            WHERE id = ? AND archived_at IS NULL
             """;
     private static final String SELECT = """
             SELECT id, process_name, site_host, daily_minutes, daily_entries, passive, active,
@@ -87,7 +87,7 @@ public final class SQLiteGoalRepository implements GoalRepository {
     public Optional<Goal> find(long id) {
         if (id <= 0) throw new IllegalArgumentException("id");
         try (Connection connection = SQLiteSchema.open(databasePath);
-             PreparedStatement statement = connection.prepareStatement(SELECT + " WHERE id = ?")) {
+             PreparedStatement statement = connection.prepareStatement(SELECT + " WHERE id = ? AND archived_at IS NULL")) {
             statement.setLong(1, id);
             try (ResultSet result = statement.executeQuery()) {
                 return result.next() ? Optional.of(read(result)) : Optional.empty();
@@ -121,8 +121,12 @@ public final class SQLiteGoalRepository implements GoalRepository {
     public boolean delete(long id) {
         if (id <= 0) throw new IllegalArgumentException("id");
         try (Connection connection = SQLiteSchema.open(databasePath);
-             PreparedStatement statement = connection.prepareStatement("DELETE FROM goals WHERE id = ?")) {
-            statement.setLong(1, id);
+             PreparedStatement statement = connection.prepareStatement(
+                     "UPDATE goals SET archived_at = ?, updated_at = ? WHERE id = ? AND archived_at IS NULL")) {
+            long now = clock.instant().toEpochMilli();
+            statement.setLong(1, now);
+            statement.setLong(2, now);
+            statement.setLong(3, id);
             return statement.executeUpdate() == 1;
         } catch (SQLException e) {
             throw new StorageException("Could not delete goal", e);
@@ -131,12 +135,30 @@ public final class SQLiteGoalRepository implements GoalRepository {
 
     @Override
     public List<Goal> listActive() {
-        return list(" WHERE active = 1 ORDER BY process_name, COALESCE(site_host, '')");
+        return list(" WHERE active = 1 AND archived_at IS NULL ORDER BY process_name, COALESCE(site_host, '')");
     }
 
     @Override
     public List<Goal> listAll() {
-        return list(" ORDER BY active DESC, process_name, COALESCE(site_host, '')");
+        return list(" WHERE archived_at IS NULL ORDER BY active DESC, process_name, COALESCE(site_host, '')");
+    }
+
+    @Override
+    public List<com.deriva.goals.model.GoalRevision> revisionsBefore(Instant end) {
+        try (Connection connection = SQLiteSchema.open(databasePath);
+             PreparedStatement statement = connection.prepareStatement(
+                     "SELECT goal_id AS id, * FROM goal_history WHERE recorded_at < ? ORDER BY recorded_at,revision")) {
+            statement.setLong(1, end.toEpochMilli());
+            try (ResultSet result = statement.executeQuery()) {
+                var revisions = new ArrayList<com.deriva.goals.model.GoalRevision>();
+                while (result.next()) revisions.add(new com.deriva.goals.model.GoalRevision(read(result),
+                        Instant.ofEpochMilli(result.getLong("recorded_at")),
+                        result.getInt("archived") != 0, result.getInt("baseline") != 0));
+                return List.copyOf(revisions);
+            }
+        } catch (SQLException e) {
+            throw new StorageException("Could not read goal history", e);
+        }
     }
 
     private List<Goal> list(String clause) {

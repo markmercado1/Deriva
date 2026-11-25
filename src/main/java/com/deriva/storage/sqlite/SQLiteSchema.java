@@ -14,7 +14,39 @@ import java.util.Objects;
 
 /** SQLite connection settings and schema migrations (V1 to V4). */
 final class SQLiteSchema {
-    static final int VERSION = 4;
+    static final int VERSION = 5;
+
+    private static final String HISTORY_COLUMNS = "goal_id, process_name, site_host, daily_minutes, "
+            + "daily_entries, passive, active, created_at, updated_at, recorded_at, archived, baseline";
+    private static final String HISTORY_NEW = "NEW.id, NEW.process_name, NEW.site_host, NEW.daily_minutes, "
+            + "NEW.daily_entries, NEW.passive, NEW.active, NEW.created_at, NEW.updated_at, "
+            + "NEW.updated_at, CASE WHEN NEW.archived_at IS NULL THEN 0 ELSE 1 END, 0";
+    private static final String[] V5 = {
+            "ALTER TABLE goals ADD COLUMN archived_at INTEGER",
+            "DROP INDEX ux_goals_app",
+            "DROP INDEX ux_goals_site",
+            "CREATE UNIQUE INDEX ux_goals_app ON goals(process_name) WHERE site_host IS NULL AND archived_at IS NULL",
+            "CREATE UNIQUE INDEX ux_goals_site ON goals(process_name,site_host) WHERE site_host IS NOT NULL AND archived_at IS NULL",
+            """
+            CREATE TABLE goal_history (
+              revision INTEGER PRIMARY KEY AUTOINCREMENT,
+              goal_id INTEGER NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
+              process_name TEXT NOT NULL, site_host TEXT,
+              daily_minutes INTEGER, daily_entries INTEGER,
+              passive INTEGER NOT NULL, active INTEGER NOT NULL,
+              created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+              recorded_at INTEGER NOT NULL, archived INTEGER NOT NULL,
+              baseline INTEGER NOT NULL
+            )
+            """,
+            "CREATE INDEX idx_goal_history_time ON goal_history(recorded_at,goal_id)",
+            "INSERT INTO goal_history(" + HISTORY_COLUMNS + ") SELECT id,process_name,site_host,daily_minutes,"
+                    + "daily_entries,passive,active,created_at,updated_at,CAST(unixepoch('subsec')*1000 AS INTEGER),0,1 FROM goals",
+            "CREATE TRIGGER goal_history_insert AFTER INSERT ON goals BEGIN INSERT INTO goal_history("
+                    + HISTORY_COLUMNS + ") VALUES(" + HISTORY_NEW + "); END",
+            "CREATE TRIGGER goal_history_update AFTER UPDATE ON goals BEGIN INSERT INTO goal_history("
+                    + HISTORY_COLUMNS + ") VALUES(" + HISTORY_NEW + "); END"
+    };
 
     static final String[] V1 = {
             """
@@ -192,6 +224,11 @@ final class SQLiteSchema {
                 if (version < 4) {
                     run(connection, V4);
                     version = 4;
+                    migrated = true;
+                }
+                if (version < 5) {
+                    run(connection, V5);
+                    version = 5;
                     migrated = true;
                 }
                 if (migrated) writeVersion(connection, version);

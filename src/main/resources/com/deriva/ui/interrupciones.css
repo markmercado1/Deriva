@@ -774,11 +774,27 @@
     -fx-font-size: 11px;
 }
 
-.goal-summary-title {
-    -fx-text-fill: #746F66;
-    -fx-font-size: 11px;
+.goal-summary {
+    -fx-text-fill: #302E2A;
+    -fx-font-size: 12px;
+}
+.goal-summary > .title {
+    -fx-background-color: transparent;
+    -fx-padding: 6 0;
     -fx-font-weight: bold;
-    -fx-padding: 2 0 0 0;
+    -fx-cursor: hand;
+}
+.goal-summary > .title:hover, .goal-summary:focused > .title {
+    -fx-background-color: #F8E9DE;
+    -fx-background-radius: 5;
+}
+.goal-summary > .title > .arrow-button > .arrow {
+    -fx-background-color: #B75436;
+}
+.goal-summary > .content {
+    -fx-background-color: transparent;
+    -fx-border-color: #E2DDD3 transparent transparent transparent;
+    -fx-padding: 10 0 4 0;
 }
 
 .goal-balance {
@@ -817,4 +833,38 @@
 .goal-text-input {
     -fx-alignment: CENTER_LEFT;
     -fx-font-family: "Segoe UI";
+}
+
+.settings-menu-card {
+    -fx-background-color: #FFFEFB;
+    -fx-border-color: #E2DDD3;
+    -fx-border-radius: 14;
+    -fx-background-radius: 14;
+    -fx-padding: 24;
+    -fx-alignment: TOP_LEFT;
+    -fx-min-height: 170;
+    -fx-cursor: hand;
+}
+.settings-menu-card:hover {
+    -fx-background-color: #F8E9DE;
+    -fx-border-color: #B75436;
+}
+.settings-menu-card:focused {
+    -fx-border-color: #B75436;
+    -fx-border-width: 2;
+    -fx-padding: 23;
+}
+.settings-card-marker {
+    -fx-text-fill: #B75436;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+.settings-card-title {
+    -fx-text-fill: #302E2A;
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+}
+.settings-card-description {
+    -fx-text-fill: #746F66;
+    -fx-font-size: 13px;
 }

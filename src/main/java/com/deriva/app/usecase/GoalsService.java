@@ -166,6 +166,42 @@ public final class GoalsService implements PassiveGoalProvider {
         return clock.instant().atZone(zone).toLocalDate();
     }
 
+    public record DayHistory(List<Goal> goals, java.util.Map<Long, List<com.deriva.goals.model.GoalRevision>> revisions,
+                             java.util.Set<Long> archived, List<GoalProgress> progress) {}
+
+    /** Last configuration known that day; all changes remain available separately. */
+    public DayHistory history(LocalDate day, ZoneId zone) {
+        DayWindow window = DayWindow.of(day, zone);
+        var grouped = new java.util.LinkedHashMap<Long, List<com.deriva.goals.model.GoalRevision>>();
+        for (var revision : goals.revisionsBefore(window.end()))
+            grouped.computeIfAbsent(revision.goal().id(), ignored -> new ArrayList<>()).add(revision);
+        var selected = new ArrayList<Goal>();
+        var archived = new java.util.HashSet<Long>();
+        var progress = new ArrayList<GoalProgress>();
+        var daySegments = segments.between(window.start(), window.end());
+        var justifications = justificationsIn(window);
+        for (var entry : grouped.entrySet()) {
+            var last = entry.getValue().getLast();
+            if (last.archived() && last.recordedAt().isBefore(window.start())) continue;
+            Goal goal = last.goal();
+            selected.add(goal);
+            if (last.archived()) archived.add(goal.id());
+            // Existing daily-goal semantics count the context over the day. An
+            // archived goal freezes at deletion, rather than accruing later use.
+            Instant cutoff = last.archived() ? last.recordedAt() : window.end();
+            var clipped = new ArrayList<Segment>();
+            for (Segment segment : daySegments) {
+                if (!segment.start().isBefore(cutoff)) continue;
+                Instant end = segment.end().isAfter(cutoff) ? cutoff : segment.end();
+                clipped.add(new Segment(segment.id(), segment.kind(), segment.context(),
+                        segment.siteLabel(), segment.siteSource(), segment.start(), end));
+            }
+            progress.addAll(GoalProgressCalculator.calculate(day, zone, clipped, List.of(goal), justifications));
+        }
+        return new DayHistory(List.copyOf(selected), java.util.Map.copyOf(grouped),
+                java.util.Set.copyOf(archived), List.copyOf(progress));
+    }
+
     private List<GoalJustification> justificationsIn(DayWindow window) {
         return alerts.listJustifiedBetween(window.start(), window.end()).stream()
                 .filter(alert -> alert.thresholdPercent() == 100 && alert.isJustified())

@@ -8,13 +8,23 @@
       styleClass="content" spacing="16">
     <VBox spacing="2">
         <Label text="Ajustes" styleClass="page-title"/>
-        <Label text="Configura cómo Deriva detecta los cambios frecuentes."
+        <Label text="Elige qué quieres configurar."
                styleClass="page-subtitle"/>
     </VBox>
 
-    <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" styleClass="settings-scroll">
+    <HBox fx:id="sectionNavigation" spacing="14" alignment="CENTER_LEFT" visible="false" managed="false">
+        <Button text="← Todos los ajustes" onAction="#showOverview" styleClass="secondary-button"/>
+        <Label fx:id="sectionTitle" styleClass="settings-section-title"/>
+    </HBox>
+    <ScrollPane fx:id="settingsScroll" fitToWidth="true" VBox.vgrow="ALWAYS" styleClass="settings-scroll">
         <VBox spacing="14">
-            <VBox styleClass="settings-panel" spacing="12">
+            <GridPane fx:id="settingsMenu" hgap="18" vgap="18">
+                <columnConstraints>
+                    <ColumnConstraints percentWidth="50"/>
+                    <ColumnConstraints percentWidth="50"/>
+                </columnConstraints>
+            </GridPane>
+            <VBox fx:id="detectionPanel" styleClass="settings-panel" spacing="12">
                 <Label text="Detección de cambios frecuentes" styleClass="usage-title"/>
                 <Label text="Estos valores deciden cuándo Deriva registra un episodio de cambios entre aplicaciones o sitios y cuándo lo cierra. No miden concentración ni productividad."
                        styleClass="settings-help" wrapText="true"/>
@@ -75,7 +85,7 @@
                 </HBox>
             </VBox>
 
-            <VBox styleClass="settings-panel" spacing="12">
+            <VBox fx:id="passivePanel" styleClass="settings-panel" spacing="12">
                 <Label text="Actividad pasiva" styleClass="usage-title"/>
                 <Label text="Si un contexto tiene un objetivo pasivo y sigue en primer plano sin teclado ni ratón, Deriva puede seguir contándolo hasta este máximo desde la última entrada. No se aplica a contextos sin objetivo pasivo."
                        styleClass="settings-help" wrapText="true"/>
@@ -106,7 +116,7 @@
                 <Label fx:id="passiveSaveStatus" text="" styleClass="save-status" wrapText="true"/>
             </VBox>
 
-            <VBox styleClass="settings-panel" spacing="12">
+            <VBox fx:id="deferralPanel" styleClass="settings-panel" spacing="12">
                 <Label text="Avisos durante una deriva" styleClass="usage-title"/>
                 <Label text="Si un aviso de objetivo coincide con una deriva activa, Deriva espera a que termine o al máximo indicado. Después registra qué ocurrió; ese resultado es una observación, no una prueba de efecto."
                        styleClass="settings-help" wrapText="true"/>
@@ -137,7 +147,7 @@
                 <Label fx:id="deferralSaveStatus" text="" styleClass="save-status" wrapText="true"/>
             </VBox>
 
-            <VBox styleClass="settings-panel" spacing="8">
+            <VBox fx:id="valuesPanel" styleClass="settings-panel" spacing="8">
                 <Label text="Valores" styleClass="settings-section-title"/>
                 <Label fx:id="effectiveValues" text="En uso ahora: —" styleClass="settings-effective" wrapText="true"/>
                 <Label fx:id="pendingValues" text="" styleClass="settings-pending" wrapText="true"/>
@@ -147,7 +157,7 @@
                 <Label fx:id="idleWarningLabel" text="" styleClass="settings-warning" wrapText="true"/>
             </VBox>
 
-            <VBox styleClass="settings-panel" spacing="8">
+            <VBox fx:id="applicationPanel" styleClass="settings-panel" spacing="8">
                 <Label text="Cómo se aplica" styleClass="settings-section-title"/>
                 <Label text="Guardar no cambia la captura en curso. Pausar y Reanudar conservan los valores de la sesión; Detener y volver a Iniciar aplica los valores guardados. No se recalculan episodios ni historial."
                        styleClass="settings-help" wrapText="true"/>
@@ -157,6 +167,7 @@
         </VBox>
     </ScrollPane>
 
+    <VBox fx:id="detectionActions" spacing="8">
     <HBox spacing="10" alignment="CENTER_LEFT">
         <Button fx:id="restoreButton" text="Restaurar valores predeterminados"
                 styleClass="secondary-button"/>
@@ -164,4 +175,5 @@
         <Button fx:id="saveButton" text="Guardar" styleClass="primary-button"/>
     </HBox>
     <Label fx:id="saveStatus" text="" styleClass="save-status" wrapText="true"/>
+    </VBox>
 </VBox>

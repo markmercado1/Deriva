@@ -13,6 +13,13 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TitledPane;
+import javafx.scene.layout.Pane;
+import javafx.scene.Node;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 
 import java.time.Duration;
 import java.util.List;
@@ -22,6 +29,13 @@ import java.util.concurrent.Executors;
 import java.util.function.UnaryOperator;
 
 public final class SettingsController {
+    @FXML private GridPane settingsMenu;
+    @FXML private ScrollPane settingsScroll;
+    @FXML private HBox sectionNavigation;
+    @FXML private Label sectionTitle;
+    @FXML private VBox detectionPanel, passivePanel, deferralPanel;
+    @FXML private VBox valuesPanel, applicationPanel, detectionActions;
+    private TitledPane valuesDisclosure, applicationDisclosure;
     @FXML private TextField switchesField;
     @FXML private TextField windowField;
     @FXML private TextField stabilityField;
@@ -77,6 +91,43 @@ public final class SettingsController {
 
     @FXML
     private void initialize() {
+        String[] titles = {"Detección", "Actividad pasiva", "Avisos durante una deriva"};
+        String[] descriptions = {"Cambios, estabilidad e inactividad.",
+                "Tiempo sin teclado ni ratón en objetivos pasivos.",
+                "Cuánto puede esperar un aviso de objetivo."};
+        for (int i = 0; i < titles.length; i++) {
+            final int section = i;
+            Label number = new Label("0" + (i + 1) + "   →");
+            number.getStyleClass().add("settings-card-marker");
+            Label title = new Label(titles[i]);
+            title.getStyleClass().add("settings-card-title");
+            title.setWrapText(true);
+            Label description = new Label(descriptions[i]);
+            description.getStyleClass().add("settings-card-description");
+            description.setWrapText(true);
+            VBox content = new VBox(10, number, title, description);
+            content.setFillWidth(true);
+            Button card = new Button();
+            card.setId("settingsSection" + i);
+            card.setAccessibleText(titles[i] + ". " + descriptions[i]);
+            card.setGraphic(content);
+            card.setMaxWidth(Double.MAX_VALUE);
+            card.setPrefHeight(180);
+            card.setMaxHeight(180);
+            card.getStyleClass().add("settings-menu-card");
+            card.setOnAction(event -> openSection(section, titles[section]));
+            settingsMenu.add(card, i % 2, i / 2);
+        }
+        foldHelp(detectionPanel);
+        foldHelp(passivePanel);
+        foldHelp(deferralPanel);
+        for (Label status : List.of(unsavedLabel, validationLabel, loadWarningLabel)) {
+            valuesPanel.getChildren().remove(status);
+            detectionActions.getChildren().add(0, status);
+        }
+        valuesDisclosure = foldPanel(valuesPanel, "Valores y avisos");
+        applicationDisclosure = foldPanel(applicationPanel, "Cómo se aplica");
+        showOverview();
         UnaryOperator<TextFormatter.Change> numeric = change ->
                 change.getControlNewText().matches("\\d{0,4}") ? change : null;
         for (TextField field : List.of(switchesField, windowField, stabilityField, idleField)) {
@@ -132,6 +183,64 @@ public final class SettingsController {
         refresh();
         refreshPassive();
         refreshDeferral();
+    }
+
+    @FXML
+    public void showOverview() {
+        openSection(-1, "");
+    }
+
+    private void openSection(int section, String title) {
+        setShown(settingsMenu, section == -1);
+        setShown(sectionNavigation, section != -1);
+        sectionTitle.setText(title);
+        setShown(detectionPanel, section == 0);
+        setShown(passivePanel, section == 1);
+        setShown(deferralPanel, section == 2);
+        // Keep warnings and validation next to the detection form as well.
+        setShown(valuesDisclosure, section == 0);
+        setShown(applicationDisclosure, section == 0);
+        setShown(detectionActions, section == 0);
+        settingsScroll.setVvalue(0);
+    }
+
+    private static void setShown(Node node, boolean shown) {
+        node.setVisible(shown);
+        node.setManaged(shown);
+    }
+
+    private static void foldHelp(Pane parent) {
+        VBox explanations = new VBox(8);
+        int firstIndex = -1;
+        for (Node child : List.copyOf(parent.getChildren())) {
+            if (child instanceof Label label && (label.getStyleClass().contains("settings-help")
+                    || label.getStyleClass().contains("settings-note"))) {
+                if (firstIndex < 0) firstIndex = parent.getChildren().indexOf(child);
+                parent.getChildren().remove(child);
+                explanations.getChildren().add(label);
+            } else if (child instanceof Pane nested) foldHelp(nested);
+        }
+        if (firstIndex >= 0) parent.getChildren().add(firstIndex,
+                disclosure("Más información", explanations));
+    }
+
+    private static TitledPane disclosure(String title, Node content) {
+        TitledPane pane = new TitledPane(title, content);
+        pane.setExpanded(false);
+        pane.setAnimated(false);
+        pane.getStyleClass().add("goal-summary");
+        return pane;
+    }
+
+    private static TitledPane foldPanel(VBox panel, String title) {
+        Pane parent = (Pane) panel.getParent();
+        int index = parent.getChildren().indexOf(panel);
+        parent.getChildren().remove(panel);
+        // The title is now supplied by the disclosure header.
+        panel.getChildren().remove(0);
+        TitledPane pane = disclosure(title, panel);
+        parent.getChildren().add(index, pane);
+        return pane;
     }
 
     public void updateEffective(DetectionSettings effective) {

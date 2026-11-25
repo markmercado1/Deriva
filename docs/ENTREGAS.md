@@ -298,3 +298,21 @@ Guardar sin cambios queda deshabilitado; controles bloqueados durante escritura/
 - Probado: gate real de 65 min, 130 muestras cada 30 s y 16 CPUs; CPU media 0,20 % / máxima 0,89 % frente a 0,15 % de E030 (causa probable: seis objetivos y alarmas cada 30 s); working set 155,5→279,8 MB (máx. 422,2), hilos 63→65 (máx. 70) y handles 531→708 (máx. 718), sin crecimiento sostenido. Salvedad: hueco de 96 s por suspensión S0. Cierre con `deriva-capture` y `deriva-goals` vivos=0. Huella de `segment`/`drift_event`/`drift_context` idéntica (`76684c90…`) antes/después de crear objetivo, alarma, justificar y quitar; copia V1→V4 con 14 segmentos y hash idéntico, original intacta (`0446AE5D…`). 278 tests Java + 14 JS, 0 fallos. Capturas `work/ui-preview/f6b-7/{summary.png,goals-final.png}`.
 - Límites: el hueco de S0 impide llamar «sin cortes» a la muestra; smokes de controles, no clics humanos; bandeja no verificada con clic humano y dos topes juntos solo con notificador falso; P1 solo en objetivos pasivos; progreso con segmentos cerrados (hasta 30 s tarde); máximo pasivo fijo por sesión; subconteo de sitios por exclusión ante duda; migración real por el usuario con respaldo. F6.2 sigue PENDIENTE.
 - Siguiente: F6.2 (entrega local reproducible), pendiente de autorización.
+
+## 2026-11-25 — UI-VENTANA (E044)
+Arranque centrado con tamaño adaptado al área útil de Windows para mantener accesible la barra nativa. Compilación correcta y arranque real con escala 125 %, ventana completa en pantalla y cierre sin hilos. Pendiente comprobación humana de botones/arrastre y pantallas adicionales. F6.2 pendiente.
+
+## 2026-11-25 — UI-OBJETIVOS-RESUMEN (E045)
+Resumen de hoy plegado por defecto con expansión conservada al refrescar; retiradas ambas burbujas solicitadas. Build correcto y sonda JavaFX de plegado, contenido y refresco aprobada. Falta revisión visual del usuario; bases intactas y F6.2 pendiente.
+
+## 2026-11-25 — UI-AJUSTES-MENU (E046)
+Entrada con cuatro tarjetas, navegación y regreso, formularios conservados. Build correcto, sonda de cuatro rutas y borrador aprobada, captura visual revisada. Falta revisión del usuario en app abierta. F6.2 pendiente.
+
+## 2026-11-25 — USO-RANGOS (E047)
+Día, semana, mes, año y rango personalizado en Uso. Consulta y totales por intervalo, validación de fechas y snapshot conservado. 281 tests aprobados, sonda FXML y captura revisada. Límite: sin benchmark de años de datos reales. F6.2 pendiente.
+
+## 2026-11-25 — USO-DIA-HOY (E048)
+Corregido Año → Día: vuelve a hoy local. Build y sonda FXML aprobados; selección manual posterior conservada.
+
+## 2026-11-25 — AJUSTES-AYUDA (E049)
+Ayudas plegadas y tres tarjetas; información integrada en Detección. Build y sonda FXML correctos; base real intacta. Próximo: revisión del usuario tras reabrir.

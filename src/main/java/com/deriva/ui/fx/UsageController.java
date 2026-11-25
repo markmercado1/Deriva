@@ -10,6 +10,8 @@ import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
 import javafx.scene.control.DatePicker;
+import javafx.scene.control.ComboBox;
+import com.deriva.ui.viewmodel.UsagePeriod;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.layout.HBox;
@@ -28,6 +30,11 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public final class UsageController {
     @FXML private DatePicker datePicker;
+    @FXML private DatePicker endDatePicker;
+    @FXML private ComboBox<UsagePeriod> periodCombo;
+    @FXML private Label rangeLabel;
+    private boolean updatingRange;
+    private int pendingQueries;
     @FXML private Label totalLabel;
     @FXML private Label coverageLabel;
     @FXML private Label zoneLabel;
@@ -43,14 +50,27 @@ public final class UsageController {
     });
     private final AtomicLong refreshRequest = new AtomicLong();
     private final Timeline autoRefresh = new Timeline(
-            new KeyFrame(Duration.seconds(2), event -> refresh()));
+            new KeyFrame(Duration.seconds(30), event -> { if (pendingQueries == 0) refresh(); }));
     private DailyUsageViewModel viewModel;
 
     @FXML
     private void initialize() {
         datePicker.setValue(LocalDate.now());
         datePicker.setEditable(false);
-        datePicker.valueProperty().addListener((observable, old, value) -> refresh());
+        endDatePicker.setEditable(false);
+        periodCombo.getItems().setAll(UsagePeriod.values());
+        periodCombo.setValue(UsagePeriod.DAY);
+        datePicker.valueProperty().addListener((observable, old, value) -> updateRange());
+        endDatePicker.valueProperty().addListener((observable, old, value) -> { if (!updatingRange) refresh(); });
+        periodCombo.valueProperty().addListener((observable, old, value) -> {
+            if (value == UsagePeriod.DAY) {
+                updatingRange = true;
+                datePicker.setValue(LocalDate.now());
+                updatingRange = false;
+            }
+            updateRange();
+        });
+        updateRange();
         autoRefresh.setCycleCount(Animation.INDEFINITE);
     }
 
@@ -64,12 +84,35 @@ public final class UsageController {
         if (viewModel == null) return;
         LocalDate day = datePicker.getValue() == null ? LocalDate.now() : datePicker.getValue();
         long request = refreshRequest.incrementAndGet();
-        CompletableFuture.supplyAsync(() -> viewModel.load(day), executor)
+        LocalDate through = endDatePicker.getValue();
+        if (through == null || through.isBefore(day)) {
+            showLoadError(new IllegalArgumentException("Desde debe ser anterior o igual a Hasta."));
+            return;
+        }
+        pendingQueries++;
+        CompletableFuture.supplyAsync(() -> viewModel.load(day, through), executor)
                 .whenComplete((page, error) -> Platform.runLater(() -> {
+                    pendingQueries--;
                     if (request != refreshRequest.get()) return;
                     if (error != null) showLoadError(error);
                     else apply(page);
                 }));
+    }
+
+    private void updateRange() {
+        if (updatingRange || periodCombo.getValue() == null || datePicker.getValue() == null) return;
+        updatingRange = true;
+        UsagePeriod period = periodCombo.getValue();
+        if (period != UsagePeriod.CUSTOM) {
+            LocalDate anchor = datePicker.getValue();
+            datePicker.setValue(period.start(anchor));
+            endDatePicker.setValue(period.end(anchor));
+        }
+        endDatePicker.setDisable(period != UsagePeriod.CUSTOM);
+        rangeLabel.setText(period == UsagePeriod.WEEK ? "Semana de lunes a domingo · fechas inclusivas"
+                : "Fechas inclusivas · solo se suma el tiempo registrado");
+        updatingRange = false;
+        refresh();
     }
 
     public void startAutoRefresh() {
@@ -92,7 +135,7 @@ public final class UsageController {
         zoneLabel.setText(page.zoneText());
         statusLabel.setText(page.statusText());
 
-        String empty = page.hasSegments() ? "Sin uso en primer plano." : "Sin datos para esta fecha.";
+        String empty = page.hasSegments() ? "Sin uso en primer plano." : "Sin datos para este periodo.";
         render(appsList, page.apps(), empty);
         render(sitesList, page.sites(), page.hasSegments() ? "Sin sitios registrados." : empty);
     }

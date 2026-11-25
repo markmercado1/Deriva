@@ -33,9 +33,13 @@ public final class DailyUsageViewModel {
     }
 
     public UsagePage load(LocalDate day) {
+        return load(day, day);
+    }
+
+    public UsagePage load(LocalDate day, LocalDate through) {
         Objects.requireNonNull(day, "day");
         CaptureSnapshot snapshot = capture == null ? CaptureSnapshot.stopped() : capture.snapshot();
-        DailyUsage usage = service.forDay(day, zone, snapshot);
+        DailyUsage usage = service.forRange(day, through, zone, snapshot);
         List<UsageRow> apps = rows(usage.appMillis(), DisplayFormats::app);
         List<UsageRow> sites = rows(usage.siteMillis(), DisplayFormats::site);
         String total = usage.hasSegments()
@@ -45,7 +49,7 @@ public final class DailyUsageViewModel {
                 ? "Registrado " + DisplayFormats.duration(usage.recordedMillis())
                 + " de " + DisplayFormats.duration(usage.elapsedMillis())
                 + " · Sin registro " + DisplayFormats.duration(usage.unrecordedMillis())
-                : "Sin registro para esta fecha";
+                : "Sin registro para este periodo";
         return new UsagePage(day, "Zona horaria: " + zone.getId(), total, coverage,
                 status(usage), apps, sites, usage.hasSegments());
     }
@@ -65,7 +69,7 @@ public final class DailyUsageViewModel {
             return base + ".";
         }
         if (!usage.hasSegments()) {
-            return "Sin datos para esta fecha. No hay segmentos guardados.";
+            return "Sin datos para este periodo. No hay segmentos guardados.";
         }
         if (usage.observedMillis() == 0) {
             return "Sin uso en primer plano; solo hay inactividad, exclusiones o datos no disponibles.";

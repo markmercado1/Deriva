@@ -102,3 +102,20 @@ La barra lateral incluye un panel de captura con estado textual y botón **Inici
 
 
 Guardar se deshabilita si los valores coinciden con la anotación persistida (Guardado ✓); editar motivo o Justificada habilita Guardar cambios. Durante escritura y recarga se bloquean los controles del formulario, selección y filtros para evitar solicitudes simultáneas. Un error permite reintentar.
+
+## Ventana inicial (UI-VENTANA)
+Conservar el marco nativo de Windows, sus controles y el arrastre por la barra de título. Dimensionar la ventana completa (incluido el marco) hasta 1440x900, limitada al 94 % del área útil lógica del monitor principal; centrarla y limitar los mínimos a ese tamaño. Respetar escala de Windows y barra de tareas. La X conserva el comportamiento de bandeja documentado.
+
+## Simplificación de Objetivos (A52, sustituye las indicaciones anteriores sobre estas burbujas)
+Resumen de hoy es un desplegable por tarjeta, cerrado por defecto. Balance y líneas de avisos aparecen solo al desplegar; el refresco conserva su estado. Se eliminan las burbujas explicativas de Sin responder y subconteo por petición del usuario. Se mantienen estado, progreso, acciones, colores y reglas de cálculo.
+
+## Navegación de Ajustes (A53)
+Al entrar, cuatro tarjetas en cuadrícula 2x2: Detección, Actividad pasiva, Avisos durante una deriva y Valores y aplicación. Cada tarjeta abre su apartado con regreso a Todos los ajustes. Mantener campos al navegar, guardar/restaurar dentro de su contexto, paleta cálida y foco visible por teclado. Detección conserva valores, avisos y validación junto al formulario; el cuarto apartado consulta valores y explica aplicación.
+
+## Uso por periodos (A54, sustituye selector diario)
+Título y navegación Uso. Periodo Día/Semana/Mes/Año/Personalizado con Desde/Hasta visibles e inclusivos. Semana lunes-domingo; meses y años calendario de la fecha elegida. Hasta se calcula salvo en Personalizado. Totales y listas del intervalo mantienen paleta y semántica. Error en rango invertido. Refresco 30 s; abierto confirmado incluido si hoy está en el rango.
+
+Seleccionar Día desde otro periodo vuelve a hoy local; Desde permite elegir posteriormente otro día (A55).
+
+## Ayuda de Ajustes (A56, sustituye A53)
+Tres tarjetas. Ayudas bajo Más información cerrado por defecto. Detección incorpora Valores y avisos y Cómo se aplica como desplegables. Validación y cambios sin guardar visibles junto a Guardar.

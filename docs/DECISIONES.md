@@ -306,3 +306,20 @@ La corrida usa una copia migrada con seis objetivos pasivos de 1 min (ChatGPT, W
 Resultado: 65 min 0,006 s (3.900 s), 130 muestras cada 30 s, 16 CPUs lógicas. CPU media 0,20 %, máxima 0,89 % (primera muestra, arranque) frente a 0,15 % de E030; +0,05 puntos porcentuales, causa probable: seis objetivos y evaluación de alarmas cada 30 s, con ocho avisos registrados, carga que E030 no tenía. Working set 155,5 → 279,8 MB (máx. 422,2), memoria privada 440,7 → 487,6 MB; hilos 63 → 65 (máx. 70); handles 531 → 708 (máx. 718). Por tercios, working set 338,7 / 393,4 / 311,1 MB, hilos 65,0 / 64,6 / 65,1 y handles 658 / 702 / 710: sin crecimiento sostenido. **Salvedad:** hubo un hueco de 96,056 s entre muestras (20:22:17–20:23:53) por suspensión S0 del sistema (eventos Kernel-Power 506/507), no por un reinicio ni un fallo de la aplicación; E030 no tuvo ese hueco. Cierre: `hilos deriva-capture vivos=0; deriva-goals vivos=0`; el único `java.exe` que queda es la UI 18972 abierta antes de esta fase, visible y ajena a la corrida.
 
 Limitaciones conocidas para F6.2: subconteo de sitios por exclusión ante duda; P1 solo resuelto en objetivos pasivos; aviso de bandeja no verificado con clic humano (y el mensaje de bandeja de dos topes juntos solo se verificó con notificador falso); progreso en pantalla solo con segmentos cerrados, que cuenta hasta 30 s tarde; objetivos pasivos con máximo fijo por sesión; y la migración de la base real la hace el usuario con respaldo y SHA-256. F6.2 sigue PENDIENTE. Evidencia E043.
+## A51 — 2026-11-25 — Ventana inicial dentro del área útil
+Estado: aplicable por petición del usuario. DerivaApp conserva Stage decorado nativo y ajusta el tamaño exterior inicial a min(1440, 94 % del ancho útil) y min(900, 94 % del alto útil), centrado en el monitor principal. Los mínimos 1180x720 se limitan al tamaño calculado. Screen.visualBounds usa coordenadas lógicas con escala y excluye la barra de tareas. No se añaden botones personalizados ni se cambia el cierre hacia bandeja. E044 confirma escala 1,25 y área útil 1536x816, menor que los 900 anteriores. Sin cambios en colores, captura ni datos.
+
+## A52 — 2026-11-25 — Resumen plegable y reducción de avisos visuales
+Por instrucción expresa del usuario, Resumen de hoy pasa a desplegable cerrado por defecto; balance y avisos se muestran al expandir. Se conserva el estado durante refrescos por id, solo en memoria. Se retiran de las tarjetas las burbujas de anotación Sin responder y posible subconteo, sustituyendo sus requisitos visuales anteriores; no cambia el cálculo conservador ni los estados. Paleta existente y control TitledPane accesible por teclado. Evidencia E045.
+
+## A53 — 2026-11-25 — Cuatro accesos dentro de Ajustes
+Por petición del usuario, menú de cuatro tarjetas y navegación local mediante visibilidad/managed de los paneles existentes. No recrear formularios al navegar; conservar borradores. Volver a Ajustes desde lateral abre menú. Valores y aplicación es consulta; guardado de detección permanece con sus campos y validación. Sin nuevos tipos de configuración ni cambios de persistencia. Evidencia E046.
+
+## A54 — 2026-11-25 — Uso por periodos autorizado
+Se amplía Uso diario a Uso con periodos calendario y rango inclusivo personalizado. Consulta única de segmentos, sin bucle por día ni esquema nuevo. Se conservan nombres internos DailyUsage/UsagePage y day identifica el inicio por compatibilidad; extremos los controla la vista. Semana lunes-domingo. Refresco 30 s para reducir coste de rangos largos. Solo historial registrado, sin estimaciones ni estadísticas nuevas. E047.
+
+## A55 — 2026-11-25 — Seleccionar Día vuelve a hoy
+Petición del usuario: al cambiar el selector a Día, usar fecha local actual en ambos extremos, sin heredar inicio del año/mes/semana. Elegir manualmente otra fecha después sigue permitido. E048.
+
+## A56 — 2026-11-25 — Ayudas plegadas en Ajustes
+Por solicitud del usuario, tres accesos configurables; información de valores y aplicación movida a Detección en desplegables, al igual que las explicaciones de campos. Errores y cambios sin guardar fuera del plegado. Sustituye navegación de cuatro tarjetas A53. E049.

@@ -136,6 +136,7 @@ public final class MainController {
 
     @FXML
     private void showSettings() {
+        settingsController.showOverview();
         if (!initialized) return;
         setContent(settingsRoot);
         setActive(settingsButton);

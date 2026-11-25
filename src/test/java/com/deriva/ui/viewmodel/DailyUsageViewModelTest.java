@@ -32,7 +32,7 @@ class DailyUsageViewModelTest {
         assertEquals("Sin datos", noData.totalText());
         assertFalse(noData.hasSegments());
         assertTrue(noData.statusText().contains("Sin datos"));
-        assertEquals("Sin registro para esta fecha", noData.coverageText());
+        assertEquals("Sin registro para este periodo", noData.coverageText());
         assertTrue(noData.apps().isEmpty());
         assertTrue(noData.sites().isEmpty());
 

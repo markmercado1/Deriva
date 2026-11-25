@@ -15,11 +15,16 @@ public interface GoalRepository {
     /** Updates an existing goal and refreshes its modification time. */
     void update(Goal goal);
 
-    /** Physically deletes the goal and cascades to its alerts; false when it did not exist. */
+    /** Archives the goal, preserving configuration history and alerts. */
     boolean delete(long id);
 
     List<Goal> listActive();
 
     /** All goals, active and inactive, in stable context order. */
     List<Goal> listAll();
+
+    /** Configuration events strictly before the instant, ordered by time and revision. */
+    default List<com.deriva.goals.model.GoalRevision> revisionsBefore(java.time.Instant end) {
+        return List.of();
+    }
 }

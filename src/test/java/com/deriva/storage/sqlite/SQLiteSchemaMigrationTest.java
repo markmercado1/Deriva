@@ -34,14 +34,14 @@ class SQLiteSchemaMigrationTest {
         createV1WithData(database);
 
         SQLiteSchema.initialize(database);
-        assertVersion(database, 4);
+        assertVersion(database, 5);
         assertGoalTables(database);
         assertJustificationColumns(database);
         assertObservationColumns(database);
         assertV1DataIntact(database);
 
         SQLiteSchema.initialize(database);
-        assertVersion(database, 4);
+        assertVersion(database, 5);
         assertEquals(1, count(database, "schema_version"));
         assertV1DataIntact(database);
     }
@@ -53,7 +53,7 @@ class SQLiteSchemaMigrationTest {
 
         SQLiteSchema.initialize(database);
 
-        assertVersion(database, 4);
+        assertVersion(database, 5);
         assertJustificationColumns(database);
         assertObservationColumns(database);
         try (Connection connection = SQLiteSchema.open(database);
@@ -91,7 +91,7 @@ class SQLiteSchemaMigrationTest {
 
         SQLiteSchema.initialize(database);
 
-        assertVersion(database, 4);
+        assertVersion(database, 5);
         assertObservationColumns(database);
         try (Connection connection = SQLiteSchema.open(database);
              Statement statement = connection.createStatement()) {
@@ -138,11 +138,11 @@ class SQLiteSchemaMigrationTest {
     }
 
     @Test
-    void newDatabaseStartsAtVersionFour() throws Exception {
+    void newDatabaseStartsAtVersionFive() throws Exception {
         Path database = database("new.db");
         SQLiteSchema.initialize(database);
 
-        assertVersion(database, 4);
+        assertVersion(database, 5);
         assertGoalTables(database);
         assertJustificationColumns(database);
         assertObservationColumns(database);
@@ -156,7 +156,7 @@ class SQLiteSchemaMigrationTest {
         SQLiteSchema.initialize(database);
         try (Connection connection = SQLiteSchema.open(database);
              Statement statement = connection.createStatement()) {
-            statement.executeUpdate("UPDATE schema_version SET version = 5");
+            statement.executeUpdate("UPDATE schema_version SET version = 6");
         }
         assertThrows(StorageException.class, () -> SQLiteSchema.initialize(database));
     }
