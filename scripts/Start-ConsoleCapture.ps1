@@ -21,8 +21,9 @@ New-Item -ItemType Directory -Path $consoleDirectory -Force | Out-Null
 $database = Join-Path $consoleDirectory 'deriva.db'
 $stopFile = Join-Path $consoleDirectory 'STOP'
 $classpathFile = Join-Path $consoleDirectory 'classpath.txt'
-& mvn '-Dmaven.repo.local=C:\AppTImeControl\work\m2' --offline --batch-mode --no-transfer-progress dependency:build-classpath "-Dmdep.outputFile=$classpathFile"
-if ($LASTEXITCODE -ne 0) { throw 'No se pudo resolver el classpath de Maven.' }
+$builtClasspath = Join-Path $projectRoot 'target\classpath.txt'
+if (!(Test-Path -LiteralPath $builtClasspath)) { throw 'Falta target\classpath.txt. Compila primero con Maven verify (ver README).' }
+Copy-Item -LiteralPath $builtClasspath -Destination $classpathFile -Force
 $dependencies = (Get-Content -LiteralPath $classpathFile -Raw).Trim()
 if ([string]::IsNullOrWhiteSpace($dependencies)) { throw 'El classpath de Maven esta vacio.' }
 $classpath = "$projectRoot\target\classes;$dependencies"

@@ -28,36 +28,85 @@ Cada sesión debe tomar una tarea pequeña, implementarla, verificarla y guardar
 
 La documentación es la memoria compartida. No es necesario entregar todo el historial del chat a otra IA ni releer la revisión comercial. Los pendientes se consultan en ESTADO y FASES, no se deducen de comentarios antiguos.
 
-## Ejecución — base F1.1
+## Guía de uso — entrega local (F6.2)
 
-Requisitos comprobados en este equipo: Windows 11 x64, Temurin JDK/javac 21.0.7, Maven 3.9.9 y Git 2.49.0. Deben estar en PATH. JAVA_HOME, si está definido, debe apuntar al JDK correcto. La primera compilación necesita Internet para Maven Central; la caché queda en work/m2, ignorada por Git.
+Deriva es una aplicación de escritorio local para Windows. Registra qué aplicación (y, con la extensión, qué sitio) está en primer plano, detecta episodios de cambios rápidos ("deriva") y permite fijar objetivos diarios por aplicación o sitio. Todo se guarda en un archivo SQLite de este equipo; no hay cuentas, nube ni envío de datos.
 
-Desde PowerShell:
+### Requisitos
+
+- Windows 10/11 x64.
+- JDK 21 (probado con Temurin 21.0.7), Maven 3.9.x (probado con 3.9.9) y Git, en el `PATH`. Si `JAVA_HOME` está definido debe apuntar al JDK 21.
+- Node.js 18+ solo para los tests de la extensión (probado con 22.16.0).
+- Internet la primera vez, para descargar dependencias de Maven Central. Quedan en `work\m2`, ignorado por Git.
+- Opcional: Chrome o Brave con un perfil, para registrar sitios mediante la extensión.
+
+### Compilar y probar
+
+Desde PowerShell, en la carpeta del proyecto:
 
 ```powershell
-Set-Location -LiteralPath 'C:\AppTImeControl'
-java -version
-mvn -version
-mvn '-Dmaven.repo.local=C:\AppTImeControl\work\m2' --batch-mode --no-transfer-progress clean verify
-java -jar .\target\deriva-0.1.0-SNAPSHOT.jar
+mvn "-Dmaven.repo.local=$PWD\work\m2" --batch-mode --no-transfer-progress clean verify
+node --test extension/tests/report.test.mjs extension/tests/sampling.test.mjs extension/tests/background.test.mjs
 ```
 
-El JAR es únicamente el arranque de consola: informa que la captura está deshabilitada y termina. Todavía no tiene interfaz, sensor, extensión ni base de datos. No dejarlo ejecutándose para recopilar actividad: no registra nada.
+Resultado esperado: `Tests run: 286, Failures: 0, Errors: 0` y `BUILD SUCCESS`; en Node, `# pass 14`. `verify` también deja `target\deriva-0.1.0-SNAPSHOT.jar` y `target\classpath.txt`, que usan los scripts de arranque. Desde `cmd` usa la misma orden con `-Dmaven.repo.local=%CD%\work\m2` entre comillas dobles.
 
-Si trasladas el proyecto, cambia también la ruta absoluta de la caché Maven en el comando. No se incluye Maven Wrapper; usar la versión documentada de Maven. No se instalaron herramientas globales ni se modificó PATH.
+Si `LocalBridgeServerTest` falla con «Unable to establish loopback connection», el entorno bloquea conexiones locales (pasa en algunos sandboxes); en una terminal normal pasa. Para generar igualmente el JAR en ese entorno: añade `'-Dtest=!LocalBridgeServerTest'` y anótalo como limitación.
 
-### Estructura implementada
+### Abrir la aplicación
 
-- pom.xml: Java release 21, UTF-8, plugins fijados y JUnit 5.11.4 de alcance test.
-- src/main/java/com/deriva/app/Main.java: punto de entrada mínimo.
-- src/test/java/com/deriva/app/BootstrapTest.java: arranque en otro proceso Java, salida correcta, terminación y directorio temporal sin archivos creados.
-- target/: JAR y resultados de pruebas generados; ignorado por Git.
+```powershell
+# Datos de ejemplo, sin captura real ni tocar tu base
+powershell -NoProfile -File .\scripts\Start-Ui.ps1 -Demo
 
-El resto de paquetes se creará cuando tenga implementación real. JavaFX/JNA/SQLite se incorporarán y fijarán al trabajar sus adaptadores, no como dependencias sin uso. Esto no cambia el stack acordado.
+# Tu base real (por defecto work\console-day\deriva.db)
+powershell -NoProfile -File .\scripts\Start-Ui.ps1
 
-Git local inicializado, sin remoto y sin commits en F1.1. Los archivos existentes se conservaron; revisar git status antes de la siguiente tarea. No publicar datos de actividad ni la caché work/.
+# Otra base, por ejemplo la usada en las mediciones F6
+powershell -NoProfile -File .\scripts\Start-Ui.ps1 -Database .\work\f6\deriva-f6.db
 
-Estado actual: **F0–F5.2 y F6.1 HECHO; AJUSTES-DETECCION HECHO; F6.2 pendiente** (2026-11-23). GATE-Q2 PASS para Chrome + un perfil; F2.4 implementó la allowlist, F2.4b añadió Brave con gate reducido, F3.1 la máquina de deriva, F3.1b la captura mínima por consola, F3.2 la persistencia de episodios, F4.1 la pantalla de Interrupciones, F4.2 el rango por solapamiento, F4.3 Uso diario, F5.1 la captura real con borrado y cierre, F5.2 la pausa manual y la bandeja, F6.1 la medición sostenida y AJUSTES-DETECCION los cuatro umbrales de detección. Uso diario incluye el abierto confirmado como provisional y muestra el pendiente sin sumarlo. Con bridge se permite Chrome o Brave con un perfil; sin bridge los navegadores quedan excluidos. Ctrl+C no validado limpiamente (P2). El editor de exclusiones, el panel de bridge y F6.2 siguen pendientes.
+# Con registro de sitios de Chrome o Brave (un perfil); ver "Extensión" más abajo
+powershell -NoProfile -File .\scripts\Start-Ui.ps1 -Database .\work\f6\deriva-f6.db -ExtensionId TU_EXTENSION_ID
+```
+
+`-View interruptions|usage|goals|settings` abre directamente esa pantalla. La captura empieza al pulsar **Iniciar captura** en la barra lateral. Con bandeja disponible, cerrar la ventana la oculta; **Salir** (desde la bandeja) detiene la captura, guarda lo pendiente y termina sin proceso oculto.
+
+Pantallas: **Interrupciones** (episodios de deriva, anotaciones), **Uso** (tiempo por aplicación y sitio por día, semana, mes, año o rango), **Objetivos** (topes diarios de minutos y entradas, avisos al 80/100 %, justificación de excesos, historial Desde/Hasta y objetivos borrados en solo lectura) y **Ajustes** (umbrales de detección, actividad pasiva y avisos).
+
+El JAR (`java -jar target\deriva-0.1.0-SNAPSHOT.jar`) solo imprime un mensaje de arranque; la interfaz se abre siempre con `Start-Ui.ps1`.
+
+### Extensión (sitios de Chrome/Brave)
+
+Sin extensión, los navegadores quedan **excluidos**: su tiempo no se atribuye a ningún sitio. Para registrar sitios: genera el token una vez con `scripts\Start-BridgePilot.ps1` (y detenlo), carga `extension\chromium` como extensión desempaquetada, copia su ID y arranca con `-ExtensionId`. Guía detallada en [PILOTO_NAVEGADOR](docs/PILOTO_NAVEGADOR.md). Solo se guarda el dominio, nunca la URL, ruta, título ni contenido; incógnito y pestañas internas quedan excluidos. **No uses Chrome y Brave a la vez** contra el mismo bridge.
+
+### Tus datos
+
+- Todo vive en el archivo `.db` que abre la app (y sus `-wal`/`-shm` mientras está abierta). La carpeta `work\` está ignorada por Git: no se sube nada.
+- **Respaldo:** sal de la app desde la bandeja (**Salir**) y copia el archivo, por ejemplo `Copy-Item .\work\f6\deriva-f6.db .\work\respaldos\deriva-$(Get-Date -Format yyyy-MM-dd).db`.
+- **Restaurar:** con la app cerrada, copia el respaldo sobre el archivo original.
+- **Actualizaciones de esquema:** al abrir una base antigua la app la migra sola (versión actual V5). La migración solo añade tablas y columnas; no borra segmentos, episodios ni objetivos, pero no se puede deshacer: haz un respaldo antes de abrir una base con una versión nueva.
+- **Borrar registros** (barra lateral, con confirmación) elimina segmentos, episodios y los avisos de objetivos (con sus justificaciones); conserva la configuración, los objetivos y su historial.
+
+## Limitaciones y pendientes conocidos
+
+Estado de las fases: F0–F6.1, F6B (objetivos) y F6.2 HECHO. Detalle y evidencia en [FASES](docs/FASES.md) y [PRUEBAS](docs/PRUEBAS.md).
+
+Limitaciones de esta entrega:
+
+- Probado en un solo equipo (Windows 11, 16 CPUs). Sin instalador ni inicio con Windows: se arranca con `Start-Ui.ps1`.
+- Navegadores: solo Chrome o Brave con un perfil y la extensión. El gate de Brave es reducido (faltan segundo perfil, reinicio, una hora y resolver que Brave se identifica como `browser:"chrome"`). Firefox, Edge y otros quedan excluidos.
+- **P1:** la inactividad de 120 s puede subestimar actividad pasiva en el navegador (vídeo, ajedrez); solo los objetivos marcados como Pasivo la compensan.
+- **P2:** Ctrl+C en la consola diagnóstica no está validado; la interfaz usa parada explícita.
+- **USE-02 parcial:** faltan pruebas reales de Dota/YouTube en segundo plano, alternancia y cobertura sin extensión.
+- **SEN-01 parcial:** no se indujo un fallo nativo del sensor. S3/hibernación no disponible en este equipo; solo se probó suspensión S0.
+- **EXCLUSION-FOCO:** enfocar la propia ventana de Deriva puede cerrar un episodio por exclusión; pendiente de decidir.
+- Objetivos: el progreso puede ir hasta 30 s por detrás; ante duda de privacidad se subcuenta un sitio; el máximo pasivo se fija por sesión; el aviso de bandeja no se probó con clic humano.
+- Los «smokes» de UI recorren controles por código; no sustituyen una prueba manual de una persona.
+- Fuera de alcance (plano §13): editor de exclusiones, exportación CSV, estadísticas avanzadas, múltiples perfiles y cualquier envío de datos.
+
+## Historial de fases
+
+Registro de cada entrega en orden. Los comandos de diagnóstico de cada sección siguen funcionando; para usar la app basta la guía de arriba.
 
 ## Piloto F1.2 validado (2026-11-22)
 
