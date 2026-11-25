@@ -329,3 +329,12 @@ Petición del usuario: Desde/Hasta en Objetivos y ver los objetivos borrados en 
 
 ## A58 — 2026-11-25 — Classpath de ejecución generado por verify
 F6.2: en un clon nuevo `Start-Ui.ps1` fallaba porque ejecutaba `dependency:build-classpath` offline con un plugin sin versión que `verify` nunca descargaba. Se fija `maven-dependency-plugin` 3.7.0 (la versión ya presente en la caché local) y se liga `build-classpath` (ámbito runtime) a `package`, escribiendo `target/classpath.txt`. Los scripts copian ese archivo a su carpeta de trabajo en lugar de invocar Maven, y ya no contienen la ruta absoluta del proyecto. No añade dependencias de ejecución; el ámbito runtime deja fuera JUnit. E052.
+
+## A59 — 2026-11-25 — Distribución: jpackage + IExpress y datos en LOCALAPPDATA
+Para la entrega final se genera `Deriva.exe` con jpackage (app-image con runtime propio; sin instalar Java) y un instalador por usuario con IExpress, incluido en Windows, porque jpackage necesita WiX para crear `.exe`/`.msi` y WiX no está instalado (se evitó descargar herramientas). El instalador expande la app en `%LOCALAPPDATA%\Programs\Deriva`, crea accesos directos y una entrada de desinstalación en HKCU; desinstalar conserva los datos. La app empaquetada (detectada por `jpackage.app-path`) guarda la base en `%LOCALAPPDATA%\Deriva\deriva.db` y lee `bridge.properties` de esa carpeta; desde el código fuente nada cambia. Ejecutable sin firma digital (SmartScreen). E053.
+
+## A60 — 2026-11-25 — Binarios de la entrega dentro de Git
+El usuario pidió que el instalador y el portable (~76 MB cada uno, bajo el límite de 100 MB de GitHub) vivan en `entrega/` dentro del repositorio público, sin Git LFS ni GitHub Releases. Se acepta que el historial crezca con cada versión nueva de esos binarios. Los enlaces de descarga apuntan a la rama `entrega-final` (`.../raw/entrega-final/entrega/...`) porque no está fusionada en `main`. Como el instalador se corrigió después de un primer push, el historial de la rama conserva las dos versiones del instalador y del portable (unos 150 MB de más); no se reescribió la historia.
+
+## A61 — 2026-11-25 — Documentos de entrega en blanco y negro
+Los tres DOCX usan solo negro: títulos, tablas con cuadrícula sin sombreado, hipervínculos subrayados en negro y anotaciones de las capturas en negro. Las capturas de la aplicación y de GitHub conservan sus colores propios (son imágenes reales). Se eliminan los sombreados automáticos y los colores de estilos sin uso del XML tras generar con Word.

@@ -4,7 +4,7 @@
 <?import javafx.scene.layout.*?>
 
 <VBox xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
-      fx:controller="com.deriva.ui.fx.SettingsController"
+      fx:controller="com.deriva.ui.fx.EmSettingsController"
       styleClass="content" spacing="16">
     <VBox spacing="2">
         <Label text="Ajustes" styleClass="page-title"/>
@@ -145,6 +145,67 @@
                             styleClass="primary-button"/>
                 </HBox>
                 <Label fx:id="deferralSaveStatus" text="" styleClass="save-status" wrapText="true"/>
+            </VBox>
+
+            <VBox fx:id="extensionPanel" styleClass="settings-panel" spacing="12">
+                <Label text="Extensión del navegador" styleClass="usage-title"/>
+                <Label text="Con la extensión, Deriva registra en qué sitio estás en Chrome o Brave (un solo perfil). Solo guarda el dominio, por ejemplo youtube.com; nunca la dirección completa, el título ni el contenido. Sin ella, el tiempo en el navegador queda excluido."
+                       styleClass="settings-help" wrapText="true"/>
+                <Label fx:id="extensionStatusLabel" text="—" styleClass="settings-effective" wrapText="true"/>
+                <Label fx:id="extensionEnvironmentLabel" text="" styleClass="settings-warning" wrapText="true"/>
+
+                <VBox spacing="4" styleClass="settings-row">
+                    <Label text="1. Cargar la extensión en el navegador" styleClass="settings-label"/>
+                    <Label text="Abre chrome://extensions (o brave://extensions), activa «Modo de desarrollador», pulsa «Cargar descomprimida» y elige esta carpeta:"
+                           styleClass="settings-help" wrapText="true"/>
+                    <HBox spacing="8" alignment="CENTER_LEFT">
+                        <Label fx:id="extensionFolderLabel" text="—" styleClass="settings-note" wrapText="true" HBox.hgrow="ALWAYS"/>
+                        <Button fx:id="extensionOpenFolderButton" text="Abrir carpeta" styleClass="secondary-button"/>
+                    </HBox>
+                </VBox>
+
+                <HBox spacing="14" alignment="CENTER_LEFT" styleClass="settings-row">
+                    <VBox spacing="2" HBox.hgrow="ALWAYS">
+                        <Label text="2. ID de la extensión" styleClass="settings-label"/>
+                        <Label text="Cópialo de la tarjeta de «Deriva» en la página de extensiones: 32 letras entre la a y la p."
+                               styleClass="settings-help" wrapText="true"/>
+                    </VBox>
+                    <TextField fx:id="extensionIdField" prefWidth="330" styleClass="settings-input goal-text-input"
+                               promptText="abcdefghijklmnopabcdefghijklmnop"/>
+                </HBox>
+
+                <HBox spacing="14" alignment="CENTER_LEFT" styleClass="settings-row">
+                    <VBox spacing="2" HBox.hgrow="ALWAYS">
+                        <Label text="3. Token local" styleClass="settings-label"/>
+                        <Label text="Genera un token y pégalo, junto con el puerto, en las opciones de la extensión (Detalles › Opciones de extensión). No lo compartas."
+                               styleClass="settings-help" wrapText="true"/>
+                    </VBox>
+                    <TextField fx:id="extensionTokenField" prefWidth="330" editable="false"
+                               styleClass="settings-input goal-text-input" promptText="Sin token"/>
+                </HBox>
+                <HBox spacing="8" alignment="CENTER_RIGHT">
+                    <Button fx:id="extensionGenerateButton" text="Generar token" styleClass="secondary-button"/>
+                    <Button fx:id="extensionCopyButton" text="Copiar token" styleClass="secondary-button"/>
+                </HBox>
+
+                <HBox spacing="14" alignment="CENTER_LEFT" styleClass="settings-row">
+                    <VBox spacing="2" HBox.hgrow="ALWAYS">
+                        <Label text="Puerto" styleClass="settings-label"/>
+                        <Label text="Puerto local que usan Deriva y la extensión. Déjalo en 47821 salvo que esté ocupado."
+                               styleClass="settings-help" wrapText="true"/>
+                    </VBox>
+                    <TextField fx:id="extensionPortField" minWidth="90" prefWidth="90" styleClass="settings-input"/>
+                </HBox>
+
+                <Label text="Los cambios se aplican la próxima vez que pulses «Iniciar captura» (si la captura está activa, pulsa «Detener captura» y vuelve a iniciarla)."
+                       styleClass="settings-note" wrapText="true"/>
+                <Label fx:id="extensionValidationLabel" text="" styleClass="settings-error" wrapText="true"/>
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <Button fx:id="extensionClearButton" text="Quitar configuración" styleClass="secondary-button"/>
+                    <Region HBox.hgrow="ALWAYS"/>
+                    <Button fx:id="extensionSaveButton" text="Guardar configuración" styleClass="primary-button"/>
+                </HBox>
+                <Label fx:id="extensionSaveStatus" text="" styleClass="save-status" wrapText="true"/>
             </VBox>
 
             <VBox fx:id="valuesPanel" styleClass="settings-panel" spacing="8">

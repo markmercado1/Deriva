@@ -4,7 +4,7 @@
 <?import javafx.scene.layout.*?>
 
 <VBox xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
-      fx:controller="com.deriva.ui.fx.UsageController"
+      fx:controller="com.deriva.ui.fx.EmUsageController"
       styleClass="content" spacing="18">
     <HBox alignment="CENTER_LEFT" spacing="12">
         <VBox spacing="2">

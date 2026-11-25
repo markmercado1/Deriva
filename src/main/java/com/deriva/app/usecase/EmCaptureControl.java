@@ -1,0 +1,34 @@
+package com.deriva.app.usecase;
+
+import com.deriva.coach.model.EmDetectionSettings;
+
+/** UI-facing port for starting, stopping and observing the real capture. */
+public interface EmCaptureControl {
+    EmCaptureStatus status();
+
+    EmCaptureSnapshot snapshot();
+
+    /** Values used by the current session, or the saved values when stopped. */
+    EmDetectionSettings effectiveSettings();
+
+    /** Passive-activity maximum used by the current session, or the saved value. */
+    java.time.Duration effectivePassiveMax();
+
+    /** Maximum wait for a deferred goal notice in the current session. */
+    java.time.Duration effectiveAlertDeferral();
+
+    void start();
+
+    void stop();
+
+    /**
+     * Stops sampling and closes the open segment/episode with reason PAUSE.
+     * {@link #start()} resumes a new sampling loop from that point.
+     */
+    void pause();
+
+    /** Stops capture, waits for it, and deletes activity records only. */
+    void deleteAllRecords();
+
+    void shutdown();
+}

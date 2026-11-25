@@ -295,3 +295,9 @@ Selector diario, historial de versiones y archivado al borrar, lectura históric
 
 ## OBJETIVOS-RANGO — HECHO (E051) (2026-11-25)
 Petición del usuario: consultar Objetivos con Desde/Hasta y mostrar los objetivos borrados en solo lectura con una opción para ocultarlos. Un día = vista actual (hoy editable, pasado solo lectura); varios días = resumen por objetivo y detalle por día, solo lectura. Sin cambios de esquema. F6.2 pendiente.
+
+## ENTREGA-FINAL — HECHO (E053) (2026-11-25)
+Petición del usuario: preparar la entrega a partir de tres plantillas (código fuente, para ejecutar, manual de uso): ejecutable `Deriva.exe` con jpackage, instalador, capturas reales de la app sobre datos sintéticos y los tres documentos Word. La app empaquetada guarda sus datos en `%LOCALAPPDATA%\Deriva`. Sin datos reales del usuario en capturas ni documentos.
+
+## ENTREGA-FINAL-2 — HECHO (E054) (2026-11-25)
+Petición del usuario: prefijo `Em` en todas las clases (hecho, commit 7fd73bb), apartado Ajustes › «Extensión del navegador» (8d080a7), instalador con asistente «Siguiente > Siguiente», tres documentos Word en blanco y negro con las estructuras de las plantillas, carpeta `entrega/` en Git y publicación de la rama `entrega-final`. Pendiente fuera de esta tarea: fusionar `entrega-final` en `main` (decisión del usuario).

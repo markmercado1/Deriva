@@ -41,7 +41,7 @@ try {
     Write-Host "Detener con Ctrl+C. Si Ctrl+C no responde:"
     Write-Host "  New-Item -ItemType File '$stopFile' -Force"
     Write-Host 'La captura guarda cada segmento al cerrarse; al salir muestra el resumen del dia.'
-    & java -cp $classpath com.deriva.app.ConsoleCapture $ExtensionId $Port
+    & java -cp $classpath com.deriva.app.EmConsoleCapture $ExtensionId $Port
     if ($LASTEXITCODE -ne 0) { throw "ConsoleCapture termino con codigo $LASTEXITCODE" }
 } finally {
     if ($null -eq $previousToken) { Remove-Item Env:DERIVA_BRIDGE_TOKEN -ErrorAction SilentlyContinue }

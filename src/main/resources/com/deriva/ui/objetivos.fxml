@@ -4,7 +4,7 @@
 <?import javafx.scene.layout.*?>
 
 <StackPane xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
-           fx:controller="com.deriva.ui.fx.GoalsController">
+           fx:controller="com.deriva.ui.fx.EmGoalsController">
     <VBox styleClass="content" spacing="16">
         <VBox spacing="2">
             <Label text="Objetivos" styleClass="page-title"/>

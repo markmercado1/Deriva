@@ -22,7 +22,7 @@ if (Test-Path -LiteralPath $OutputFile) {
 # identificar el proceso y no se guarda en el CSV.
 function Find-UiProcessId {
     $found = @(Get-CimInstance Win32_Process -Filter "Name = 'java.exe'" -ErrorAction Stop |
-        Where-Object { $_.CommandLine -and $_.CommandLine -like '*com.deriva.app.Launcher*' })
+        Where-Object { $_.CommandLine -and $_.CommandLine -like '*com.deriva.app.EmLauncher*' })
     if ($found.Count -eq 0) { return $null }
     if ($found.Count -gt 1) {
         $ids = ($found | ForEach-Object { $_.ProcessId }) -join ', '
@@ -38,7 +38,7 @@ if ($null -eq $targetPid) {
         $targetPid = Find-UiProcessId
         if ($null -ne $targetPid) { break }
         if ((Get-Date) -ge $deadline) {
-            throw 'No se encontro el proceso de la UI (java com.deriva.app.Launcher). Inicia Start-Ui.ps1 primero.'
+            throw 'No se encontro el proceso de la UI (java com.deriva.app.EmLauncher). Inicia Start-Ui.ps1 primero.'
         }
         Start-Sleep -Seconds 1
     }
