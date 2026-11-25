@@ -4,6 +4,7 @@ import com.deriva.app.usecase.EmCaptureControl;
 import com.deriva.app.usecase.EmCaptureState;
 import com.deriva.app.usecase.EmCaptureStatus;
 import com.deriva.app.usecase.EmSettingsService;
+import com.deriva.ui.viewmodel.EmBrowserExtensionViewModel;
 import com.deriva.ui.viewmodel.EmDailyUsageViewModel;
 import com.deriva.ui.viewmodel.EmGoalsViewModel;
 import com.deriva.ui.viewmodel.EmInterruptionsViewModel;
@@ -69,7 +70,8 @@ public final class EmMainController {
                      EmPassiveMaxSettingsViewModel passiveMax,
                      EmAlertDeferralSettingsViewModel alertDeferral,
                      EmSettingsService settingsService,
-                     EmCaptureControl capture, boolean demo) throws IOException {
+                     EmCaptureControl capture, EmBrowserExtensionViewModel extension,
+                     boolean demo) throws IOException {
         this.capture = Objects.requireNonNull(capture, "capture");
 
         FXMLLoader interruptionsLoader = new FXMLLoader(
@@ -94,7 +96,7 @@ public final class EmMainController {
                 EmMainController.class.getResource("/com/deriva/ui/ajustes.fxml"));
         settingsRoot = settingsLoader.load();
         settingsController = settingsLoader.getController();
-        settingsController.init(settings, passiveMax, alertDeferral, settingsService, capture);
+        settingsController.init(settings, passiveMax, alertDeferral, settingsService, capture, extension);
 
         initialized = true;
         setContent(interruptionsRoot);

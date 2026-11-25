@@ -60,7 +60,8 @@ public final class EmCaptureSession implements EmCaptureControl {
     private static final Set<String> CAPTURE_BROWSERS = Set.of("chrome.exe", "brave.exe");
 
     private final Path databasePath;
-    private final BridgeConfig bridgeConfig;
+    private final java.util.function.Supplier<BridgeConfig> bridgeSource;
+    private volatile BridgeConfig bridgeConfig;
     private final Clock clock;
     private final EmSettingsService settingsService;
     private final EmPassiveGoalProvider passiveGoals;
@@ -79,8 +80,18 @@ public final class EmCaptureSession implements EmCaptureControl {
     public EmCaptureSession(Path databasePath, BridgeConfig bridgeConfig, Clock clock,
                           EmSettingsService settingsService, EmPassiveGoalProvider passiveGoals,
                           EmGoalAlertMonitor goalAlerts) {
+        this(databasePath, () -> bridgeConfig, clock, settingsService, passiveGoals, goalAlerts);
+    }
+
+    /**
+     * The bridge settings are read again on every start (not on resume), so a change saved in
+     * Ajustes applies after Detener/Iniciar, like the detection settings.
+     */
+    public EmCaptureSession(Path databasePath, java.util.function.Supplier<BridgeConfig> bridgeSource,
+                          Clock clock, EmSettingsService settingsService,
+                          EmPassiveGoalProvider passiveGoals, EmGoalAlertMonitor goalAlerts) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath();
-        this.bridgeConfig = bridgeConfig;
+        this.bridgeSource = Objects.requireNonNull(bridgeSource, "bridgeSource");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.settingsService = Objects.requireNonNull(settingsService, "settingsService");
         this.passiveGoals = Objects.requireNonNull(passiveGoals, "passiveGoals");
@@ -142,6 +153,7 @@ public final class EmCaptureSession implements EmCaptureControl {
                     settingsService.passiveMax());
             effectiveAlertDeferral = EmCaptureSettingsPolicy.onStart(state, effectiveAlertDeferral,
                     settingsService.alertDeferralMax());
+            if (state != EmCaptureState.PAUSED) bridgeConfig = readBridge();
             running.set(true);
             status = new EmCaptureStatus(EmCaptureState.STARTING, "Iniciando captura…");
             thread = new Thread(this::runLoop, "deriva-capture");
@@ -224,7 +236,17 @@ public final class EmCaptureSession implements EmCaptureControl {
         }
     }
 
+    private BridgeConfig readBridge() {
+        try {
+            return bridgeSource.get();
+        } catch (RuntimeException e) {
+            System.err.println("Deriva: configuración de la extensión no válida; navegadores excluidos.");
+            return null;
+        }
+    }
+
     private void runLoop() {
+        BridgeConfig bridgeConfig = this.bridgeConfig;
         EmLocalBridgeServer bridge = null;
         EmSQLiteSegmentRepository segmentRepository = null;
         EmSQLiteDriftRepository driftRepository = null;

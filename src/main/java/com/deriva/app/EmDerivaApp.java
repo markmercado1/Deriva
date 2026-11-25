@@ -12,6 +12,7 @@ import com.deriva.storage.sqlite.EmSQLiteGoalRepository;
 import com.deriva.storage.sqlite.EmSQLiteSegmentRepository;
 import com.deriva.storage.sqlite.EmSQLiteSettingsRepository;
 import com.deriva.ui.fx.EmMainController;
+import com.deriva.ui.viewmodel.EmBrowserExtensionViewModel;
 import com.deriva.ui.viewmodel.EmDailyUsageViewModel;
 import com.deriva.ui.viewmodel.EmGoalsViewModel;
 import com.deriva.ui.viewmodel.EmInterruptionsViewModel;
@@ -83,7 +84,7 @@ public final class EmDerivaApp extends Application {
                             if (current != null) current.notifyGoal(notice);
                         }, clock, zone);
                 alertService.recoverAfterRestart(clock.instant());
-                EmCaptureSession capture = new EmCaptureSession(databasePath, bridgeConfig(),
+                EmCaptureSession capture = new EmCaptureSession(databasePath, EmDerivaApp::bridgeConfig,
                         clock, settingsService, goalsService, new EmGoalAlertMonitor(alertService));
                 EmGoalsViewModel goals = new EmGoalsViewModel(goalsService, zone,
                         now -> java.util.Optional.ofNullable(capture.snapshot().open()));
@@ -94,6 +95,10 @@ public final class EmDerivaApp extends Application {
                 EmAlertDeferralSettingsViewModel alertDeferral = new EmAlertDeferralSettingsViewModel();
                 alertDeferral.load(settingsService.alertDeferralSnapshot(),
                         capture.effectiveAlertDeferral());
+                EmBrowserExtensionViewModel extension = new EmBrowserExtensionViewModel(
+                        new EmBridgeSettingsFile(bridgeFile(), extensionFolder(), System.getenv()),
+                        EmBridgeSettingsFile::newToken);
+                extension.load();
                 return new ViewModels(
                         new EmInterruptionsViewModel(interruptionsService, zone),
                         new EmDailyUsageViewModel(usageService, zone, capture),
@@ -102,7 +107,8 @@ public final class EmDerivaApp extends Application {
                         passiveMax,
                         alertDeferral,
                         settingsService,
-                        capture);
+                        capture,
+                        extension);
             } catch (Exception e) {
                 throw new CompletionException(e);
             }
@@ -121,7 +127,7 @@ public final class EmDerivaApp extends Application {
             controller.init(viewModels.interruptions(), viewModels.usage(),
                     viewModels.goals(), viewModels.settings(), viewModels.passiveMax(),
                     viewModels.alertDeferral(), viewModels.settingsService(),
-                    viewModels.capture(), demo);
+                    viewModels.capture(), viewModels.extension(), demo);
 
             Scene scene = new Scene(root, 1440, 900);
             scene.getStylesheets().add(EmDerivaApp.class
@@ -356,14 +362,23 @@ public final class EmDerivaApp extends Application {
         String token = System.getenv("DERIVA_BRIDGE_TOKEN");
         String extension = System.getenv("DERIVA_EXTENSION_ID");
         if (token == null || token.isBlank() || extension == null || extension.isBlank()) {
-            // The packaged app reads the same settings from %LOCALAPPDATA%\Deriva\bridge.properties.
-            if (!EmAppPaths.packaged()) return null;
-            Path file = EmAppPaths.dataDirectory(System.getenv(), System.getProperty("user.home"))
-                    .resolve(EmAppPaths.BRIDGE_FILE);
-            return EmAppPaths.bridgeFromFile(file).orElse(null);
+            // Without Start-Ui.ps1 -ExtensionId, use what was saved in Ajustes > Extensión del navegador.
+            return EmAppPaths.bridgeFromFile(bridgeFile()).orElse(null);
         }
         int port = Integer.parseInt(environment("DERIVA_BRIDGE_PORT", "47821"));
         return new EmCaptureSession.BridgeConfig(port, token, extension);
+    }
+
+    private static Path bridgeFile() {
+        return EmAppPaths.dataDirectory(System.getenv(), System.getProperty("user.home"))
+                .resolve(EmAppPaths.BRIDGE_FILE);
+    }
+
+    /** Unpacked extension: next to Deriva.exe when packaged, extension/chromium in the source tree. */
+    private static Path extensionFolder() {
+        String exe = System.getProperty("jpackage.app-path");
+        if (exe != null) return Path.of(exe).getParent().resolve("extension");
+        return Path.of("extension", "chromium").toAbsolutePath();
     }
 
     private static int holdSeconds() {
@@ -384,5 +399,6 @@ public final class EmDerivaApp extends Application {
                               EmGoalsViewModel goals, EmSettingsViewModel settings,
                               EmPassiveMaxSettingsViewModel passiveMax,
                               EmAlertDeferralSettingsViewModel alertDeferral,
-                              EmSettingsService settingsService, EmCaptureSession capture) {}
+                              EmSettingsService settingsService, EmCaptureSession capture,
+                              EmBrowserExtensionViewModel extension) {}
 }

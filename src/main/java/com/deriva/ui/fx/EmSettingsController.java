@@ -5,6 +5,7 @@ import com.deriva.app.usecase.EmCaptureState;
 import com.deriva.app.usecase.EmSettingsService;
 import com.deriva.coach.model.EmDetectionSettings;
 import com.deriva.ui.viewmodel.EmAlertDeferralSettingsViewModel;
+import com.deriva.ui.viewmodel.EmBrowserExtensionViewModel;
 import com.deriva.ui.viewmodel.EmPassiveMaxSettingsViewModel;
 import com.deriva.ui.viewmodel.EmSettingsViewModel;
 import javafx.application.Platform;
@@ -72,6 +73,20 @@ public final class EmSettingsController {
     @FXML private Label deferralSaveStatus;
     @FXML private Button deferralSaveButton;
     @FXML private Button deferralRestoreButton;
+    @FXML private VBox extensionPanel;
+    @FXML private Label extensionStatusLabel;
+    @FXML private Label extensionEnvironmentLabel;
+    @FXML private Label extensionFolderLabel;
+    @FXML private Button extensionOpenFolderButton;
+    @FXML private TextField extensionIdField;
+    @FXML private TextField extensionTokenField;
+    @FXML private TextField extensionPortField;
+    @FXML private Button extensionGenerateButton;
+    @FXML private Button extensionCopyButton;
+    @FXML private Label extensionValidationLabel;
+    @FXML private Button extensionClearButton;
+    @FXML private Button extensionSaveButton;
+    @FXML private Label extensionSaveStatus;
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "deriva-ui-settings");
@@ -84,6 +99,8 @@ public final class EmSettingsController {
     private EmAlertDeferralSettingsViewModel alertDeferralViewModel;
     private EmSettingsService service;
     private EmCaptureControl capture;
+    private EmBrowserExtensionViewModel extensionViewModel;
+    private boolean extensionLoading;
     private boolean loading;
     private boolean saving;
     private boolean passiveSaving;
@@ -91,10 +108,12 @@ public final class EmSettingsController {
 
     @FXML
     private void initialize() {
-        String[] titles = {"Detección", "Actividad pasiva", "Avisos durante una deriva"};
+        String[] titles = {"Detección", "Actividad pasiva", "Avisos durante una deriva",
+                "Extensión del navegador"};
         String[] descriptions = {"Cambios, estabilidad e inactividad.",
                 "Tiempo sin teclado ni ratón en objetivos pasivos.",
-                "Cuánto puede esperar un aviso de objetivo."};
+                "Cuánto puede esperar un aviso de objetivo.",
+                "Registrar los sitios de Chrome o Brave."};
         for (int i = 0; i < titles.length; i++) {
             final int section = i;
             Label number = new Label("0" + (i + 1) + "   →");
@@ -153,6 +172,17 @@ public final class EmSettingsController {
             if (!loading) refreshDeferral();
         });
         deferralSaveButton.setOnAction(event -> saveDeferral());
+        extensionPortField.setTextFormatter(new TextFormatter<String>(change ->
+                change.getControlNewText().matches("\\d{0,5}") ? change : null));
+        for (TextField field : List.of(extensionIdField, extensionPortField))
+            field.textProperty().addListener((observable, old, value) -> updateExtension());
+        extensionGenerateButton.setOnAction(event -> {
+            if (extensionViewModel != null) showExtension(extensionViewModel.generateToken(), null, false);
+        });
+        extensionCopyButton.setOnAction(event -> copyToken());
+        extensionOpenFolderButton.setOnAction(event -> openExtensionFolder());
+        extensionSaveButton.setOnAction(event -> showExtensionOutcome(extensionViewModel.save()));
+        extensionClearButton.setOnAction(event -> showExtensionOutcome(extensionViewModel.clear()));
         deferralRestoreButton.setOnAction(event -> restoreDeferralDefaults());
         hide(validationLabel);
         hide(pendingValues);
@@ -171,12 +201,15 @@ public final class EmSettingsController {
 
     public void init(EmSettingsViewModel viewModel, EmPassiveMaxSettingsViewModel passiveViewModel,
                      EmAlertDeferralSettingsViewModel alertDeferralViewModel,
-                     EmSettingsService service, EmCaptureControl capture) {
+                     EmSettingsService service, EmCaptureControl capture,
+                     EmBrowserExtensionViewModel extensionViewModel) {
         this.viewModel = viewModel;
         this.passiveViewModel = passiveViewModel;
         this.alertDeferralViewModel = alertDeferralViewModel;
         this.service = service;
         this.capture = capture;
+        this.extensionViewModel = extensionViewModel;
+        if (extensionViewModel != null) showExtension(extensionViewModel.page(), null, false);
         showFields(viewModel.page());
         showPassiveFields(passiveViewModel.page());
         showDeferralFields(alertDeferralViewModel.page());
@@ -197,11 +230,70 @@ public final class EmSettingsController {
         setShown(detectionPanel, section == 0);
         setShown(passivePanel, section == 1);
         setShown(deferralPanel, section == 2);
+        setShown(extensionPanel, section == 3);
         // Keep warnings and validation next to the detection form as well.
         setShown(valuesDisclosure, section == 0);
         setShown(applicationDisclosure, section == 0);
         setShown(detectionActions, section == 0);
         settingsScroll.setVvalue(0);
+    }
+
+    private void updateExtension() {
+        if (extensionLoading || extensionViewModel == null) return;
+        showExtension(extensionViewModel.update(extensionIdField.getText(), extensionPortField.getText()),
+                null, false);
+    }
+
+    private void showExtensionOutcome(EmBrowserExtensionViewModel.Outcome outcome) {
+        showExtension(outcome.page(), outcome.message(), outcome.error());
+    }
+
+    private void showExtension(EmBrowserExtensionViewModel.Page page, String message, boolean error) {
+        extensionLoading = true;
+        extensionStatusLabel.setText(page.status());
+        extensionEnvironmentLabel.setText(page.environmentNote() == null ? "" : page.environmentNote());
+        setShown(extensionEnvironmentLabel, page.environmentNote() != null);
+        extensionFolderLabel.setText(page.extensionFolder());
+        if (!extensionIdField.getText().equals(page.extensionId())) extensionIdField.setText(page.extensionId());
+        if (!extensionPortField.getText().equals(page.portText())) extensionPortField.setText(page.portText());
+        extensionTokenField.setText(page.token());
+        extensionCopyButton.setDisable(page.token().isBlank());
+        extensionSaveButton.setDisable(!page.canSave());
+        extensionClearButton.setDisable(!page.canClear());
+        extensionValidationLabel.setText(page.validationError() == null ? "" : page.validationError());
+        setShown(extensionValidationLabel, page.validationError() != null);
+        extensionSaveStatus.getStyleClass().removeAll("save-ok", "save-error");
+        extensionSaveStatus.setText(message == null ? "" : message);
+        if (message != null) extensionSaveStatus.getStyleClass().add(error ? "save-error" : "save-ok");
+        extensionLoading = false;
+    }
+
+    private void copyToken() {
+        String token = extensionTokenField.getText();
+        if (token == null || token.isBlank()) return;
+        javafx.scene.input.ClipboardContent content = new javafx.scene.input.ClipboardContent();
+        content.putString(token);
+        javafx.scene.input.Clipboard.getSystemClipboard().setContent(content);
+        extensionSaveStatus.getStyleClass().removeAll("save-ok", "save-error");
+        extensionSaveStatus.getStyleClass().add("save-ok");
+        extensionSaveStatus.setText("Token copiado. Pégalo en las opciones de la extensión.");
+    }
+
+    private void openExtensionFolder() {
+        String folder = extensionFolderLabel.getText();
+        CompletableFuture.runAsync(() -> {
+            try {
+                java.awt.Desktop.getDesktop().open(new java.io.File(folder));
+            } catch (Exception e) {
+                throw new java.util.concurrent.CompletionException(e);
+            }
+        }, executor).whenComplete((ignored, error) -> {
+            if (error != null) Platform.runLater(() -> {
+                extensionSaveStatus.getStyleClass().removeAll("save-ok", "save-error");
+                extensionSaveStatus.getStyleClass().add("save-error");
+                extensionSaveStatus.setText("No se pudo abrir la carpeta: " + folder);
+            });
+        });
     }
 
     private static void setShown(Node node, boolean shown) {
