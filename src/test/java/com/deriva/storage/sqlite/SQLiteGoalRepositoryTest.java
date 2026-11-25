@@ -1,6 +1,7 @@
 package com.deriva.storage.sqlite;
 
 import com.deriva.goals.model.Goal;
+import com.deriva.goals.model.GoalRevision;
 import com.deriva.storage.StorageException;
 import com.deriva.tracking.model.ContextKey;
 import org.junit.jupiter.api.Test;
@@ -161,6 +162,31 @@ class SQLiteGoalRepositoryTest {
                     assertFalse(columns.contains(forbidden), table + "." + forbidden);
             }
         }
+    }
+
+    @Test
+    void keepsEveryConfigurationRevisionAndTheArchiveState() {
+        Goal created = repository().create(Goal.draft(CODING, 30, null, false));
+        new SQLiteGoalRepository(database(), Clock.fixed(T0.plusSeconds(60), ZoneOffset.UTC))
+                .update(new Goal(created.id(), CODING, 60, null, false, true,
+                        created.createdAt(), created.updatedAt()));
+        assertTrue(new SQLiteGoalRepository(database(), Clock.fixed(T0.plusSeconds(120),
+                ZoneOffset.UTC)).delete(created.id()));
+
+        List<GoalRevision> original = repository().revisionsBefore(T0.plusSeconds(1));
+        assertEquals(1, original.size());
+        assertEquals(30, original.getFirst().goal().dailyMinutes());
+        assertFalse(original.getFirst().archived());
+        assertFalse(original.getFirst().baseline());
+
+        List<GoalRevision> edited = repository().revisionsBefore(T0.plusSeconds(61));
+        assertEquals(2, edited.size());
+        assertEquals(60, edited.getLast().goal().dailyMinutes());
+        assertFalse(edited.getLast().archived());
+
+        List<GoalRevision> archived = repository().revisionsBefore(T0.plusSeconds(121));
+        assertEquals(3, archived.size());
+        assertTrue(archived.getLast().archived());
     }
 
     @Test

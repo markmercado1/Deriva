@@ -316,3 +316,6 @@ Corregido Año → Día: vuelve a hoy local. Build y sonda FXML aprobados; selec
 
 ## 2026-11-25 — AJUSTES-AYUDA (E049)
 Ayudas plegadas y tres tarjetas; información integrada en Detección. Build y sonda FXML correctos; base real intacta. Próximo: revisión del usuario tras reabrir.
+
+## 2026-11-25 — OBJETIVOS-HISTORIAL (E050)
+V5 con revisiones y archivado al borrar; vista histórica de Objetivos de solo lectura por día. 276/284 tests en verde; los 8 de `LocalBridgeServerTest` fallan por loopback en este entorno. Falta revisión visual del usuario y migrar la base real con respaldo. F6.2 pendiente.

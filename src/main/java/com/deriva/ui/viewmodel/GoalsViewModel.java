@@ -1,11 +1,13 @@
 package com.deriva.ui.viewmodel;
 
+import com.deriva.analysis.DayWindow;
 import com.deriva.app.usecase.GoalsService;
 import com.deriva.goals.OpenSegmentProvider;
 import com.deriva.goals.model.Goal;
 import com.deriva.goals.model.GoalAlert;
 import com.deriva.goals.model.GoalMetric;
 import com.deriva.goals.model.GoalProgress;
+import com.deriva.goals.model.GoalRevision;
 import com.deriva.goals.model.GoalState;
 import com.deriva.tracking.model.ContextKey;
 
@@ -19,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -47,6 +50,12 @@ public final class GoalsViewModel {
     public static final String OBSERVING_TEXT =
             "Aviso enviado; resultado posterior pendiente de la observación de 2 min.";
     public static final String NO_OUTCOME_TEXT = "Aviso registrado sin resultado posterior.";
+    public static final String HISTORY_NOTE =
+            "Los días pasados son de solo lectura. Solo se conserva la configuración registrada "
+                    + "desde que se añadió el historial; los objetivos borrados antes no se pueden recuperar.";
+    public static final String HISTORY_EMPTY_TEXT =
+            "No hay objetivos con historial para este día. Los objetivos borrados antes de que "
+                    + "existiera el historial no se pueden recuperar.";
 
     public record Outcome(GoalsPage page, String message, boolean error) {
         public boolean saved() {
@@ -58,6 +67,7 @@ public final class GoalsViewModel {
     private final ZoneId zone;
     private final OpenSegmentProvider openSegments;
     private final DateTimeFormatter timeFormat;
+    private final DateTimeFormatter dayFormat = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     private List<Goal> goals = List.of();
     private List<GoalContextOption> contexts = List.of();
@@ -72,6 +82,11 @@ public final class GoalsViewModel {
     private boolean passive;
     private boolean active = true;
     private String validationError;
+    private LocalDate selectedDate;
+    private boolean followToday = true;
+    private String historyNote;
+    private List<String> revisionLines = List.of();
+    private Set<Long> archivedGoalIds = Set.of();
 
     public GoalsViewModel(GoalsService service, ZoneId zone) {
         this(service, zone, now -> Optional.empty());
@@ -85,22 +100,56 @@ public final class GoalsViewModel {
     }
 
     public GoalsPage load() {
-        goals = service.listAll();
-        contexts = buildContexts(service.observedContexts());
         LocalDate today = service.today(zone);
-        progressByGoal = new LinkedHashMap<>();
-        for (GoalProgress progress : service.progressForDay(today, zone, openSegments))
-            progressByGoal.put(progress.goal().id(), progress);
-        List<GoalAlert> todayAlerts = service.alertsForDay(today, zone);
-        fullAlertsByGoal = todayAlerts.stream()
+        if (followToday || selectedDate == null) selectedDate = today;
+        contexts = buildContexts(service.observedContexts());
+        if (isHistorical()) {
+            GoalsService.DayHistory history = service.history(selectedDate, zone);
+            goals = history.goals();
+            archivedGoalIds = history.archived();
+            progressByGoal = new LinkedHashMap<>();
+            for (GoalProgress progress : history.progress())
+                progressByGoal.put(progress.goal().id(), progress);
+            loadAlerts(selectedDate);
+            revisionLines = revisionLines(history);
+            historyNote = HISTORY_NOTE;
+            resetForm();
+        } else {
+            goals = service.listAll();
+            archivedGoalIds = Set.of();
+            progressByGoal = new LinkedHashMap<>();
+            for (GoalProgress progress : service.progressForDay(today, zone, openSegments))
+                progressByGoal.put(progress.goal().id(), progress);
+            loadAlerts(today);
+            revisionLines = List.of();
+            historyNote = null;
+            if (editingId > 0 && find(editingId) == null) resetForm();
+        }
+        return page();
+    }
+
+    /** Selects a local day; the controller reloads asynchronously afterwards. */
+    public void selectDate(LocalDate day) {
+        Objects.requireNonNull(day, "day");
+        selectedDate = day;
+        followToday = day.equals(service.today(zone));
+        if (!followToday) resetForm();
+    }
+
+    public GoalsPage load(LocalDate day) {
+        selectDate(day);
+        return load();
+    }
+
+    private void loadAlerts(LocalDate day) {
+        List<GoalAlert> dayAlerts = service.alertsForDay(day, zone);
+        fullAlertsByGoal = dayAlerts.stream()
                 .filter(alert -> alert.thresholdPercent() == 100)
                 .collect(Collectors.groupingBy(GoalAlert::goalId, LinkedHashMap::new,
                         Collectors.toList()));
-        alertsByGoal = todayAlerts.stream()
+        alertsByGoal = dayAlerts.stream()
                 .collect(Collectors.groupingBy(GoalAlert::goalId, LinkedHashMap::new,
                         Collectors.toList()));
-        if (editingId > 0 && find(editingId) == null) resetForm();
-        return page();
     }
 
     public GoalsPage updateForm(String process, String host, String minutes,
@@ -124,6 +173,7 @@ public final class GoalsViewModel {
     }
 
     public GoalsPage beginEdit(long id) {
+        if (isHistorical()) return page();
         Goal goal = find(id);
         if (goal == null) return page();
         editingId = goal.id();
@@ -143,6 +193,7 @@ public final class GoalsViewModel {
     }
 
     public Outcome save() {
+        if (isHistorical()) return readOnly();
         Goal existing = editingId == 0 ? null : find(editingId);
         Result result;
         if (existing != null) {
@@ -185,6 +236,7 @@ public final class GoalsViewModel {
      * exactly as supplied; an empty text stores no reason.
      */
     public Outcome justify(long id, String reason) {
+        if (isHistorical()) return readOnly();
         Goal goal = find(id);
         if (goal == null) return new Outcome(page(), "El objetivo ya no existe.", true);
         if (!goal.active())
@@ -204,6 +256,7 @@ public final class GoalsViewModel {
 
     /** Removes the user justification; the recorded 100 % alert is kept. */
     public Outcome removeJustification(long id) {
+        if (isHistorical()) return readOnly();
         if (find(id) == null) return new Outcome(page(), "El objetivo ya no existe.", true);
         try {
             service.removeJustification(id, zone);
@@ -214,6 +267,7 @@ public final class GoalsViewModel {
     }
 
     public Outcome toggleActive(long id) {
+        if (isHistorical()) return readOnly();
         Goal goal = find(id);
         if (goal == null) return new Outcome(page(), "El objetivo ya no existe.", true);
         try {
@@ -227,6 +281,7 @@ public final class GoalsViewModel {
     }
 
     public Outcome delete(long id) {
+        if (isHistorical()) return readOnly();
         try {
             boolean deleted = service.delete(id);
             if (editingId == id) resetForm();
@@ -238,24 +293,75 @@ public final class GoalsViewModel {
     }
 
     public GoalsPage page() {
+        boolean historical = isHistorical();
         List<GoalRow> rows = new ArrayList<>(goals.size());
         for (Goal goal : goals) {
             GoalProgress progress = progressByGoal.get(goal.id());
-            rows.add(row(goal, progress, fullAlertsByGoal.getOrDefault(goal.id(), List.of())));
+            rows.add(row(goal, progress, fullAlertsByGoal.getOrDefault(goal.id(), List.of()),
+                    historical, archivedGoalIds.contains(goal.id())));
         }
+        String summary = historical ? historySummary() : todaySummary();
+        LocalDate day = selectedDate == null ? service.today(zone) : selectedDate;
+        return new GoalsPage(rows, contexts, summary, !goals.isEmpty(),
+                !historical && editingId > 0, !historical && editingId > 0,
+                historical ? "Consulta histórica"
+                        : editingId > 0 ? "Editar objetivo" : "Nuevo objetivo",
+                processText, hostText, minutesText, entriesText, passive, active,
+                validationError, canSave(), day, historical, historyNote, revisionLines);
+    }
+
+    private String todaySummary() {
         long activeCount = goals.stream().filter(Goal::active).count();
-        String summary = goals.isEmpty()
+        return goals.isEmpty()
                 ? "Sin objetivos"
                 : goals.size() + (goals.size() == 1 ? " objetivo · " : " objetivos · ")
                 + activeCount + (activeCount == 1 ? " activo" : " activos");
-        return new GoalsPage(rows, contexts, summary, !goals.isEmpty(), editingId > 0,
-                editingId > 0, editingId > 0 ? "Editar objetivo" : "Nuevo objetivo",
-                processText, hostText, minutesText, entriesText, passive, active,
-                validationError, canSave());
+    }
+
+    private String historySummary() {
+        long archived = goals.stream().filter(goal -> archivedGoalIds.contains(goal.id())).count();
+        String summary = "Historial de " + dayFormat.format(selectedDate) + " · "
+                + goals.size() + (goals.size() == 1 ? " objetivo" : " objetivos");
+        return archived == 0 ? summary
+                : summary + " · " + archived + (archived == 1 ? " borrado" : " borrados");
+    }
+
+    private List<String> revisionLines(GoalsService.DayHistory history) {
+        DayWindow window = DayWindow.of(selectedDate, zone);
+        List<GoalRevision> changes = new ArrayList<>();
+        for (List<GoalRevision> revisions : history.revisions().values())
+            for (GoalRevision revision : revisions)
+                if (!revision.recordedAt().isBefore(window.start())
+                        && revision.recordedAt().isBefore(window.end()))
+                    changes.add(revision);
+        changes.sort(Comparator.comparing(GoalRevision::recordedAt));
+        if (changes.isEmpty())
+            return List.of("Sin cambios de configuración registrados ese día.");
+        List<String> lines = new ArrayList<>(changes.size());
+        for (GoalRevision revision : changes) {
+            Goal goal = revision.goal();
+            String kind = revision.baseline()
+                    ? "Base registrada al actualizar Deriva"
+                    : revision.archived() ? "Objetivo borrado" : "Configuración actualizada";
+            String detail = revision.archived()
+                    ? "; configuración conservada: " + limitsText(goal)
+                    : ": " + limitsText(goal) + " · " + (goal.active() ? "Activo" : "Inactivo");
+            lines.add(timeFormat.format(revision.recordedAt()) + " · "
+                    + contextLabel(goal.context()) + " · " + kind + detail);
+        }
+        return List.copyOf(lines);
+    }
+
+    private boolean isHistorical() {
+        return selectedDate != null && !selectedDate.equals(service.today(zone));
+    }
+
+    private Outcome readOnly() {
+        return new Outcome(page(), "Los días pasados son de solo lectura.", true);
     }
 
     private boolean canSave() {
-        return !processText.isBlank()
+        return !isHistorical() && !processText.isBlank()
                 && (!minutesText.isBlank() || !entriesText.isBlank());
     }
 
@@ -320,14 +426,19 @@ public final class GoalsViewModel {
         return !host.chars().anyMatch(Character::isWhitespace);
     }
 
-    private GoalRow row(Goal goal, GoalProgress progress, List<GoalAlert> fullAlerts) {
+    private GoalRow row(Goal goal, GoalProgress progress, List<GoalAlert> fullAlerts,
+                        boolean historical, boolean archived) {
         String contextLabel = contextLabel(goal.context());
         String limits = limitsText(goal);
+        String configurationNote = historical
+                ? "Configuración usada para el resumen: " + limits
+                + (archived ? " · Borrado ese día" : "")
+                : null;
         if (!goal.active() || progress == null) {
             return new GoalRow(goal.id(), contextLabel, limits,
                     "Sin progreso mientras está desactivado.", null, "Desactivado", "—",
                     "inactive", 0, false, goal.passive(), false, null,
-                    alertOutcomeText(goal.id()), null, alertLines(goal.id()));
+                    alertOutcomeText(goal.id()), null, alertLines(goal.id()), configurationNote);
         }
         GoalState state = progress.state();
         String label = stateLabel(state);
@@ -344,7 +455,8 @@ public final class GoalsViewModel {
                 label, icon, key, ratio(goal, progress, state), true, goal.passive(),
                 progress.unmeasurable(),
                 justificationView(goal, progress, fullAlerts, anyJustified, anyUnanswered),
-                alertOutcomeText(goal.id()), balanceText(goal, progress), alertLines(goal.id()));
+                alertOutcomeText(goal.id()), balanceText(goal, progress), alertLines(goal.id()),
+                configurationNote);
     }
 
     /**

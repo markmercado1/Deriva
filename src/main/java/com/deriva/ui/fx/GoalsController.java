@@ -15,6 +15,7 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TextArea;
@@ -28,6 +29,7 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
@@ -41,9 +43,14 @@ import java.util.function.Supplier;
 /** JavaFX controller for the goals screen. All database work runs off the FX thread. */
 public final class GoalsController {
     @FXML private Label summaryLabel;
+    @FXML private DatePicker datePicker;
+    @FXML private Label historyNoteLabel;
     @FXML private Label listStatusLabel;
     @FXML private VBox goalsList;
+    @FXML private TitledPane revisionPane;
+    @FXML private VBox revisionList;
     @FXML private Label formTitle;
+    @FXML private Label historyFormNote;
     @FXML private ComboBox<GoalContextOption> contextCombo;
     @FXML private TextField processField;
     @FXML private TextField hostField;
@@ -88,6 +95,12 @@ public final class GoalsController {
     private void initialize() {
         contextCombo.valueProperty().addListener((observable, old, option) -> {
             if (!loadingFields && option != null) show(viewModel.selectContext(option));
+        });
+        datePicker.valueProperty().addListener((observable, old, day) -> {
+            if (!loadingFields && day != null && viewModel != null) {
+                viewModel.selectDate(day);
+                refresh();
+            }
         });
         var numeric = new TextFormatter<String>(change ->
                 change.getControlNewText().matches("\\d{0,5}") ? change : null);
@@ -179,7 +192,8 @@ public final class GoalsController {
     private void requestDelete(long id, String context) {
         if (busy) return;
         pendingDeleteId = id;
-        deleteWarning.setText("Se borrará «" + context + "» y sus avisos. Los segmentos de actividad "
+        deleteWarning.setText("Se retirará «" + context + "» de la captura. Su configuración y sus avisos "
+                + "se conservarán para consultar los días en que existió; los segmentos de actividad "
                 + "y el historial de uso no se tocan. Si solo quieres dejar de vigilarlo, desactívalo.");
         deleteOverlay.setManaged(true);
         deleteOverlay.setVisible(true);
@@ -270,7 +284,7 @@ public final class GoalsController {
         summaryLabel.setText(page.summary());
         listStatusLabel.setText("");
         listStatusLabel.getStyleClass().remove("range-error");
-        render(page.goals());
+        render(page.goals(), page.historical());
         applyForm(page);
     }
 
@@ -286,16 +300,26 @@ public final class GoalsController {
         activeCheck.setSelected(page.active());
         contextCombo.getItems().setAll(page.contexts());
         contextCombo.setValue(contextOption(page));
+        if (datePicker.getValue() == null || !datePicker.getValue().equals(page.selectedDate()))
+            datePicker.setValue(page.selectedDate());
         loadingFields = false;
 
-        processField.setDisable(page.contextLocked());
-        hostField.setDisable(page.contextLocked());
-        contextCombo.setDisable(page.contextLocked());
+        boolean readOnly = page.historical();
+        historyNoteLabel.setText(page.historyNote() == null ? "" : page.historyNote());
+        setVisible(historyNoteLabel, readOnly);
+        setVisible(historyFormNote, readOnly);
+        renderRevisions(page);
+        processField.setDisable(readOnly || page.contextLocked());
+        hostField.setDisable(readOnly || page.contextLocked());
+        contextCombo.setDisable(readOnly || page.contextLocked());
+        minutesField.setDisable(readOnly);
+        entriesField.setDisable(readOnly);
+        passiveCheck.setDisable(readOnly);
+        activeCheck.setDisable(readOnly);
         saveButton.setText(page.editing() ? "Guardar cambios" : "Crear objetivo");
-        cancelButton.setVisible(page.editing());
-        cancelButton.setManaged(page.editing());
-        newButton.setVisible(!page.editing());
-        newButton.setManaged(!page.editing());
+        setVisible(saveButton, !readOnly);
+        setVisible(cancelButton, !readOnly && page.editing());
+        setVisible(newButton, !readOnly && !page.editing());
         if (page.validationError() == null) {
             hide(validationLabel);
         } else {
@@ -303,6 +327,18 @@ public final class GoalsController {
             show(validationLabel);
         }
         updateButtons();
+    }
+
+    private void renderRevisions(GoalsPage page) {
+        revisionList.getChildren().clear();
+        setVisible(revisionPane, page.historical());
+        if (!page.historical()) return;
+        for (String line : page.revisionLines()) {
+            Label label = new Label(line);
+            label.getStyleClass().add("data-note");
+            label.setWrapText(true);
+            revisionList.getChildren().add(label);
+        }
     }
 
     private static GoalContextOption contextOption(GoalsPage page) {
@@ -319,20 +355,22 @@ public final class GoalsController {
         return null;
     }
 
-    private void render(List<GoalRow> rows) {
+    private void render(List<GoalRow> rows, boolean historical) {
         expandedSummaries.retainAll(rows.stream().map(GoalRow::id).toList());
         goalsList.getChildren().clear();
         if (rows.isEmpty()) {
-            Label empty = new Label("Todavía no hay objetivos. Crea uno con el formulario de la derecha.");
+            Label empty = new Label(historical
+                    ? GoalsViewModel.HISTORY_EMPTY_TEXT
+                    : "Todavía no hay objetivos. Crea uno con el formulario de la derecha.");
             empty.getStyleClass().add("usage-empty");
             empty.setWrapText(true);
             goalsList.getChildren().add(empty);
             return;
         }
-        for (GoalRow row : rows) goalsList.getChildren().add(renderRow(row));
+        for (GoalRow row : rows) goalsList.getChildren().add(renderRow(row, historical));
     }
 
-    private VBox renderRow(GoalRow row) {
+    private VBox renderRow(GoalRow row, boolean historical) {
         VBox card = new VBox(7);
         card.getStyleClass().add("goal-row");
         if (!row.active()) card.getStyleClass().add("goal-row-inactive");
@@ -364,6 +402,12 @@ public final class GoalsController {
         bar.setMaxWidth(190);
 
         card.getChildren().addAll(heading, details);
+        if (row.configurationNote() != null) {
+            Label configuration = new Label(row.configurationNote());
+            configuration.getStyleClass().add("goal-limits");
+            configuration.setWrapText(true);
+            card.getChildren().add(configuration);
+        }
         VBox summaryContent = new VBox(8);
         if (row.balanceText() != null) {
             Label balance = new Label(row.balanceText());
@@ -378,7 +422,8 @@ public final class GoalsController {
             summaryContent.getChildren().add(alert);
         }
         if (!summaryContent.getChildren().isEmpty()) {
-            TitledPane summary = new TitledPane("Resumen de hoy", summaryContent);
+            TitledPane summary = new TitledPane(historical ? "Resumen del día" : "Resumen de hoy",
+                    summaryContent);
             summary.getStyleClass().add("goal-summary");
             summary.setAnimated(false);
             summary.setExpanded(expandedSummaries.contains(row.id()));
@@ -401,6 +446,7 @@ public final class GoalsController {
             coverage.setWrapText(true);
             card.getChildren().add(coverage);
         }
+        if (historical) return card;
         HBox actions = new HBox(8);
         actions.setAlignment(Pos.CENTER_RIGHT);
         if (justification != null && justification.canJustify()) {
@@ -449,13 +495,14 @@ public final class GoalsController {
     private void updateButtons() {
         if (saveButton == null) return;
         boolean editing = current != null && current.editing();
-        saveButton.setDisable(busy || loading
+        boolean readOnly = current != null && current.historical();
+        saveButton.setDisable(busy || loading || readOnly
                 || current == null || !current.canSave());
         saveButton.setText(editing ? "Guardar cambios" : "Crear objetivo");
-        cancelButton.setDisable(busy || loading);
-        newButton.setDisable(busy || loading);
-        confirmDeleteButton.setDisable(busy);
-        if (confirmJustifyButton != null) confirmJustifyButton.setDisable(busy);
+        cancelButton.setDisable(busy || loading || readOnly);
+        newButton.setDisable(busy || loading || readOnly);
+        confirmDeleteButton.setDisable(busy || readOnly);
+        if (confirmJustifyButton != null) confirmJustifyButton.setDisable(busy || readOnly);
     }
 
     private void setStatus(String text, boolean error) {
@@ -492,6 +539,11 @@ public final class GoalsController {
     private static void hide(Label label) {
         label.setManaged(false);
         label.setVisible(false);
+    }
+
+    private static void setVisible(javafx.scene.Node node, boolean visible) {
+        node.setManaged(visible);
+        node.setVisible(visible);
     }
 
     private static String message(Throwable error) {

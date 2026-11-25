@@ -4,6 +4,7 @@ import com.deriva.app.usecase.GoalsService;
 import com.deriva.goals.model.Goal;
 import com.deriva.goals.model.GoalAlert;
 import com.deriva.goals.model.GoalMetric;
+import com.deriva.goals.model.GoalRevision;
 import com.deriva.goals.model.GoalState;
 import com.deriva.privacy.ObservationKind;
 import com.deriva.storage.port.GoalAlertRepository;
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -277,6 +279,65 @@ class GoalsViewModelTest {
     }
 
     @Test
+    void pastDaysAreReadOnlyAndShowTheConfigurationUsedAndTheChanges() {
+        ContextKey chess = new ContextKey("chess.exe", null);
+        Instant created = Instant.parse("2026-11-22T08:00:00Z");
+        Goal original = new Goal(1, chess, 30, 4, true, true, created, created);
+        repository.put(original);
+        repository.addRevision(original, created, false, false);
+        Instant changed = Instant.parse("2026-11-22T18:00:00Z");
+        Goal updated = new Goal(1, chess, 60, 4, true, true, created, changed);
+        repository.put(updated);
+        repository.addRevision(updated, changed, false, false);
+        segments.add(observed("chess.exe", null,
+                "2026-11-22T09:00:00Z", "2026-11-22T09:30:00Z"));
+
+        GoalsPage page = viewModel.load(LocalDate.of(2026, 11, 22));
+
+        assertTrue(page.historical());
+        assertEquals(LocalDate.of(2026, 11, 22), page.selectedDate());
+        assertEquals("Consulta histórica", page.formTitle());
+        assertFalse(page.canSave());
+        assertEquals(1, page.goals().size());
+        GoalRow row = page.goals().getFirst();
+        assertEquals("60 min · 4 entradas · Pasivo", row.limitsText());
+        assertEquals("Configuración usada para el resumen: 60 min · 4 entradas · Pasivo",
+                row.configurationNote());
+        assertTrue(row.progressText().startsWith("30 de 60 min"));
+        assertEquals(2, page.revisionLines().size());
+        assertTrue(page.revisionLines().get(1).startsWith("18:00"));
+        assertTrue(page.revisionLines().get(1).contains("60 min"));
+        assertTrue(page.historyNote().contains("no se pueden recuperar"));
+
+        GoalsViewModel.Outcome blocked = viewModel.delete(1);
+        assertTrue(blocked.error());
+        assertTrue(blocked.message().contains("solo lectura"));
+        assertEquals(1, repository.listAll().size());
+    }
+
+    @Test
+    void historyKeepsAnArchivedGoalOnItsLastDayAndHidesItAfterwards() {
+        ContextKey chess = new ContextKey("chess.exe", null);
+        Instant created = Instant.parse("2026-11-22T08:00:00Z");
+        Instant archived = Instant.parse("2026-11-23T10:00:00Z");
+        Goal goal = new Goal(1, chess, 30, 4, true, true, created, archived);
+        repository.put(goal);
+        repository.addRevision(goal, created, false, false);
+        repository.addRevision(goal, archived, true, false);
+        segments.add(observed("chess.exe", null,
+                "2026-11-23T09:00:00Z", "2026-11-23T09:15:00Z"));
+
+        GoalsPage lastDay = viewModel.load(LocalDate.of(2026, 11, 23));
+        assertEquals(1, lastDay.goals().size());
+        assertTrue(lastDay.goals().getFirst().configurationNote().contains("Borrado ese día"));
+
+        GoalsPage afterwards = viewModel.load(LocalDate.of(2026, 11, 25));
+        assertTrue(afterwards.historical());
+        assertTrue(afterwards.goals().isEmpty());
+        assertTrue(GoalsViewModel.HISTORY_EMPTY_TEXT.contains("no se pueden recuperar"));
+    }
+
+    @Test
     void deletesTheGoalAndClearsTheList() {
         long id = createChessGoal().page().goals().getFirst().id();
 
@@ -399,13 +460,23 @@ class GoalsViewModelTest {
 
     private static final class InMemoryGoalRepository implements GoalRepository {
         private final Map<Long, Goal> goals = new LinkedHashMap<>();
+        private final List<GoalRevision> revisions = new ArrayList<>();
         private long nextId = 1;
+
+        private void put(Goal goal) {
+            goals.put(goal.id(), goal);
+        }
+
+        private void addRevision(Goal goal, Instant recordedAt, boolean archived, boolean baseline) {
+            revisions.add(new GoalRevision(goal, recordedAt, archived, baseline));
+        }
 
         @Override
         public Goal create(Goal goal) {
             Goal stored = new Goal(nextId++, goal.context(), goal.dailyMinutes(),
                     goal.dailyEntries(), goal.passive(), goal.active(), NOW, NOW);
             goals.put(stored.id(), stored);
+            addRevision(stored, NOW, false, false);
             return stored;
         }
 
@@ -417,16 +488,27 @@ class GoalsViewModelTest {
         @Override
         public void update(Goal goal) {
             goals.put(goal.id(), goal);
+            addRevision(goal, NOW, false, false);
         }
 
         @Override
         public boolean delete(long id) {
-            return goals.remove(id) != null;
+            Goal removed = goals.remove(id);
+            if (removed != null) addRevision(removed, NOW, true, false);
+            return removed != null;
         }
 
         @Override
         public List<Goal> listActive() {
             return listAll().stream().filter(Goal::active).toList();
+        }
+
+        @Override
+        public List<GoalRevision> revisionsBefore(Instant end) {
+            return revisions.stream()
+                    .filter(revision -> revision.recordedAt().isBefore(end))
+                    .sorted(Comparator.comparing(GoalRevision::recordedAt))
+                    .toList();
         }
 
         @Override

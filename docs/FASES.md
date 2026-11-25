@@ -290,5 +290,5 @@ Al cambiar a Día, seleccionar hoy local; conservar selección manual posterior.
 ## AJUSTES-AYUDA — HECHO (E049) (2026-11-25)
 Tres tarjetas; ayudas plegadas y valores/aplicación dentro de Detección.
 
-## OBJETIVOS-HISTORIAL — EN_CURSO (2026-11-25)
+## OBJETIVOS-HISTORIAL — HECHO (E050) (2026-11-25)
 Selector diario, historial de versiones y archivado al borrar, lectura histórica sin modificar el pasado. Migración V5; no reconstruir datos antiguos perdidos. Pruebas SQLite/migración/UI necesarias.

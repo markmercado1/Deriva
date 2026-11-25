@@ -1,5 +1,5 @@
-# Trabajo actual — OBJETIVOS-HISTORIAL EN_CURSO (2026-11-25)
-Autorizado por usuario: fechas y trazabilidad tras cambios/borrados. Inspección: borrado actual físico con CASCADE de alertas; actualizaciones sobrescriben topes. Plan concreto: V5 conserva revisiones y archived_at, filtros de objetivos vigentes y vista histórica de solo lectura con límites explícitos. Baseline de migración sin inventar pasado. Cambios previos conservados; base real sin tocar. Próximo: implementar persistencia, consulta y pruebas temporales.
+# OBJETIVOS-HISTORIAL HECHO (E050) (2026-11-25)
+V5 (revisiones en `goal_history`, archivado al borrar) y vista histórica de Objetivos: selector de día, días pasados de solo lectura, configuración usada y registro de revisiones; aviso de que lo borrado antes de V5 no se recupera. `mvn verify`: 276/284 en verde; 8 errores de loopback en `LocalBridgeServerTest` (entorno, repetir en terminal normal). Rama `f6b-objetivos` preparada para PR a `main`. Próximo: revisión visual del usuario, migrar la base real con respaldo y F6.2.
 
 # Último cambio — AJUSTES-AYUDA HECHO (E049)
 SettingsController actualizado; ayudas plegadas, tres tarjetas y valores/aplicación dentro de Detección. Compilación y sonda correctas. Docs de seguimiento actualizados. Próximo: reabrir y revisar con usuario; F6.2 pendiente.

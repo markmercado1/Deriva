@@ -22,7 +22,8 @@ public record GoalRow(
         GoalJustificationView justification,
         String alertOutcomeText,
         String balanceText,
-        List<String> alertLines) {
+        List<String> alertLines,
+        String configurationNote) {
 
     public GoalRow {
         if (id <= 0) throw new IllegalArgumentException("id");
