@@ -1,3 +1,6 @@
+# Trabajo actual — F6.2 EN_CURSO (2026-11-25)
+Autorizado por el usuario. Rama `f6-2-entrega` desde `main` (ff8310c, PR #1 fusionado). Plan: verificar desde un clon limpio compilación, 286 Java + JS, arranque de UI; quitar rutas absolutas de scripts; README con guía de uso, datos/respaldo y limitaciones. Base real `work/f6/deriva-f6.db` ya en V5; respaldo en `work/respaldos/deriva-f6-2026-11-25-v5.db` (integridad ok). Próximo: clon limpio.
+
 # OBJETIVOS-RANGO HECHO (E051) (2026-11-25)
 Desde/Hasta en Objetivos (un día = vista anterior; varios días = solo lectura con detalle por día) y borrados visibles en solo lectura con «Mostrar borrados». Sin cambios de esquema. Archivos: `GoalsService`, `GoalsViewModel`, `GoalsPage`, `GoalRow`, `GoalsController`, `objetivos.fxml`, `GoalsViewModelTest`. 286/286 en verde en la terminal del usuario (los 8 de loopback eran del entorno de la sesión); sonda `GoalsRangeProbe` PASS. PR #1 `f6b-objetivos` → `main` abierto. Próximo: merge, respaldo y migración V5 de la base real, revisión en la app y F6.2.
 
