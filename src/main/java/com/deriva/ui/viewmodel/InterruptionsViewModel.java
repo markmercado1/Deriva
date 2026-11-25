@@ -20,13 +20,13 @@ import java.util.Set;
 public final class InterruptionsViewModel {
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("dd/MM HH:mm");
     private static final List<ReasonOption> REASONS = List.of(
-            new ReasonOption("SEARCHING_INFO", "Buscando informacion"),
+            new ReasonOption("SEARCHING_INFO", "Buscando información"),
             new ReasonOption("MESSAGES", "Mensajes"),
             new ReasonOption("BREAK", "Descanso"),
             new ReasonOption("BOREDOM", "Aburrimiento"),
             new ReasonOption("OTHER", "Otro"));
     private static final Map<String, String> REASON_LABELS = Map.of(
-            "SEARCHING_INFO", "Buscando informacion",
+            "SEARCHING_INFO", "Buscando información",
             "MESSAGES", "Mensajes",
             "BREAK", "Descanso",
             "BOREDOM", "Aburrimiento",
