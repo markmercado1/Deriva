@@ -81,7 +81,7 @@ El JAR (`java -jar target\deriva-0.1.0-SNAPSHOT.jar`) solo imprime un mensaje de
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Build-Package.ps1
 ```
 
-Tras `verify`, genera en `target\dist`: la carpeta `Deriva\` con `Deriva.exe` y su propio runtime Java (jpackage), `Deriva-0.1.0-portable.zip` y `Deriva-0.1.0-Setup.exe` (instalador por usuario hecho con IExpress de Windows: copia a `%LOCALAPPDATA%\Programs\Deriva`, crea accesos directos y una entrada en «Aplicaciones instaladas»; `uninstall.ps1` la quita y conserva los datos). El ejecutable no está firmado: Windows SmartScreen puede pedir «Más información › Ejecutar de todas formas». La app empaquetada guarda su base en `%LOCALAPPDATA%\Deriva\deriva.db` y lee la configuración de la extensión de `%LOCALAPPDATA%\Derivaridge.properties` (`extensionId`, `token`, `port`).
+Tras `verify`, genera en `target\dist`: la carpeta `Deriva\` con `Deriva.exe` y su propio runtime Java (jpackage), `Deriva-0.1.0-portable.zip` y `Deriva-0.1.0-Setup.exe` (instalador por usuario hecho con IExpress de Windows: copia a `%LOCALAPPDATA%\Programs\Deriva`, crea accesos directos y una entrada en «Aplicaciones instaladas»; `uninstall.ps1` la quita y conserva los datos). El ejecutable no está firmado: Windows SmartScreen puede pedir «Más información › Ejecutar de todas formas». La app empaquetada guarda su base en `%LOCALAPPDATA%\Deriva\deriva.db` y lee la configuración de la extensión de `%LOCALAPPDATA%\Deriva\bridge.properties` (`extensionId`, `token`, `port`).
 
 ### Extensión (sitios de Chrome/Brave)
 
