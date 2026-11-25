@@ -1,6 +1,6 @@
 # Estado — 2026-11-25
 
-**Última entrega — ENTREGA-FINAL HECHO (E053, A59):** rama `entrega-final`. `Deriva.exe` (jpackage), portable e instalador IExpress (`scripts/Build-Package.ps1`); la app empaquetada guarda datos en `%LOCALAPPDATA%\Deriva`. Documentos de entrega y capturas en `dist/Entrega Deriva` (generadores en `work/entrega`). 290/290 Java + 14 JS. Falta: fusionar `entrega-final` y que el usuario pruebe el instalador con doble clic.
+**Última entrega — ENTREGA-FINAL-2 HECHO (E054, A60–A61):** rama `entrega-final` publicada en GitHub. Prefijo `Em` en todos los tipos, apartado Ajustes › «Extensión del navegador», instalador con asistente «Siguiente > Siguiente» (corregido un fallo real de extracción), carpeta `entrega/` con instalador, portable, extensión, LEEME y los tres documentos Word/PDF en blanco y negro. 298/298 Java en la terminal del usuario. Falta: fusionar `entrega-final` en `main` y que el usuario pruebe el instalador con clic humano.
 
 ## Situación
 
@@ -10,7 +10,7 @@
 - Guía de uso verificada y limitaciones: inicio de `README.md`.
 - Base real del usuario: `work/f6/deriva-f6.db`, esquema V5 (2374 segmentos 22–25/11, 3 objetivos, 12 avisos, 15 episodios). Respaldo: `work/respaldos/deriva-f6-2026-11-25-v5.db` (integrity_check ok). La base por defecto de `Start-Ui.ps1` sigue siendo `work/console-day/deriva.db` (V1, sin uso desde el 22/11).
 
-## Última entrega — F6.2 (E052, A58)
+## Entrega anterior — F6.2 (E052, A58)
 
 - Archivos: `README.md` (guía y limitaciones), `pom.xml` (`maven-dependency-plugin` 3.7.0 → `target/classpath.txt` en `package`), `scripts/Start-Ui.ps1` y `scripts/Start-ConsoleCapture.ps1` (leen ese classpath; sin rutas absolutas), `CONTINUAR.md`, docs de seguimiento.
 - Pruebas: clon limpio → 278 Java sin `LocalBridgeServerTest` (loopback bloqueado en la sesión) + 14 JS; app demo abre y cierra con hilos 0. El usuario obtuvo 286/286 en su terminal con el pom anterior.
@@ -27,4 +27,4 @@
 
 ## Cómo retomar
 
-Leer `AGENTS.md`, este archivo y la tabla de `docs/FASES.md`. Evidencia en `docs/PRUEBAS.md` (E001–E052), decisiones en `docs/DECISIONES.md` (hasta A58) e historial corto en `docs/ENTREGAS.md`. Las entradas anteriores de este archivo están en el historial de Git.
+Leer `AGENTS.md`, este archivo y la tabla de `docs/FASES.md`. Evidencia en `docs/PRUEBAS.md` (E001–E054), decisiones en `docs/DECISIONES.md` (hasta A61) e historial corto en `docs/ENTREGAS.md`. Las entradas anteriores de este archivo están en el historial de Git.
