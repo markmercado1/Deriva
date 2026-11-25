@@ -12,9 +12,9 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Objects;
 
-/** SQLite connection settings and schema migrations (V1 to V3). */
+/** SQLite connection settings and schema migrations (V1 to V4). */
 final class SQLiteSchema {
-    static final int VERSION = 3;
+    static final int VERSION = 4;
 
     static final String[] V1 = {
             """
@@ -122,12 +122,25 @@ final class SQLiteSchema {
             """
     };
 
-    private static final String[] V3 = {
+    static final String[] V3 = {
             "ALTER TABLE goal_alerts ADD COLUMN justified_at INTEGER",
             """
             ALTER TABLE goal_alerts ADD COLUMN justified_excess INTEGER
               CHECK (justified_excess IS NULL OR justified_excess >= 0)
             """
+    };
+
+    private static final String[] V4 = {
+            "ALTER TABLE goal_alerts ADD COLUMN notified_at INTEGER",
+            "ALTER TABLE goal_alerts ADD COLUMN observed_until INTEGER",
+            "ALTER TABLE goal_alerts ADD COLUMN outcome_at INTEGER",
+            """
+            ALTER TABLE goal_alerts ADD COLUMN outcome_after_ms INTEGER
+              CHECK (outcome_after_ms IS NULL OR outcome_after_ms >= 0)
+            """,
+            // Existing alerts were already delivered (or recorded silently): never
+            // treat them as pending notices or as observations to resume.
+            "UPDATE goal_alerts SET notified_at = triggered_at WHERE notified_at IS NULL"
     };
 
     private SQLiteSchema() {}
@@ -174,6 +187,11 @@ final class SQLiteSchema {
                 if (version < 3) {
                     run(connection, V3);
                     version = 3;
+                    migrated = true;
+                }
+                if (version < 4) {
+                    run(connection, V4);
+                    version = 4;
                     migrated = true;
                 }
                 if (migrated) writeVersion(connection, version);

@@ -15,6 +15,7 @@ import com.deriva.ui.fx.MainController;
 import com.deriva.ui.viewmodel.DailyUsageViewModel;
 import com.deriva.ui.viewmodel.GoalsViewModel;
 import com.deriva.ui.viewmodel.InterruptionsViewModel;
+import com.deriva.ui.viewmodel.AlertDeferralSettingsViewModel;
 import com.deriva.ui.viewmodel.PassiveMaxSettingsViewModel;
 import com.deriva.ui.viewmodel.SettingsViewModel;
 import javafx.animation.PauseTransition;
@@ -79,6 +80,7 @@ public final class DerivaApp extends Application {
                             AppTray current = tray;
                             if (current != null) current.notifyGoal(notice);
                         }, clock, zone);
+                alertService.recoverAfterRestart(clock.instant());
                 CaptureSession capture = new CaptureSession(databasePath, bridgeConfig(),
                         clock, settingsService, goalsService, new GoalAlertMonitor(alertService));
                 GoalsViewModel goals = new GoalsViewModel(goalsService, zone,
@@ -87,12 +89,16 @@ public final class DerivaApp extends Application {
                 settings.load(settingsService.snapshot(), capture.effectiveSettings());
                 PassiveMaxSettingsViewModel passiveMax = new PassiveMaxSettingsViewModel();
                 passiveMax.load(settingsService.passiveMaxSnapshot(), capture.effectivePassiveMax());
+                AlertDeferralSettingsViewModel alertDeferral = new AlertDeferralSettingsViewModel();
+                alertDeferral.load(settingsService.alertDeferralSnapshot(),
+                        capture.effectiveAlertDeferral());
                 return new ViewModels(
                         new InterruptionsViewModel(interruptionsService, zone),
                         new DailyUsageViewModel(usageService, zone, capture),
                         goals,
                         settings,
                         passiveMax,
+                        alertDeferral,
                         settingsService,
                         capture);
             } catch (Exception e) {
@@ -112,7 +118,8 @@ public final class DerivaApp extends Application {
             MainController controller = loader.getController();
             controller.init(viewModels.interruptions(), viewModels.usage(),
                     viewModels.goals(), viewModels.settings(), viewModels.passiveMax(),
-                    viewModels.settingsService(), viewModels.capture(), demo);
+                    viewModels.alertDeferral(), viewModels.settingsService(),
+                    viewModels.capture(), demo);
 
             Scene scene = new Scene(root, 1440, 900);
             scene.getStylesheets().add(DerivaApp.class
@@ -350,6 +357,7 @@ public final class DerivaApp extends Application {
 
     private record ViewModels(InterruptionsViewModel interruptions, DailyUsageViewModel usage,
                               GoalsViewModel goals, SettingsViewModel settings,
-                              PassiveMaxSettingsViewModel passiveMax, SettingsService settingsService,
-                              CaptureSession capture) {}
+                              PassiveMaxSettingsViewModel passiveMax,
+                              AlertDeferralSettingsViewModel alertDeferral,
+                              SettingsService settingsService, CaptureSession capture) {}
 }

@@ -124,4 +124,40 @@ class SettingsServiceTest {
         assertThrows(IllegalArgumentException.class,
                 () -> service.savePassiveMax(Duration.ofSeconds(30)));
     }
+
+    @Test
+    void alertDeferralUsesFiveMinutesByDefault() {
+        SettingsService service = new SettingsService(new FakeRepository());
+        assertEquals(Duration.ofMinutes(5), service.alertDeferralMax());
+        assertTrue(service.alertDeferralSnapshot().warnings().isEmpty());
+    }
+
+    @Test
+    void invalidPersistedAlertDeferralFallsBackVisiblyWithoutOverwrite() {
+        FakeRepository repository = new FakeRepository();
+        repository.values.put(SettingsService.KEY_ALERT_DEFERRAL, "5");
+        SettingsService service = new SettingsService(repository);
+        assertEquals(Duration.ofMinutes(5), service.alertDeferralMax());
+        assertEquals(1, service.alertDeferralSnapshot().warnings().size());
+        assertEquals("5", repository.values.get(SettingsService.KEY_ALERT_DEFERRAL));
+    }
+
+    @Test
+    void savesAlertDeferralSeparatelyFromOtherSettings() {
+        FakeRepository repository = new FakeRepository();
+        SettingsService service = new SettingsService(repository);
+        DetectionSettings before = service.current();
+        Duration passiveBefore = service.passiveMax();
+
+        service.saveAlertDeferralMax(Duration.ofMinutes(20));
+
+        assertEquals(Duration.ofMinutes(20), service.alertDeferralMax());
+        assertEquals("1200", repository.values.get(SettingsService.KEY_ALERT_DEFERRAL));
+        assertEquals(before, service.current());
+        assertEquals(passiveBefore, service.passiveMax());
+        assertThrows(IllegalArgumentException.class,
+                () -> service.saveAlertDeferralMax(Duration.ofSeconds(30)));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.saveAlertDeferralMax(Duration.ofMinutes(31)));
+    }
 }

@@ -142,6 +142,11 @@ class DailyUsageViewModelTest {
         }
 
         @Override
+        public java.time.Duration effectiveAlertDeferral() {
+            return java.time.Duration.ofMinutes(5);
+        }
+
+        @Override
         public void start() {}
 
         @Override

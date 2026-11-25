@@ -16,7 +16,8 @@ public record GoalRow(
         boolean active,
         boolean passive,
         boolean unmeasurable,
-        GoalJustificationView justification) {
+        GoalJustificationView justification,
+        String alertOutcomeText) {
 
     public GoalRow {
         if (id <= 0) throw new IllegalArgumentException("id");

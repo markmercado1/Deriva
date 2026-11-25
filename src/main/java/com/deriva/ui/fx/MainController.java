@@ -7,6 +7,7 @@ import com.deriva.app.usecase.SettingsService;
 import com.deriva.ui.viewmodel.DailyUsageViewModel;
 import com.deriva.ui.viewmodel.GoalsViewModel;
 import com.deriva.ui.viewmodel.InterruptionsViewModel;
+import com.deriva.ui.viewmodel.AlertDeferralSettingsViewModel;
 import com.deriva.ui.viewmodel.PassiveMaxSettingsViewModel;
 import com.deriva.ui.viewmodel.SettingsViewModel;
 import javafx.animation.Animation;
@@ -65,7 +66,9 @@ public final class MainController {
 
     public void init(InterruptionsViewModel interruptions, DailyUsageViewModel usage,
                      GoalsViewModel goals, SettingsViewModel settings,
-                     PassiveMaxSettingsViewModel passiveMax, SettingsService settingsService,
+                     PassiveMaxSettingsViewModel passiveMax,
+                     AlertDeferralSettingsViewModel alertDeferral,
+                     SettingsService settingsService,
                      CaptureControl capture, boolean demo) throws IOException {
         this.capture = Objects.requireNonNull(capture, "capture");
 
@@ -91,7 +94,7 @@ public final class MainController {
                 MainController.class.getResource("/com/deriva/ui/ajustes.fxml"));
         settingsRoot = settingsLoader.load();
         settingsController = settingsLoader.getController();
-        settingsController.init(settings, passiveMax, settingsService, capture);
+        settingsController.init(settings, passiveMax, alertDeferral, settingsService, capture);
 
         initialized = true;
         setContent(interruptionsRoot);
@@ -140,6 +143,7 @@ public final class MainController {
         goalsController.stopAutoRefresh();
         settingsController.refresh();
         settingsController.refreshPassive();
+        settingsController.refreshDeferral();
     }
 
     @FXML
@@ -264,6 +268,8 @@ public final class MainController {
             settingsController.updateEffective(capture.effectiveSettings());
         if (settingsController != null && capture != null)
             settingsController.updatePassiveEffective(capture.effectivePassiveMax());
+        if (settingsController != null && capture != null)
+            settingsController.updateDeferralEffective(capture.effectiveAlertDeferral());
     }
 
     private void setContent(Parent root) {

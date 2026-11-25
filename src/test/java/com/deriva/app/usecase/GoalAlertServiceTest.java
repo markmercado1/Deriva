@@ -1,5 +1,7 @@
 package com.deriva.app.usecase;
 
+import com.deriva.goals.DriftSignal;
+import com.deriva.goals.DriftStateProvider;
 import com.deriva.goals.model.Goal;
 import com.deriva.goals.model.GoalAlert;
 import com.deriva.goals.model.GoalMetric;
@@ -15,6 +17,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -24,6 +27,8 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -39,6 +44,7 @@ class GoalAlertServiceTest {
     private SQLiteGoalAlertRepository alerts;
     private List<GoalAlertNotice> notices;
     private GoalAlertService service;
+    private DriftSignal driftSignal = DriftSignal.inactive();
 
     @BeforeEach
     void setUp() {
@@ -194,6 +200,187 @@ class GoalAlertServiceTest {
 
         assertEquals(1, created.size());
         assertEquals(1, alerts.listByGoal(created.getFirst().goalId()).size());
+    }
+
+    @Test
+    void pauseAndResumeInTheSameSessionDeliversThePendingNotice() {
+        goals.create(Goal.draft(CODE, 10, null, false));
+        save("2026-11-24T10:00:00Z", "2026-11-24T10:08:00Z");
+        driftSignal = new DriftSignal(true, 1, instant("2026-11-24T10:08:00Z"));
+
+        List<GoalAlert> created = evaluateWithDrift("2026-11-24T10:08:00Z");
+        assertEquals(1, created.size());
+        assertTrue(notices.isEmpty());
+        GoalAlert pending = alerts.find(created.getFirst().id()).orElseThrow();
+        assertTrue(pending.isPendingNotice());
+        assertNull(pending.notifiedAt());
+
+        driftSignal = new DriftSignal(false, 1, instant("2026-11-24T10:09:00Z"));
+        assertTrue(evaluateWithDrift("2026-11-24T10:09:30Z").isEmpty());
+
+        assertEquals(1, notices.size());
+        GoalAlert delivered = alerts.find(pending.id()).orElseThrow();
+        assertEquals(instant("2026-11-24T10:09:30Z"), delivered.notifiedAt());
+        assertEquals(instant("2026-11-24T10:11:30Z"), delivered.observedUntil());
+        assertTrue(delivered.isObserving());
+    }
+
+    @Test
+    void capDeliversTheNoticeWhileDriftIsStillActive() {
+        goals.create(Goal.draft(CODE, 10, null, false));
+        save("2026-11-24T10:00:00Z", "2026-11-24T10:08:00Z");
+        driftSignal = new DriftSignal(true, 1, instant("2026-11-24T10:08:00Z"));
+
+        evaluateWithDrift("2026-11-24T10:08:00Z");
+        assertTrue(notices.isEmpty());
+        driftSignal = new DriftSignal(true, 1, instant("2026-11-24T10:08:00Z"));
+
+        evaluateWithDrift("2026-11-24T10:13:00Z");
+        assertEquals(1, notices.size());
+    }
+
+    @Test
+    void noDriftAtNoticeAndNoNewDriftProducesNoDriftOutcome() {
+        Goal goal = goals.create(Goal.draft(CODE, 10, null, false));
+        save("2026-11-24T10:00:00Z", "2026-11-24T10:08:00Z");
+
+        List<GoalAlert> created = evaluateWithDrift("2026-11-24T10:08:00Z");
+        assertEquals(1, notices.size());
+        evaluateWithDrift("2026-11-24T10:10:00Z");
+
+        GoalAlert stored = alerts.find(created.getFirst().id()).orElseThrow();
+        assertEquals(GoalAlert.OUTCOME_NO_DRIFT, stored.outcome());
+        assertEquals(instant("2026-11-24T10:10:00Z"), stored.outcomeAt());
+        assertNull(stored.outcomeAfterMs());
+        assertEquals(goal.id(), stored.goalId());
+    }
+
+    @Test
+    void driftThatEndsAfterTheNoticeProducesStableWithItsTime() {
+        goals.create(Goal.draft(CODE, 10, null, false));
+        save("2026-11-24T10:00:00Z", "2026-11-24T10:08:00Z");
+        driftSignal = new DriftSignal(true, 1, instant("2026-11-24T10:08:00Z"));
+        evaluateWithDrift("2026-11-24T10:08:00Z");
+        evaluateWithDrift("2026-11-24T10:13:00Z");
+        assertEquals(1, notices.size());
+
+        driftSignal = new DriftSignal(false, 1, instant("2026-11-24T10:13:20Z"));
+        evaluateWithDrift("2026-11-24T10:15:00Z");
+
+        GoalAlert stored = alerts.listByGoal(1).getFirst();
+        assertEquals(GoalAlert.OUTCOME_STABLE, stored.outcome());
+        assertEquals(20_000L, stored.outcomeAfterMs());
+    }
+
+    @Test
+    void driftThatRemainsAfterTheCapProducesStillDrifting() {
+        goals.create(Goal.draft(CODE, 10, null, false));
+        save("2026-11-24T10:00:00Z", "2026-11-24T10:08:00Z");
+        driftSignal = new DriftSignal(true, 1, instant("2026-11-24T10:08:00Z"));
+        evaluateWithDrift("2026-11-24T10:08:00Z");
+        evaluateWithDrift("2026-11-24T10:13:00Z");
+        assertEquals(1, notices.size());
+
+        driftSignal = new DriftSignal(true, 1, instant("2026-11-24T10:08:00Z"));
+        evaluateWithDrift("2026-11-24T10:15:00Z");
+
+        assertEquals(GoalAlert.OUTCOME_STILL_DRIFTING,
+                alerts.listByGoal(1).getFirst().outcome());
+    }
+
+    @Test
+    void driftThatAppearsDuringTheObservationProducesNewDrift() {
+        goals.create(Goal.draft(CODE, 10, null, false));
+        save("2026-11-24T10:00:00Z", "2026-11-24T10:08:00Z");
+        evaluateWithDrift("2026-11-24T10:08:00Z");
+        assertEquals(1, notices.size());
+
+        driftSignal = new DriftSignal(true, 1, instant("2026-11-24T10:08:30Z"));
+        evaluateWithDrift("2026-11-24T10:10:00Z");
+
+        assertEquals(GoalAlert.OUTCOME_NEW_DRIFT, alerts.listByGoal(1).getFirst().outcome());
+    }
+
+    @Test
+    void restartDiscardsAnUndeliveredNoticeInsteadOfShowingIt() {
+        goals.create(Goal.draft(CODE, 10, null, false));
+        save("2026-11-24T10:00:00Z", "2026-11-24T10:08:00Z");
+        driftSignal = new DriftSignal(true, 1, instant("2026-11-24T10:08:00Z"));
+        List<GoalAlert> created = evaluateWithDrift("2026-11-24T10:08:00Z");
+        assertTrue(notices.isEmpty());
+
+        GoalAlertService restarted = newService(notices::add);
+        assertEquals(1, restarted.recoverAfterRestart(instant("2026-11-24T10:12:00Z")));
+
+        GoalAlert stored = alerts.find(created.getFirst().id()).orElseThrow();
+        assertEquals(GoalAlert.OUTCOME_DISCARDED, stored.outcome());
+        assertEquals(instant("2026-11-24T10:12:00Z"), stored.outcomeAt());
+        assertTrue(notices.isEmpty());
+    }
+
+    @Test
+    void interruptingTheObservationRecordsNotObservedWithoutClaimingACause() {
+        goals.create(Goal.draft(CODE, 10, null, false));
+        save("2026-11-24T10:00:00Z", "2026-11-24T10:08:00Z");
+        List<GoalAlert> created = evaluateWithDrift("2026-11-24T10:08:00Z");
+        assertEquals(1, notices.size());
+
+        assertEquals(1, service.interruptObservations(instant("2026-11-24T10:09:00Z")));
+
+        GoalAlert stored = alerts.find(created.getFirst().id()).orElseThrow();
+        assertEquals(GoalAlert.OUTCOME_NOT_OBSERVED, stored.outcome());
+        assertNotNull(stored.outcomeAt());
+        assertEquals(1, notices.size());
+    }
+
+    @Test
+    void twoLimitsOfTheSameGoalProduceOneCombinedNoticeAndRecordEveryThreshold() {
+        Goal goal = goals.create(Goal.draft(CODE, 10, 4, false));
+        save("2026-11-24T10:00:00Z", "2026-11-24T10:02:00Z");
+        save("2026-11-24T10:02:05Z", "2026-11-24T10:04:05Z");
+        save("2026-11-24T10:04:10Z", "2026-11-24T10:06:10Z");
+        save("2026-11-24T10:06:15Z", "2026-11-24T10:08:15Z");
+
+        List<GoalAlert> created = evaluateWithDrift("2026-11-24T10:08:15Z");
+
+        assertEquals(3, created.size());
+        assertEquals(1, notices.size());
+        String body = notices.getFirst().body();
+        assertTrue(body.contains("100 % de entradas"), body);
+        assertTrue(body.contains("4 de 4 entradas"), body);
+        assertTrue(body.contains("80 % de minutos"), body);
+        assertTrue(body.contains("8 de 10 min"), body);
+        assertFalse(body.toLowerCase().contains("gracias"), body);
+        assertEquals(3, alerts.listByGoal(goal.id()).size());
+    }
+
+    @Test
+    void lockDuringTheDeferralWaitDoesNotLoseThePendingNotice() {
+        goals.create(Goal.draft(CODE, 10, null, false));
+        save("2026-11-24T10:00:00Z", "2026-11-24T10:08:00Z");
+        driftSignal = new DriftSignal(true, 1, instant("2026-11-24T10:08:00Z"));
+        GoalAlertMonitor monitor = new GoalAlertMonitor(service, Duration.ofSeconds(30));
+
+        assertTrue(monitor.tick(CaptureState.RUNNING, ObservationKind.OBSERVED,
+                instant("2026-11-24T10:08:00Z"), now -> Optional.empty(),
+                () -> driftSignal, Duration.ofMinutes(5)));
+        assertTrue(notices.isEmpty());
+
+        assertFalse(monitor.tick(CaptureState.RUNNING, ObservationKind.UNAVAILABLE,
+                instant("2026-11-24T10:08:10Z"), now -> Optional.empty(),
+                () -> driftSignal, Duration.ofMinutes(5)));
+        assertTrue(notices.isEmpty());
+
+        driftSignal = new DriftSignal(false, 1, instant("2026-11-24T10:08:20Z"));
+        assertTrue(monitor.tick(CaptureState.RUNNING, ObservationKind.OBSERVED,
+                instant("2026-11-24T10:08:30Z"), now -> Optional.empty(),
+                () -> driftSignal, Duration.ofMinutes(5)));
+        assertEquals(1, notices.size());
+    }
+
+    private List<GoalAlert> evaluateWithDrift(String now) {
+        return service.evaluate(instant(now), now2 -> Optional.empty(), () -> driftSignal,
+                Duration.ofMinutes(5));
     }
 
     private GoalAlertService newService(GoalAlertNotifier notifier) {

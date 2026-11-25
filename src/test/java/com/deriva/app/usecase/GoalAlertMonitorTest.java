@@ -168,7 +168,7 @@ class GoalAlertMonitorTest {
 
         @Override
         public List<GoalAlert> listPending() {
-            throw new UnsupportedOperationException();
+            return List.of();
         }
 
         @Override

@@ -158,6 +158,29 @@ class SQLiteGoalAlertRepositoryTest {
     }
 
     @Test
+    void storesReopensAndResolvesDeliveryAndObservationData() {
+        Goal goal = goal("code.exe", null);
+        SQLiteGoalAlertRepository alerts = new SQLiteGoalAlertRepository(database());
+        GoalAlert alert = alerts.create(GoalAlert.draft(goal.id(), T0, 80, GoalMetric.MINUTES));
+
+        GoalAlert delivered = alert.notified(T0.plusSeconds(30), T0.plusSeconds(150));
+        alerts.update(delivered);
+        GoalAlert stored = new SQLiteGoalAlertRepository(database()).find(alert.id()).orElseThrow();
+        assertEquals(T0.plusSeconds(30), stored.notifiedAt());
+        assertEquals(T0.plusSeconds(150), stored.observedUntil());
+        assertTrue(stored.isObserving());
+
+        GoalAlert resolved = stored.observed(GoalAlert.OUTCOME_STABLE, T0.plusSeconds(150), 120_000L);
+        alerts.update(resolved);
+        GoalAlert reopened = new SQLiteGoalAlertRepository(database()).find(alert.id()).orElseThrow();
+        assertEquals(GoalAlert.OUTCOME_STABLE, reopened.outcome());
+        assertEquals(T0.plusSeconds(150), reopened.outcomeAt());
+        assertEquals(120_000L, reopened.outcomeAfterMs());
+        assertFalse(reopened.isObserving());
+        assertFalse(reopened.isPendingNotice());
+    }
+
+    @Test
     void rejectsInvalidThresholdInTheDatabase() throws Exception {
         Goal siteGoal = goal("chrome.exe", "youtube.com");
         try (Connection connection = SQLiteSchema.open(database());

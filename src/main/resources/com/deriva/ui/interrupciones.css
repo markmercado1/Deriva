@@ -774,6 +774,14 @@
     -fx-font-size: 11px;
 }
 
+.goal-alert-outcome {
+    -fx-text-fill: #746F66;
+    -fx-background-color: #F5F2EC;
+    -fx-background-radius: 8;
+    -fx-padding: 7 9;
+    -fx-font-size: 11px;
+}
+
 .goal-reason-input {
     -fx-font-family: "Segoe UI";
     -fx-font-size: 12px;

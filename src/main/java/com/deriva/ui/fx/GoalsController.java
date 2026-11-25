@@ -378,6 +378,12 @@ public final class GoalsController {
             note.setWrapText(true);
             card.getChildren().add(note);
         }
+        if (row.alertOutcomeText() != null) {
+            Label outcome = new Label(row.alertOutcomeText());
+            outcome.getStyleClass().add("goal-alert-outcome");
+            outcome.setWrapText(true);
+            card.getChildren().add(outcome);
+        }
 
         HBox actions = new HBox(8);
         actions.setAlignment(Pos.CENTER_RIGHT);

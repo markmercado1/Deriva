@@ -1,5 +1,8 @@
 package com.deriva.storage.sqlite;
 
+import com.deriva.app.usecase.GoalAlertNotice;
+import com.deriva.app.usecase.GoalAlertService;
+import com.deriva.goals.model.GoalAlert;
 import com.deriva.storage.StorageException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -8,7 +11,12 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -26,31 +34,34 @@ class SQLiteSchemaMigrationTest {
         createV1WithData(database);
 
         SQLiteSchema.initialize(database);
-        assertVersion(database, 3);
+        assertVersion(database, 4);
         assertGoalTables(database);
         assertJustificationColumns(database);
+        assertObservationColumns(database);
         assertV1DataIntact(database);
 
         SQLiteSchema.initialize(database);
-        assertVersion(database, 3);
+        assertVersion(database, 4);
         assertEquals(1, count(database, "schema_version"));
         assertV1DataIntact(database);
     }
 
     @Test
-    void migratesV2AlertsWithoutLossToV3() throws Exception {
+    void migratesV2AlertsWithoutLossToV4() throws Exception {
         Path database = database("v2.db");
         createV2WithData(database);
 
         SQLiteSchema.initialize(database);
 
-        assertVersion(database, 3);
+        assertVersion(database, 4);
         assertJustificationColumns(database);
+        assertObservationColumns(database);
         try (Connection connection = SQLiteSchema.open(database);
              Statement statement = connection.createStatement()) {
             try (ResultSet result = statement.executeQuery("""
                     SELECT goal_id, triggered_at, threshold_percent, metric, outcome,
-                           justification, justified_at, justified_excess
+                           justification, justified_at, justified_excess,
+                           notified_at, observed_until, outcome_at, outcome_after_ms
                     FROM goal_alerts
                     """)) {
                 assertTrue(result.next());
@@ -62,6 +73,10 @@ class SQLiteSchemaMigrationTest {
                 assertEquals("Revisado antes de V3", result.getString("justification"));
                 assertNull(result.getObject("justified_at"));
                 assertNull(result.getObject("justified_excess"));
+                assertEquals(1000, result.getLong("notified_at"));
+                assertNull(result.getObject("observed_until"));
+                assertNull(result.getObject("outcome_at"));
+                assertNull(result.getObject("outcome_after_ms"));
                 assertFalse(result.next());
             }
             assertEquals(1, count(connection, "goals"));
@@ -70,13 +85,67 @@ class SQLiteSchemaMigrationTest {
     }
 
     @Test
-    void newDatabaseStartsAtVersionThree() throws Exception {
+    void migratesV3AlertsAsAlreadyNotifiedAndWithoutObservation() throws Exception {
+        Path database = database("v3.db");
+        createV3WithData(database);
+
+        SQLiteSchema.initialize(database);
+
+        assertVersion(database, 4);
+        assertObservationColumns(database);
+        try (Connection connection = SQLiteSchema.open(database);
+             Statement statement = connection.createStatement()) {
+            try (ResultSet result = statement.executeQuery("""
+                    SELECT triggered_at, outcome, notified_at, observed_until, outcome_at,
+                           outcome_after_ms, justification, justified_at, justified_excess
+                    FROM goal_alerts
+                    """)) {
+                assertTrue(result.next());
+                assertEquals(5000, result.getLong("triggered_at"));
+                assertNull(result.getString("outcome"));
+                assertEquals(5000, result.getLong("notified_at"));
+                assertNull(result.getObject("observed_until"));
+                assertNull(result.getObject("outcome_at"));
+                assertNull(result.getObject("outcome_after_ms"));
+                assertEquals("Motivo previo", result.getString("justification"));
+                assertEquals(6000, result.getLong("justified_at"));
+                assertEquals(600000, result.getLong("justified_excess"));
+                assertFalse(result.next());
+            }
+            assertEquals(1, count(connection, "goal_alerts"));
+        }
+    }
+
+    @Test
+    void migratedV3AlertsAreNotPendingAndDoNotNotifyOnStartup() throws Exception {
+        Path database = database("v3-startup.db");
+        createV3WithData(database);
+        SQLiteSchema.initialize(database);
+        Clock clock = Clock.fixed(Instant.parse("2026-11-24T12:00:00Z"), ZoneOffset.UTC);
+        List<GoalAlertNotice> notices = new ArrayList<>();
+        GoalAlertService service = new GoalAlertService(
+                new SQLiteGoalRepository(database, clock),
+                new SQLiteSegmentRepository(database),
+                new SQLiteGoalAlertRepository(database), notices::add, clock, ZoneOffset.UTC);
+
+        assertEquals(0, service.recoverAfterRestart(clock.instant()));
+        assertTrue(notices.isEmpty());
+
+        GoalAlert stored = new SQLiteGoalAlertRepository(database).listByGoal(1).getFirst();
+        assertEquals(5000, stored.notifiedAt().toEpochMilli());
+        assertNull(stored.observedUntil());
+        assertNull(stored.outcome());
+    }
+
+    @Test
+    void newDatabaseStartsAtVersionFour() throws Exception {
         Path database = database("new.db");
         SQLiteSchema.initialize(database);
 
-        assertVersion(database, 3);
+        assertVersion(database, 4);
         assertGoalTables(database);
         assertJustificationColumns(database);
+        assertObservationColumns(database);
         assertEquals(0, count(database, "goals"));
         assertEquals(0, count(database, "goal_alerts"));
     }
@@ -87,7 +156,7 @@ class SQLiteSchemaMigrationTest {
         SQLiteSchema.initialize(database);
         try (Connection connection = SQLiteSchema.open(database);
              Statement statement = connection.createStatement()) {
-            statement.executeUpdate("UPDATE schema_version SET version = 4");
+            statement.executeUpdate("UPDATE schema_version SET version = 5");
         }
         assertThrows(StorageException.class, () -> SQLiteSchema.initialize(database));
     }
@@ -144,6 +213,38 @@ class SQLiteSchemaMigrationTest {
             while (result.next()) columns.add(result.getString("name"));
         }
         assertTrue(columns.containsAll(Set.of("justified_at", "justified_excess")), columns.toString());
+    }
+
+    private static void assertObservationColumns(Path database) throws Exception {
+        Set<String> columns = new HashSet<>();
+        try (Connection connection = SQLiteSchema.open(database);
+             Statement statement = connection.createStatement();
+             ResultSet result = statement.executeQuery("PRAGMA table_info(goal_alerts)")) {
+            while (result.next()) columns.add(result.getString("name"));
+        }
+        assertTrue(columns.containsAll(Set.of("notified_at", "observed_until", "outcome_at",
+                "outcome_after_ms")), columns.toString());
+    }
+
+    private static void createV3WithData(Path database) throws Exception {
+        try (Connection connection = SQLiteSchema.open(database);
+             Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE schema_version (version INTEGER NOT NULL)");
+            statement.execute("INSERT INTO schema_version(version) VALUES (3)");
+            for (String sql : SQLiteSchema.V1) statement.execute(sql);
+            for (String sql : SQLiteSchema.V2) statement.execute(sql);
+            for (String sql : SQLiteSchema.V3) statement.execute(sql);
+            statement.executeUpdate("""
+                    INSERT INTO goals(id, process_name, site_host, daily_minutes, daily_entries,
+                                      passive, active, created_at, updated_at)
+                    VALUES (1, 'code.exe', NULL, 10, NULL, 0, 1, 1, 1)
+                    """);
+            statement.executeUpdate("""
+                    INSERT INTO goal_alerts(id, goal_id, triggered_at, threshold_percent, metric,
+                                            outcome, justification, justified_at, justified_excess)
+                    VALUES (1, 1, 5000, 100, 'MINUTES', NULL, 'Motivo previo', 6000, 600000)
+                    """);
+        }
     }
 
     private static void assertV1DataIntact(Path database) throws Exception {

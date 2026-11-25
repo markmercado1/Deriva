@@ -22,18 +22,21 @@ import java.util.Optional;
 public final class SQLiteGoalAlertRepository implements GoalAlertRepository {
     private static final String INSERT = """
             INSERT INTO goal_alerts(goal_id, triggered_at, threshold_percent, metric, outcome,
-                                    justification, justified_at, justified_excess)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                    justification, justified_at, justified_excess,
+                                    notified_at, observed_until, outcome_at, outcome_after_ms)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
     private static final String UPDATE = """
             UPDATE goal_alerts
             SET triggered_at = ?, threshold_percent = ?, metric = ?, outcome = ?,
-                justification = ?, justified_at = ?, justified_excess = ?
+                justification = ?, justified_at = ?, justified_excess = ?,
+                notified_at = ?, observed_until = ?, outcome_at = ?, outcome_after_ms = ?
             WHERE id = ?
             """;
     private static final String SELECT = """
             SELECT id, goal_id, triggered_at, threshold_percent, metric, outcome,
-                   justification, justified_at, justified_excess
+                   justification, justified_at, justified_excess,
+                   notified_at, observed_until, outcome_at, outcome_after_ms
             FROM goal_alerts
             """;
 
@@ -60,7 +63,9 @@ public final class SQLiteGoalAlertRepository implements GoalAlertRepository {
                 connection.commit();
                 return new GoalAlert(id, alert.goalId(), alert.triggeredAt(), alert.thresholdPercent(),
                         alert.metric(), alert.outcome(), alert.justification(),
-                        alert.justifiedAt(), alert.justifiedExcess());
+                        alert.justifiedAt(), alert.justifiedExcess(),
+                        alert.notifiedAt(), alert.observedUntil(), alert.outcomeAt(),
+                        alert.outcomeAfterMs());
             } catch (SQLException | RuntimeException e) {
                 connection.rollback();
                 if (e instanceof RuntimeException runtime) throw runtime;
@@ -188,7 +193,7 @@ public final class SQLiteGoalAlertRepository implements GoalAlertRepository {
 
     private static void bindUpdate(PreparedStatement statement, GoalAlert alert) throws SQLException {
         bindValues(statement, 1, alert);
-        statement.setLong(8, alert.id());
+        statement.setLong(12, alert.id());
     }
 
     private static void bindValues(PreparedStatement statement, int first, GoalAlert alert)
@@ -202,6 +207,17 @@ public final class SQLiteGoalAlertRepository implements GoalAlertRepository {
         else statement.setLong(first + 5, alert.justifiedAt().toEpochMilli());
         if (alert.justifiedExcess() == null) statement.setNull(first + 6, Types.BIGINT);
         else statement.setLong(first + 6, alert.justifiedExcess());
+        bindInstant(statement, first + 7, alert.notifiedAt());
+        bindInstant(statement, first + 8, alert.observedUntil());
+        bindInstant(statement, first + 9, alert.outcomeAt());
+        if (alert.outcomeAfterMs() == null) statement.setNull(first + 10, Types.BIGINT);
+        else statement.setLong(first + 10, alert.outcomeAfterMs());
+    }
+
+    private static void bindInstant(PreparedStatement statement, int index, Instant value)
+            throws SQLException {
+        if (value == null) statement.setNull(index, Types.BIGINT);
+        else statement.setLong(index, value.toEpochMilli());
     }
 
     private static long lastInsertId(Connection connection) throws SQLException {
@@ -217,12 +233,22 @@ public final class SQLiteGoalAlertRepository implements GoalAlertRepository {
         Long excess = result.wasNull() ? null : excessValue;
         long momentValue = result.getLong("justified_at");
         Instant moment = result.wasNull() ? null : Instant.ofEpochMilli(momentValue);
+        Instant notifiedAt = instant(result, "notified_at");
+        Instant observedUntil = instant(result, "observed_until");
+        Instant outcomeAt = instant(result, "outcome_at");
+        long afterValue = result.getLong("outcome_after_ms");
+        Long afterMs = result.wasNull() ? null : afterValue;
         return new GoalAlert(result.getLong("id"), result.getLong("goal_id"),
                 Instant.ofEpochMilli(result.getLong("triggered_at")),
                 result.getInt("threshold_percent"),
                 GoalMetric.valueOf(result.getString("metric")),
                 result.getString("outcome"), result.getString("justification"),
-                moment, excess);
+                moment, excess, notifiedAt, observedUntil, outcomeAt, afterMs);
+    }
+
+    private static Instant instant(ResultSet result, String column) throws SQLException {
+        long value = result.getLong(column);
+        return result.wasNull() ? null : Instant.ofEpochMilli(value);
     }
 
     @FunctionalInterface

@@ -85,6 +85,13 @@ La barra lateral incluye un panel de captura con estado textual y botón **Inici
 - La justificación cubre el exceso acumulado al marcarla con la misma base que la alarma (segmentos cerrados y el abierto confirmado), no el resto del día. Se puede quitar y el cálculo vuelve al valor anterior.
 - **Sin responder** lleva la línea «Sin responder es solo una anotación tuya; no cambia los registros de actividad.». **Justificado por ti** muestra el motivo y el exceso cubierto. No se usan «aprobado», «válido» ni «comprobado».
 
+## Avisos diferidos (F6B-5)
+
+- En **Ajustes · Avisos durante una deriva**, el máximo de espera es un campo en minutos con efectivo/pendiente: «En uso ahora: 300 s (5 min)» y «Guardado, pendiente de aplicar: …». Por defecto, 5 min; rango 1–30 min. Pausar/Reanudar conserva; Detener/Iniciar relee.
+- Si hay deriva activa, la fila de Objetivos muestra «Aviso diferido: se enviará cuando termine la deriva o al llegar al máximo de espera.».
+- Resultado posterior, siempre como observación y sin causalidad: «Al enviar el aviso no había deriva y no apareció ninguna en los 2 min siguientes.»; «Después del aviso, volvió a estabilidad en …»; «Después del aviso apareció una deriva durante la observación de 2 min.»; «Después del aviso, seguía habiendo deriva al terminar la observación de 2 min.»; «Después del aviso no se pudo observar el resultado: la captura se pausó o la aplicación se cerró.»; «Aviso no enviado: la aplicación se reinició antes de entregarlo.».
+- No se usan «gracias al aviso», «el aviso causó» ni ninguna afirmación de efecto. El aviso no clasifica la app ni modifica segmentos o episodios.
+
 ## Restricciones
 
 - Solo tema claro. Las pantallas existentes no se amplían fuera de lo previsto; F6B-3 añade la pantalla Objetivos y la sección Actividad pasiva. No crear otras pantallas ni secciones por anticipado.

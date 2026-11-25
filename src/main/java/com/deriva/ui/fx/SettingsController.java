@@ -4,6 +4,7 @@ import com.deriva.app.usecase.CaptureControl;
 import com.deriva.app.usecase.CaptureState;
 import com.deriva.app.usecase.SettingsService;
 import com.deriva.coach.model.DetectionSettings;
+import com.deriva.ui.viewmodel.AlertDeferralSettingsViewModel;
 import com.deriva.ui.viewmodel.PassiveMaxSettingsViewModel;
 import com.deriva.ui.viewmodel.SettingsViewModel;
 import javafx.application.Platform;
@@ -47,6 +48,16 @@ public final class SettingsController {
     @FXML private Label passiveSaveStatus;
     @FXML private Button passiveSaveButton;
     @FXML private Button passiveRestoreButton;
+    @FXML private TextField deferralMaxField;
+    @FXML private Label deferralMaxHint;
+    @FXML private Label deferralEffectiveValues;
+    @FXML private Label deferralPendingValues;
+    @FXML private Label deferralUnsavedLabel;
+    @FXML private Label deferralValidationLabel;
+    @FXML private Label deferralLoadWarningLabel;
+    @FXML private Label deferralSaveStatus;
+    @FXML private Button deferralSaveButton;
+    @FXML private Button deferralRestoreButton;
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "deriva-ui-settings");
@@ -56,11 +67,13 @@ public final class SettingsController {
 
     private SettingsViewModel viewModel;
     private PassiveMaxSettingsViewModel passiveViewModel;
+    private AlertDeferralSettingsViewModel alertDeferralViewModel;
     private SettingsService service;
     private CaptureControl capture;
     private boolean loading;
     private boolean saving;
     private boolean passiveSaving;
+    private boolean deferralSaving;
 
     @FXML
     private void initialize() {
@@ -82,6 +95,14 @@ public final class SettingsController {
         });
         passiveSaveButton.setOnAction(event -> savePassive());
         passiveRestoreButton.setOnAction(event -> restorePassiveDefaults());
+        var deferralNumeric = new TextFormatter<String>(change ->
+                change.getControlNewText().matches("\\d{0,2}") ? change : null);
+        deferralMaxField.setTextFormatter(deferralNumeric);
+        deferralMaxField.textProperty().addListener((observable, old, value) -> {
+            if (!loading) refreshDeferral();
+        });
+        deferralSaveButton.setOnAction(event -> saveDeferral());
+        deferralRestoreButton.setOnAction(event -> restoreDeferralDefaults());
         hide(validationLabel);
         hide(pendingValues);
         hide(unsavedLabel);
@@ -91,18 +112,26 @@ public final class SettingsController {
         hide(passivePendingValues);
         hide(passiveUnsavedLabel);
         hide(passiveLoadWarningLabel);
+        hide(deferralValidationLabel);
+        hide(deferralPendingValues);
+        hide(deferralUnsavedLabel);
+        hide(deferralLoadWarningLabel);
     }
 
     public void init(SettingsViewModel viewModel, PassiveMaxSettingsViewModel passiveViewModel,
+                     AlertDeferralSettingsViewModel alertDeferralViewModel,
                      SettingsService service, CaptureControl capture) {
         this.viewModel = viewModel;
         this.passiveViewModel = passiveViewModel;
+        this.alertDeferralViewModel = alertDeferralViewModel;
         this.service = service;
         this.capture = capture;
         showFields(viewModel.page());
         showPassiveFields(passiveViewModel.page());
+        showDeferralFields(alertDeferralViewModel.page());
         refresh();
         refreshPassive();
+        refreshDeferral();
     }
 
     public void updateEffective(DetectionSettings effective) {
@@ -115,6 +144,12 @@ public final class SettingsController {
         if (passiveViewModel == null || passiveSaving) return;
         passiveViewModel.setEffective(effective);
         applyPassive(passiveViewModel.page());
+    }
+
+    public void updateDeferralEffective(Duration effective) {
+        if (alertDeferralViewModel == null || deferralSaving) return;
+        alertDeferralViewModel.setEffective(effective);
+        applyDeferral(alertDeferralViewModel.page());
     }
 
     public void refresh() {
@@ -230,6 +265,63 @@ public final class SettingsController {
         passiveSaveStatus.setText("Predeterminados en el formulario. Pulsa Guardar para aplicarlos.");
     }
 
+    public void refreshDeferral() {
+        if (alertDeferralViewModel == null || loading) return;
+        alertDeferralViewModel.update(deferralMaxField.getText());
+        applyDeferral(alertDeferralViewModel.page());
+    }
+
+    private void saveDeferral() {
+        if (alertDeferralViewModel == null || service == null || deferralSaving) return;
+        AlertDeferralSettingsViewModel.Page page = alertDeferralViewModel.page();
+        if (!page.canSave()) return;
+        Duration value;
+        try {
+            value = alertDeferralViewModel.validatedValue();
+        } catch (IllegalStateException e) {
+            showDeferralValidation(e.getMessage());
+            return;
+        }
+
+        deferralSaving = true;
+        deferralSaveButton.setDisable(true);
+        deferralRestoreButton.setDisable(true);
+        deferralSaveStatus.getStyleClass().removeAll("save-ok", "save-error");
+        deferralSaveStatus.setText("Guardando…");
+
+        CompletableFuture.supplyAsync(() -> service.saveAlertDeferralMax(value), executor)
+                .whenComplete((snapshot, error) -> Platform.runLater(() -> {
+                    deferralSaving = false;
+                    deferralRestoreButton.setDisable(false);
+                    if (error != null) {
+                        deferralSaveStatus.getStyleClass().add("save-error");
+                        deferralSaveStatus.setText("No se pudo guardar: " + message(error));
+                        refreshDeferral();
+                        return;
+                    }
+                    alertDeferralViewModel.applySaved(snapshot);
+                    if (capture != null)
+                        alertDeferralViewModel.setEffective(capture.effectiveAlertDeferral());
+                    deferralSaveStatus.getStyleClass().add("save-ok");
+                    CaptureState state = capture == null ? CaptureState.STOPPED : capture.status().state();
+                    boolean active = state == CaptureState.STARTING || state == CaptureState.RUNNING
+                            || state == CaptureState.PAUSED || state == CaptureState.STOPPING;
+                    deferralSaveStatus.setText(active
+                            ? "Guardado. La sesión actual conserva su máximo; se aplicará al detener e iniciar la captura."
+                            : "Guardado. Se aplicará al iniciar la captura.");
+                    refreshDeferral();
+                }));
+    }
+
+    private void restoreDeferralDefaults() {
+        if (alertDeferralViewModel == null || deferralSaving) return;
+        alertDeferralViewModel.restoreDefaults();
+        showDeferralFields(alertDeferralViewModel.page());
+        refreshDeferral();
+        deferralSaveStatus.getStyleClass().removeAll("save-ok", "save-error");
+        deferralSaveStatus.setText("Predeterminados en el formulario. Pulsa Guardar para aplicarlos.");
+    }
+
     private void apply(SettingsViewModel.Page page) {
         effectiveValues.setText("En uso ahora: " + page.effectiveSummary());
         if (page.pending()) {
@@ -308,15 +400,57 @@ public final class SettingsController {
         passiveRestoreButton.setDisable(passiveSaving);
     }
 
+    private void applyDeferral(AlertDeferralSettingsViewModel.Page page) {
+        deferralEffectiveValues.setText("En uso ahora: " + page.effectiveText());
+        if (page.pending()) {
+            deferralPendingValues.setText("Guardado, pendiente de aplicar: " + page.savedText());
+            show(deferralPendingValues);
+        } else {
+            hide(deferralPendingValues);
+            if (deferralSaveStatus.getStyleClass().contains("save-ok"))
+                deferralSaveStatus.setText("Guardado. El máximo de espera guardado está en uso.");
+        }
+        if (page.unsavedChanges()) show(deferralUnsavedLabel);
+        else hide(deferralUnsavedLabel);
+
+        if (page.valid()) hide(deferralValidationLabel);
+        else showDeferralValidation(page.validationError());
+
+        if (page.loadWarnings().isEmpty()) {
+            hide(deferralLoadWarningLabel);
+        } else {
+            StringBuilder text = new StringBuilder("La configuración guardada tenía valores no válidos. "
+                    + "No se han sobrescrito; estos son los valores en uso:\n" + page.effectiveText());
+            for (String warning : page.loadWarnings()) text.append("\n• ").append(warning);
+            deferralLoadWarningLabel.setText(text.toString());
+            show(deferralLoadWarningLabel);
+        }
+
+        deferralMaxHint.setText(passiveHint(deferralMaxField.getText()));
+        deferralSaveButton.setDisable(deferralSaving || !page.canSave());
+        deferralRestoreButton.setDisable(deferralSaving);
+    }
+
     private void showPassiveFields(PassiveMaxSettingsViewModel.Page page) {
         loading = true;
         passiveMaxField.setText(page.minutesText());
         loading = false;
     }
 
+    private void showDeferralFields(AlertDeferralSettingsViewModel.Page page) {
+        loading = true;
+        deferralMaxField.setText(page.minutesText());
+        loading = false;
+    }
+
     private void showPassiveValidation(String message) {
         passiveValidationLabel.setText(message == null ? "Revisa el valor." : message);
         show(passiveValidationLabel);
+    }
+
+    private void showDeferralValidation(String message) {
+        deferralValidationLabel.setText(message == null ? "Revisa el valor." : message);
+        show(deferralValidationLabel);
     }
 
     private static String passiveHint(String text) {

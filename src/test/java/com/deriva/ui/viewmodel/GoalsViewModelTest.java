@@ -334,6 +334,37 @@ class GoalsViewModelTest {
         assertEquals("Chess.com · Chrome", row.contextLabel());
     }
 
+    @Test
+    void showsPendingNoticeAndTheFourHonestOutcomeTexts() {
+        long id = createChessGoal().page().goals().getFirst().id();
+        alerts.add(GoalAlert.draft(id, NOW, 80, GoalMetric.MINUTES));
+        viewModel.load();
+        assertEquals(GoalsViewModel.PENDING_NOTICE_TEXT,
+                viewModel.page().goals().getFirst().alertOutcomeText());
+
+        GoalAlert observed = new GoalAlert(1, id, NOW, 100, GoalMetric.MINUTES,
+                null, null, null, null, NOW, NOW.plusSeconds(120), null, null);
+        assertEquals("Después del aviso, volvió a estabilidad en 12 s.",
+                GoalsViewModel.outcomeText(
+                        observed.observed(GoalAlert.OUTCOME_STABLE, NOW, 12_000L)));
+        assertEquals("Al enviar el aviso no había deriva y no apareció ninguna en los 2 min siguientes.",
+                GoalsViewModel.outcomeText(
+                        observed.observed(GoalAlert.OUTCOME_NO_DRIFT, NOW, null)));
+        assertEquals("Después del aviso apareció una deriva durante la observación de 2 min.",
+                GoalsViewModel.outcomeText(
+                        observed.observed(GoalAlert.OUTCOME_NEW_DRIFT, NOW, null)));
+        assertEquals("Después del aviso, seguía habiendo deriva al terminar la observación de 2 min.",
+                GoalsViewModel.outcomeText(
+                        observed.observed(GoalAlert.OUTCOME_STILL_DRIFTING, NOW, null)));
+        assertEquals("Después del aviso no se pudo observar el resultado: la captura se pausó "
+                        + "o la aplicación se cerró.",
+                GoalsViewModel.outcomeText(
+                        observed.observed(GoalAlert.OUTCOME_NOT_OBSERVED, NOW, null)));
+        assertEquals("Aviso no enviado: la aplicación se reinició antes de entregarlo.",
+                GoalsViewModel.outcomeText(
+                        observed.observed(GoalAlert.OUTCOME_DISCARDED, NOW, null)));
+    }
+
     private static Segment observed(String process, String host, String start, String end) {
         return new Segment(0, ObservationKind.OBSERVED, new ContextKey(process, host),
                 null, null, Instant.parse(start), Instant.parse(end));
@@ -393,7 +424,9 @@ class GoalsViewModelTest {
         private GoalAlert add(GoalAlert alert) {
             GoalAlert stored = new GoalAlert(nextId++, alert.goalId(), alert.triggeredAt(),
                     alert.thresholdPercent(), alert.metric(), alert.outcome(),
-                    alert.justification(), alert.justifiedAt(), alert.justifiedExcess());
+                    alert.justification(), alert.justifiedAt(), alert.justifiedExcess(),
+                    alert.notifiedAt(), alert.observedUntil(), alert.outcomeAt(),
+                    alert.outcomeAfterMs());
             alerts.put(stored.id(), stored);
             return stored;
         }

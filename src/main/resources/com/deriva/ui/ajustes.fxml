@@ -106,6 +106,37 @@
                 <Label fx:id="passiveSaveStatus" text="" styleClass="save-status" wrapText="true"/>
             </VBox>
 
+            <VBox styleClass="settings-panel" spacing="12">
+                <Label text="Avisos durante una deriva" styleClass="usage-title"/>
+                <Label text="Si un aviso de objetivo coincide con una deriva activa, Deriva espera a que termine o al máximo indicado. Después registra qué ocurrió; ese resultado es una observación, no una prueba de efecto."
+                       styleClass="settings-help" wrapText="true"/>
+                <HBox spacing="14" alignment="CENTER_LEFT" styleClass="settings-row">
+                    <VBox spacing="2" HBox.hgrow="ALWAYS">
+                        <Label text="Máximo de espera de un aviso" styleClass="settings-label"/>
+                        <Label text="Tiempo máximo que puede esperar un aviso mientras hay deriva. Por defecto, 5 minutos."
+                               styleClass="settings-help" wrapText="true"/>
+                    </VBox>
+                    <HBox spacing="8" alignment="CENTER_RIGHT" minWidth="300">
+                        <TextField fx:id="deferralMaxField" minWidth="90" prefWidth="90" styleClass="settings-input"/>
+                        <Label text="minutos" styleClass="settings-unit"/>
+                        <Label fx:id="deferralMaxHint" text="—" styleClass="settings-hint"/>
+                    </HBox>
+                </HBox>
+                <Label fx:id="deferralEffectiveValues" text="En uso ahora: —" styleClass="settings-effective" wrapText="true"/>
+                <Label fx:id="deferralPendingValues" text="" styleClass="settings-pending" wrapText="true"/>
+                <Label fx:id="deferralUnsavedLabel" text="Cambios sin guardar." styleClass="settings-pending" wrapText="true"/>
+                <Label fx:id="deferralValidationLabel" text="" styleClass="settings-error" wrapText="true"/>
+                <Label fx:id="deferralLoadWarningLabel" text="" styleClass="settings-error" wrapText="true"/>
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <Button fx:id="deferralRestoreButton" text="Restaurar 5 minutos"
+                            styleClass="secondary-button"/>
+                    <Region HBox.hgrow="ALWAYS"/>
+                    <Button fx:id="deferralSaveButton" text="Guardar máximo de espera"
+                            styleClass="primary-button"/>
+                </HBox>
+                <Label fx:id="deferralSaveStatus" text="" styleClass="save-status" wrapText="true"/>
+            </VBox>
+
             <VBox styleClass="settings-panel" spacing="8">
                 <Label text="Valores" styleClass="settings-section-title"/>
                 <Label fx:id="effectiveValues" text="En uso ahora: —" styleClass="settings-effective" wrapText="true"/>

@@ -12,6 +12,7 @@ import com.deriva.tracking.model.ContextKey;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +31,18 @@ public final class GoalsViewModel {
     /** Shown when later use has outgrown the stored justification. */
     public static final String EXHAUSTED_NOTE =
             "El uso posterior supera el exceso justificado; vuelve a contar.";
+    public static final String PENDING_NOTICE_TEXT =
+            "Aviso diferido: se enviará cuando termine la deriva o al llegar al máximo de espera.";
+    public static final String NO_DRIFT_TEXT =
+            "Al enviar el aviso no había deriva y no apareció ninguna en los 2 min siguientes.";
+    public static final String NEW_DRIFT_TEXT =
+            "Después del aviso apareció una deriva durante la observación de 2 min.";
+    public static final String STILL_DRIFTING_TEXT =
+            "Después del aviso, seguía habiendo deriva al terminar la observación de 2 min.";
+    public static final String NOT_OBSERVED_TEXT =
+            "Después del aviso no se pudo observar el resultado: la captura se pausó o la aplicación se cerró.";
+    public static final String DISCARDED_TEXT =
+            "Aviso no enviado: la aplicación se reinició antes de entregarlo.";
 
     public record Outcome(GoalsPage page, String message, boolean error) {
         public boolean saved() {
@@ -44,6 +57,7 @@ public final class GoalsViewModel {
     private List<Goal> goals = List.of();
     private List<GoalContextOption> contexts = List.of();
     private Map<Long, GoalProgress> progressByGoal = Map.of();
+    private Map<Long, List<GoalAlert>> alertsByGoal = Map.of();
     private Map<Long, List<GoalAlert>> fullAlertsByGoal = Map.of();
     private long editingId;
     private String processText = "";
@@ -71,8 +85,12 @@ public final class GoalsViewModel {
         progressByGoal = new LinkedHashMap<>();
         for (GoalProgress progress : service.progressForDay(today, zone, openSegments))
             progressByGoal.put(progress.goal().id(), progress);
-        fullAlertsByGoal = service.alertsForDay(today, zone).stream()
+        List<GoalAlert> todayAlerts = service.alertsForDay(today, zone);
+        fullAlertsByGoal = todayAlerts.stream()
                 .filter(alert -> alert.thresholdPercent() == 100)
+                .collect(Collectors.groupingBy(GoalAlert::goalId, LinkedHashMap::new,
+                        Collectors.toList()));
+        alertsByGoal = todayAlerts.stream()
                 .collect(Collectors.groupingBy(GoalAlert::goalId, LinkedHashMap::new,
                         Collectors.toList()));
         if (editingId > 0 && find(editingId) == null) resetForm();
@@ -302,7 +320,8 @@ public final class GoalsViewModel {
         if (!goal.active() || progress == null) {
             return new GoalRow(goal.id(), contextLabel, limits,
                     "Sin progreso mientras está desactivado.", null, "Desactivado", "—",
-                    "inactive", 0, false, goal.passive(), false, null);
+                    "inactive", 0, false, goal.passive(), false, null,
+                    alertOutcomeText(goal.id()));
         }
         GoalState state = progress.state();
         String label = stateLabel(state);
@@ -318,7 +337,35 @@ public final class GoalsViewModel {
         return new GoalRow(goal.id(), contextLabel, limits, progressText(goal, progress), state,
                 label, icon, key, ratio(goal, progress, state), true, goal.passive(),
                 progress.unmeasurable(),
-                justificationView(goal, progress, fullAlerts, anyJustified, anyUnanswered));
+                justificationView(goal, progress, fullAlerts, anyJustified, anyUnanswered),
+                alertOutcomeText(goal.id()));
+    }
+
+    private String alertOutcomeText(long goalId) {
+        List<GoalAlert> alerts = alertsByGoal.getOrDefault(goalId, List.of());
+        if (alerts.stream().anyMatch(GoalAlert::isPendingNotice)) return PENDING_NOTICE_TEXT;
+        return alerts.stream()
+                .filter(alert -> alert.outcome() != null)
+                .max(Comparator.comparing(alert -> alert.outcomeAt() == null
+                        ? alert.triggeredAt() : alert.outcomeAt()))
+                .map(GoalsViewModel::outcomeText)
+                .orElse(null);
+    }
+
+    /** Presentation text for a stored observation; it never claims a cause. */
+    static String outcomeText(GoalAlert alert) {
+        if (alert.outcome() == null) return null;
+        return switch (alert.outcome()) {
+            case GoalAlert.OUTCOME_STABLE -> "Después del aviso, volvió a estabilidad en "
+                    + DisplayFormats.duration(alert.outcomeAfterMs() == null
+                    ? 0L : alert.outcomeAfterMs()) + ".";
+            case GoalAlert.OUTCOME_NO_DRIFT -> NO_DRIFT_TEXT;
+            case GoalAlert.OUTCOME_NEW_DRIFT -> NEW_DRIFT_TEXT;
+            case GoalAlert.OUTCOME_STILL_DRIFTING -> STILL_DRIFTING_TEXT;
+            case GoalAlert.OUTCOME_NOT_OBSERVED -> NOT_OBSERVED_TEXT;
+            case GoalAlert.OUTCOME_DISCARDED -> DISCARDED_TEXT;
+            default -> null;
+        };
     }
 
     private static GoalJustificationView justificationView(
