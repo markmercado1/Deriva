@@ -4,15 +4,15 @@ Proyecto local de Windows. El desarrollo está dividido en fases pequeñas y ret
 
 **Inicio para una IA:** leer AGENTS.md y docs/ESTADO.md. **Mensaje para otra herramienta:** copiar CONTINUAR.md.
 
-## Descargas (versión 0.1.0, rama `entrega-final`)
+## Descargas (versión 0.1.0)
 
-Autor: Emerson Mercado. Todo está en la carpeta [`entrega/`](https://github.com/markmercado1/Deriva/tree/entrega-final/entrega); no hace falta instalar Java ni compilar.
+Autor: Emerson Mercado. Todo está en la carpeta [`entrega/`](https://github.com/markmercado1/Deriva/tree/main/entrega); no hace falta instalar Java ni compilar.
 
 | Archivo | Descarga directa |
 |---|---|
-| Instalador «Siguiente > Siguiente» | [Deriva-0.1.0-Setup.exe](https://github.com/markmercado1/Deriva/raw/entrega-final/entrega/Deriva-0.1.0-Setup.exe) |
-| Versión portable | [Deriva-0.1.0-portable.zip](https://github.com/markmercado1/Deriva/raw/entrega-final/entrega/Deriva-0.1.0-portable.zip) |
-| Extensión Chrome/Brave | [Deriva-extension-chromium.zip](https://github.com/markmercado1/Deriva/raw/entrega-final/entrega/Deriva-extension-chromium.zip) |
+| Instalador «Siguiente > Siguiente» | [Deriva-0.1.0-Setup.exe](https://github.com/markmercado1/Deriva/raw/main/entrega/Deriva-0.1.0-Setup.exe) |
+| Versión portable | [Deriva-0.1.0-portable.zip](https://github.com/markmercado1/Deriva/raw/main/entrega/Deriva-0.1.0-portable.zip) |
+| Extensión Chrome/Brave | [Deriva-extension-chromium.zip](https://github.com/markmercado1/Deriva/raw/main/entrega/Deriva-extension-chromium.zip) |
 
 Documentos de la entrega (Word y PDF) en la misma carpeta: «Deriva - codigo fuente», «Deriva - para ejecutar» y «Deriva - manual de uso»; resumen en [`entrega/LEEME.md`](entrega/LEEME.md). El instalador no está firmado: si Windows muestra SmartScreen, «Más información» › «Ejecutar de todos modos». La extensión se conecta desde Ajustes › Extensión del navegador.
 

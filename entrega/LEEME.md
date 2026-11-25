@@ -1,6 +1,6 @@
 # Deriva 0.1.0 — carpeta de entrega
 
-Autor: Emerson Mercado · Repositorio: <https://github.com/markmercado1/Deriva> (rama `entrega-final`)
+Autor: Emerson Mercado · Repositorio: <https://github.com/markmercado1/Deriva>
 
 Deriva es una aplicación de escritorio para Windows (Java 21 + JavaFX + SQLite) que registra qué aplicación o sitio está en primer plano, detecta episodios de cambios rápidos y permite fijar objetivos diarios. Todos los datos quedan en el equipo del usuario.
 
@@ -17,9 +17,9 @@ Deriva es una aplicación de escritorio para Windows (Java 21 + JavaFX + SQLite)
 
 ## Descarga directa
 
-- Instalador: <https://github.com/markmercado1/Deriva/raw/entrega-final/entrega/Deriva-0.1.0-Setup.exe>
-- Versión portable: <https://github.com/markmercado1/Deriva/raw/entrega-final/entrega/Deriva-0.1.0-portable.zip>
-- Extensión: <https://github.com/markmercado1/Deriva/raw/entrega-final/entrega/Deriva-extension-chromium.zip>
+- Instalador: <https://github.com/markmercado1/Deriva/raw/main/entrega/Deriva-0.1.0-Setup.exe>
+- Versión portable: <https://github.com/markmercado1/Deriva/raw/main/entrega/Deriva-0.1.0-portable.zip>
+- Extensión: <https://github.com/markmercado1/Deriva/raw/main/entrega/Deriva-extension-chromium.zip>
 
 ## Uso rápido
 
