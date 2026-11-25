@@ -1,5 +1,7 @@
 # Estado — 2026-11-25
 
+**Trabajo actual — ENTREGA-FINAL EN_CURSO:** rama `entrega-final`; ejecutable, instalador, capturas y documentos de entrega. Próximo: ruta de datos de la app empaquetada.
+
 ## Situación
 
 **Prototipo entregado: F0–F6.1, F6B, OBJETIVOS-HISTORIAL, OBJETIVOS-RANGO y F6.2 HECHO.** No hay fase siguiente fijada en el plano; el trabajo nuevo lo decide el usuario.

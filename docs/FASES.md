@@ -295,3 +295,6 @@ Selector diario, historial de versiones y archivado al borrar, lectura históric
 
 ## OBJETIVOS-RANGO — HECHO (E051) (2026-11-25)
 Petición del usuario: consultar Objetivos con Desde/Hasta y mostrar los objetivos borrados en solo lectura con una opción para ocultarlos. Un día = vista actual (hoy editable, pasado solo lectura); varios días = resumen por objetivo y detalle por día, solo lectura. Sin cambios de esquema. F6.2 pendiente.
+
+## ENTREGA-FINAL — EN_CURSO (2026-11-25)
+Petición del usuario: preparar la entrega a partir de tres plantillas (código fuente, para ejecutar, manual de uso): ejecutable `Deriva.exe` con jpackage, instalador, capturas reales de la app sobre datos sintéticos y los tres documentos Word. La app empaquetada guarda sus datos en `%LOCALAPPDATA%\Deriva`. Sin datos reales del usuario en capturas ni documentos.

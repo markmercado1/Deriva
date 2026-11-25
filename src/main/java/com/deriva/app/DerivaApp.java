@@ -57,8 +57,8 @@ public final class DerivaApp extends Application {
     @Override
     public void start(Stage stage) {
         boolean demo = flag("DERIVA_UI_DEMO");
-        String defaultDatabase = demo ? "work/ui-preview/demo.db" : "work/console-day/deriva.db";
-        Path databasePath = Path.of(environment("DERIVA_UI_DB", defaultDatabase)).toAbsolutePath();
+        Path databasePath = AppPaths.database(System.getenv(), System.getProperty("user.home"),
+                demo, AppPaths.packaged());
 
         CompletableFuture.supplyAsync(() -> {
             try {
@@ -355,8 +355,13 @@ public final class DerivaApp extends Application {
     private static CaptureSession.BridgeConfig bridgeConfig() {
         String token = System.getenv("DERIVA_BRIDGE_TOKEN");
         String extension = System.getenv("DERIVA_EXTENSION_ID");
-        if (token == null || token.isBlank() || extension == null || extension.isBlank())
-            return null;
+        if (token == null || token.isBlank() || extension == null || extension.isBlank()) {
+            // The packaged app reads the same settings from %LOCALAPPDATA%\Deriva\bridge.properties.
+            if (!AppPaths.packaged()) return null;
+            Path file = AppPaths.dataDirectory(System.getenv(), System.getProperty("user.home"))
+                    .resolve(AppPaths.BRIDGE_FILE);
+            return AppPaths.bridgeFromFile(file).orElse(null);
+        }
         int port = Integer.parseInt(environment("DERIVA_BRIDGE_PORT", "47821"));
         return new CaptureSession.BridgeConfig(port, token, extension);
     }
