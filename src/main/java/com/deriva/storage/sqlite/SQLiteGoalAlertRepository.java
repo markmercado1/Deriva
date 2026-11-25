@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-/** JDBC adapter for goal alerts. Alerts disappear with their goal (ON DELETE CASCADE). */
+/** JDBC adapter for goal alerts. Archived goals keep their alerts for history but no longer produce pending notices. */
 public final class SQLiteGoalAlertRepository implements GoalAlertRepository {
     private static final String INSERT = """
             INSERT INTO goal_alerts(goal_id, triggered_at, threshold_percent, metric, outcome,
@@ -146,8 +146,9 @@ public final class SQLiteGoalAlertRepository implements GoalAlertRepository {
 
     @Override
     public List<GoalAlert> listPending() {
-        return query(SELECT + " WHERE outcome IS NULL ORDER BY triggered_at, id",
-                statement -> { });
+        return query(SELECT + " WHERE outcome IS NULL"
+                + " AND goal_id IN (SELECT id FROM goals WHERE archived_at IS NULL)"
+                + " ORDER BY triggered_at, id", statement -> { });
     }
 
     @Override

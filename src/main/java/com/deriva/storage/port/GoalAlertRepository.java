@@ -22,7 +22,7 @@ public interface GoalAlertRepository {
 
     List<GoalAlert> listByGoal(long goalId);
 
-    /** Alerts whose outcome has not been recorded yet, oldest first. */
+    /** Alerts of non-archived goals whose outcome has not been recorded yet, oldest first. */
     List<GoalAlert> listPending();
 
     /** Alerts triggered in the semi-open interval {@code [from, to)}. */

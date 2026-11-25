@@ -59,19 +59,23 @@ class SQLiteGoalAlertRepositoryTest {
     }
 
     @Test
-    void deletingGoalCascadesToItsAlertsOnly() {
+    void deletingGoalRemovesItFromActiveAndPendingButPreservesItsAlerts() {
         Goal removed = goal("chrome.exe", "youtube.com");
         Goal kept = goal("code.exe", null);
         SQLiteGoalAlertRepository alerts = new SQLiteGoalAlertRepository(database());
         alerts.create(GoalAlert.draft(removed.id(), T0, 100, GoalMetric.MINUTES));
         alerts.create(GoalAlert.draft(removed.id(), T0.plusSeconds(60), 100, GoalMetric.ENTRIES));
         alerts.create(GoalAlert.draft(kept.id(), T0, 80, GoalMetric.MINUTES));
+        SQLiteGoalRepository goals = new SQLiteGoalRepository(database(), CLOCK);
 
-        assertTrue(new SQLiteGoalRepository(database(), CLOCK).delete(removed.id()));
+        assertTrue(goals.delete(removed.id()));
 
-        assertTrue(alerts.listByGoal(removed.id()).isEmpty());
+        assertTrue(goals.find(removed.id()).isEmpty());
+        assertTrue(goals.listActive().stream().noneMatch(goal -> goal.id() == removed.id()));
+        assertEquals(2, alerts.listByGoal(removed.id()).size());
         assertEquals(1, alerts.listByGoal(kept.id()).size());
         assertEquals(1, alerts.listPending().size());
+        assertEquals(kept.id(), alerts.listPending().getFirst().goalId());
     }
 
     @Test
