@@ -324,4 +324,4 @@ V5 con revisiones y archivado al borrar; vista histórica de Objetivos de solo l
 Desde/Hasta en Objetivos con resumen por objetivo y detalle por día; borrados visibles en solo lectura con «Mostrar borrados». 278/286 tests en verde (8 de loopback del entorno); sonda FXML aprobada. Falta revisión del usuario en la app. F6.2 pendiente.
 
 ## 2026-11-25 — F6.2 entrega local reproducible (E052)
-README con guía verificada desde un clon limpio y limitaciones; corregido el arranque en clones nuevos (classpath generado por `verify`, scripts sin rutas absolutas). 278 Java sin bridge + 14 JS en el clon; app demo abre y cierra sin hilos. Respaldo de la base real hecho. Falta: confirmar 286/286 del usuario con el pom nuevo.
+README con guía verificada desde un clon limpio y limitaciones; corregido el arranque en clones nuevos (classpath generado por `verify`, scripts sin rutas absolutas). 278 Java sin bridge + 14 JS en el clon; app demo abre y cierra sin hilos. Respaldo de la base real hecho. Usuario: 286/286 con el pom nuevo. Falta fusionar.

@@ -12,7 +12,7 @@
 
 - Archivos: `README.md` (guía y limitaciones), `pom.xml` (`maven-dependency-plugin` 3.7.0 → `target/classpath.txt` en `package`), `scripts/Start-Ui.ps1` y `scripts/Start-ConsoleCapture.ps1` (leen ese classpath; sin rutas absolutas), `CONTINUAR.md`, docs de seguimiento.
 - Pruebas: clon limpio → 278 Java sin `LocalBridgeServerTest` (loopback bloqueado en la sesión) + 14 JS; app demo abre y cierra con hilos 0. El usuario obtuvo 286/286 en su terminal con el pom anterior.
-- Falta: que el usuario repita `verify` (286/286) con el pom nuevo y fusione `f6-2-entrega`.
+- Confirmado por el usuario: 286/286 con el pom nuevo y `target/classpath.txt` generado (13:07). Falta solo abrir el PR y fusionar `f6-2-entrega`.
 
 ## Pendientes abiertos (no bloquean la entrega)
 
