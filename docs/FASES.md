@@ -292,3 +292,6 @@ Tres tarjetas; ayudas plegadas y valores/aplicación dentro de Detección.
 
 ## OBJETIVOS-HISTORIAL — HECHO (E050) (2026-11-25)
 Selector diario, historial de versiones y archivado al borrar, lectura histórica sin modificar el pasado. Migración V5; no reconstruir datos antiguos perdidos. Pruebas SQLite/migración/UI necesarias.
+
+## OBJETIVOS-RANGO — HECHO (E051) (2026-11-25)
+Petición del usuario: consultar Objetivos con Desde/Hasta y mostrar los objetivos borrados en solo lectura con una opción para ocultarlos. Un día = vista actual (hoy editable, pasado solo lectura); varios días = resumen por objetivo y detalle por día, solo lectura. Sin cambios de esquema. F6.2 pendiente.

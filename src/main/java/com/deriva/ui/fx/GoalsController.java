@@ -43,7 +43,11 @@ import java.util.function.Supplier;
 /** JavaFX controller for the goals screen. All database work runs off the FX thread. */
 public final class GoalsController {
     @FXML private Label summaryLabel;
+    @FXML private Label listTitle;
     @FXML private DatePicker datePicker;
+    @FXML private DatePicker toPicker;
+    @FXML private Button todayButton;
+    @FXML private CheckBox showArchivedCheck;
     @FXML private Label historyNoteLabel;
     @FXML private Label listStatusLabel;
     @FXML private VBox goalsList;
@@ -96,11 +100,19 @@ public final class GoalsController {
         contextCombo.valueProperty().addListener((observable, old, option) -> {
             if (!loadingFields && option != null) show(viewModel.selectContext(option));
         });
-        datePicker.valueProperty().addListener((observable, old, day) -> {
-            if (!loadingFields && day != null && viewModel != null) {
-                viewModel.selectDate(day);
-                refresh();
-            }
+        datePicker.valueProperty().addListener((observable, old, day) -> rangeChanged());
+        toPicker.valueProperty().addListener((observable, old, day) -> rangeChanged());
+        todayButton.setOnAction(event -> {
+            if (viewModel == null) return;
+            LocalDate today = viewModel.today();
+            loadingFields = true;
+            datePicker.setValue(today);
+            toPicker.setValue(today);
+            loadingFields = false;
+            rangeChanged();
+        });
+        showArchivedCheck.selectedProperty().addListener((observable, old, value) -> {
+            if (!loadingFields && viewModel != null) apply(viewModel.setShowArchived(value));
         });
         var numeric = new TextFormatter<String>(change ->
                 change.getControlNewText().matches("\\d{0,5}") ? change : null);
@@ -160,6 +172,21 @@ public final class GoalsController {
     public void shutdown() {
         autoRefresh.stop();
         executor.shutdownNow();
+    }
+
+    private void rangeChanged() {
+        if (loadingFields || viewModel == null) return;
+        LocalDate from = datePicker.getValue();
+        LocalDate to = toPicker.getValue();
+        if (from == null || to == null) return;
+        String error = viewModel.selectRange(from, to);
+        if (error != null) {
+            listStatusLabel.setText(error);
+            if (!listStatusLabel.getStyleClass().contains("range-error"))
+                listStatusLabel.getStyleClass().add("range-error");
+            return;
+        }
+        refresh();
     }
 
     private void formChanged() {
@@ -282,9 +309,10 @@ public final class GoalsController {
     private void apply(GoalsPage page) {
         current = page;
         summaryLabel.setText(page.summary());
+        listTitle.setText(page.listTitle());
         listStatusLabel.setText("");
         listStatusLabel.getStyleClass().remove("range-error");
-        render(page.goals(), page.historical());
+        render(page.goals(), page.historical(), page.summaryTitle());
         applyForm(page);
     }
 
@@ -302,6 +330,9 @@ public final class GoalsController {
         contextCombo.setValue(contextOption(page));
         if (datePicker.getValue() == null || !datePicker.getValue().equals(page.selectedDate()))
             datePicker.setValue(page.selectedDate());
+        if (toPicker.getValue() == null || !toPicker.getValue().equals(page.rangeTo()))
+            toPicker.setValue(page.rangeTo());
+        showArchivedCheck.setSelected(page.showArchived());
         loadingFields = false;
 
         boolean readOnly = page.historical();
@@ -355,7 +386,7 @@ public final class GoalsController {
         return null;
     }
 
-    private void render(List<GoalRow> rows, boolean historical) {
+    private void render(List<GoalRow> rows, boolean historical, String summaryTitle) {
         expandedSummaries.retainAll(rows.stream().map(GoalRow::id).toList());
         goalsList.getChildren().clear();
         if (rows.isEmpty()) {
@@ -367,13 +398,14 @@ public final class GoalsController {
             goalsList.getChildren().add(empty);
             return;
         }
-        for (GoalRow row : rows) goalsList.getChildren().add(renderRow(row, historical));
+        for (GoalRow row : rows)
+            goalsList.getChildren().add(renderRow(row, historical || row.archived(), summaryTitle));
     }
 
-    private VBox renderRow(GoalRow row, boolean historical) {
+    private VBox renderRow(GoalRow row, boolean readOnly, String summaryTitle) {
         VBox card = new VBox(7);
         card.getStyleClass().add("goal-row");
-        if (!row.active()) card.getStyleClass().add("goal-row-inactive");
+        if (!row.active() || row.archived()) card.getStyleClass().add("goal-row-inactive");
 
         Label context = new Label(row.contextLabel());
         context.getStyleClass().add("goal-context");
@@ -385,6 +417,11 @@ public final class GoalsController {
         state.getStyleClass().addAll("goal-state", "goal-state-" + row.stateKey());
 
         HBox heading = new HBox(10, context, new Region(), state);
+        if (row.archived()) {
+            Label archived = new Label("Borrado · solo lectura");
+            archived.getStyleClass().addAll("goal-state", "goal-state-inactive");
+            heading.getChildren().add(2, archived);
+        }
         HBox.setHgrow(heading.getChildren().get(1), Priority.ALWAYS);
         heading.setAlignment(Pos.CENTER_LEFT);
 
@@ -422,8 +459,7 @@ public final class GoalsController {
             summaryContent.getChildren().add(alert);
         }
         if (!summaryContent.getChildren().isEmpty()) {
-            TitledPane summary = new TitledPane(historical ? "Resumen del día" : "Resumen de hoy",
-                    summaryContent);
+            TitledPane summary = new TitledPane(summaryTitle, summaryContent);
             summary.getStyleClass().add("goal-summary");
             summary.setAnimated(false);
             summary.setExpanded(expandedSummaries.contains(row.id()));
@@ -446,7 +482,7 @@ public final class GoalsController {
             coverage.setWrapText(true);
             card.getChildren().add(coverage);
         }
-        if (historical) return card;
+        if (readOnly) return card;
         HBox actions = new HBox(8);
         actions.setAlignment(Pos.CENTER_RIGHT);
         if (justification != null && justification.canJustify()) {

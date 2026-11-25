@@ -23,7 +23,12 @@ public record GoalsPage(
         LocalDate selectedDate,
         boolean historical,
         String historyNote,
-        List<String> revisionLines) {
+        List<String> revisionLines,
+        LocalDate rangeTo,
+        boolean range,
+        boolean showArchived,
+        String listTitle,
+        String summaryTitle) {
 
     public GoalsPage {
         goals = List.copyOf(goals);

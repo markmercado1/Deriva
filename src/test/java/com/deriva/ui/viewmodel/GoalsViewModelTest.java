@@ -338,15 +338,107 @@ class GoalsViewModelTest {
     }
 
     @Test
-    void deletesTheGoalAndClearsTheList() {
+    void deletedGoalStaysVisibleReadOnlyAndCanBeHidden() {
         long id = createChessGoal().page().goals().getFirst().id();
 
         GoalsViewModel.Outcome outcome = viewModel.delete(id);
 
         assertFalse(outcome.error());
         assertEquals("Objetivo borrado.", outcome.message());
-        assertTrue(outcome.page().goals().isEmpty());
         assertTrue(repository.listAll().isEmpty());
+        assertEquals(1, outcome.page().goals().size());
+        GoalRow row = outcome.page().goals().getFirst();
+        assertTrue(row.archived());
+        assertTrue(row.configurationNote().contains("solo lectura"));
+        assertTrue(outcome.page().summary().contains("1 borrado hoy"));
+        assertFalse(outcome.page().historical());
+
+        assertTrue(viewModel.beginEdit(id).processText().isBlank());
+        assertTrue(viewModel.toggleActive(id).error());
+
+        GoalsPage hidden = viewModel.setShowArchived(false);
+        assertTrue(hidden.goals().isEmpty());
+        assertFalse(hidden.showArchived());
+        assertTrue(hidden.summary().contains("1 borrado hoy oculto"));
+        assertTrue(viewModel.load().goals().isEmpty());
+    }
+
+    @Test
+    void periodSummarizesEachDayWithItsOwnConfigurationAndKeepsDeletedGoals() {
+        ContextKey chess = new ContextKey("chess.exe", null);
+        Instant chessCreated = Instant.parse("2026-11-20T08:00:00Z");
+        Goal chessGoal = new Goal(1, chess, 30, 4, false, true, chessCreated, chessCreated);
+        repository.addRevision(chessGoal, chessCreated, false, false);
+        Instant changed = Instant.parse("2026-11-22T18:00:00Z");
+        Goal chessWider = new Goal(1, chess, 60, 4, false, true, chessCreated, changed);
+        repository.addRevision(chessWider, changed, false, false);
+        Instant deleted = Instant.parse("2026-11-23T10:00:00Z");
+        repository.addRevision(chessWider, deleted, true, false);
+
+        ContextKey dota = new ContextKey("dota2.exe", null);
+        Instant dotaCreated = Instant.parse("2026-11-22T07:00:00Z");
+        Goal dotaGoal = new Goal(2, dota, 30, null, false, true, dotaCreated, dotaCreated);
+        repository.put(dotaGoal);
+        repository.addRevision(dotaGoal, dotaCreated, false, false);
+
+        segments.add(observed("chess.exe", null, "2026-11-21T09:00:00Z", "2026-11-21T09:40:00Z"));
+        segments.add(observed("chess.exe", null, "2026-11-22T09:00:00Z", "2026-11-22T09:10:00Z"));
+        segments.add(observed("chess.exe", null, "2026-11-23T09:00:00Z", "2026-11-23T09:15:00Z"));
+        segments.add(observed("chess.exe", null, "2026-11-23T11:00:00Z", "2026-11-23T11:30:00Z"));
+
+        GoalsPage page = viewModel.load(LocalDate.of(2026, 11, 20), LocalDate.of(2026, 11, 24));
+
+        assertTrue(page.range());
+        assertTrue(page.historical());
+        assertFalse(page.canSave());
+        assertEquals(LocalDate.of(2026, 11, 24), page.rangeTo());
+        assertEquals("Objetivos del periodo", page.listTitle());
+        assertEquals("Detalle por día", page.summaryTitle());
+        assertTrue(page.summary().contains("5 días · 2 objetivos · 1 borrado"), page.summary());
+        assertEquals(2, page.goals().size());
+
+        GoalRow chessRow = page.goals().getFirst();
+        assertTrue(chessRow.archived());
+        assertEquals("Tope superado 1 de 4 días", chessRow.stateLabel());
+        assertEquals("exceeded", chessRow.stateKey());
+        assertEquals(4, chessRow.alertLines().size());
+        assertTrue(chessRow.alertLines().get(1).startsWith("21/11/2026 · 40 de 30 min"),
+                chessRow.alertLines().get(1));
+        assertTrue(chessRow.alertLines().get(1).contains("Excedido"));
+        assertTrue(chessRow.alertLines().get(2).startsWith("22/11/2026 · 10 de 60 min"),
+                chessRow.alertLines().get(2));
+        // Use after the deletion at 10:00 does not count.
+        assertTrue(chessRow.alertLines().get(3).startsWith("23/11/2026 · 15 de 60 min"),
+                chessRow.alertLines().get(3));
+        assertTrue(chessRow.alertLines().get(3).contains("Borrado a las 10:00"));
+        assertTrue(chessRow.configurationNote().contains("Borrado el 23/11/2026"));
+        assertEquals("Justificado: 0 min · Excedido sin justificar: 10 min", chessRow.balanceText());
+
+        GoalRow dotaRow = page.goals().get(1);
+        assertFalse(dotaRow.archived());
+        assertEquals("Sin excesos", dotaRow.stateLabel());
+        assertEquals(3, dotaRow.alertLines().size());
+        assertTrue(page.revisionLines().stream().anyMatch(line -> line.startsWith("23/11/2026 10:00")));
+
+        assertTrue(viewModel.delete(2).error());
+        assertEquals(1, repository.listAll().size());
+
+        GoalsPage hidden = viewModel.setShowArchived(false);
+        assertEquals(1, hidden.goals().size());
+        assertEquals(2, hidden.goals().getFirst().id());
+        assertTrue(hidden.summary().contains("1 borrado oculto"), hidden.summary());
+    }
+
+    @Test
+    void rejectsInvertedOrTooLongPeriodsAndKeepsTheSelection() {
+        assertEquals(GoalsViewModel.RANGE_ORDER_ERROR,
+                viewModel.selectRange(LocalDate.of(2026, 11, 24), LocalDate.of(2026, 11, 20)));
+        assertEquals(GoalsViewModel.RANGE_LENGTH_ERROR,
+                viewModel.selectRange(LocalDate.of(2025, 1, 1), LocalDate.of(2026, 11, 24)));
+        GoalsPage page = viewModel.load();
+        assertFalse(page.range());
+        assertFalse(page.historical());
+        assertEquals(LocalDate.of(2026, 11, 24), page.selectedDate());
     }
 
     @Test

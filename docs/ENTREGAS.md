@@ -319,3 +319,6 @@ Ayudas plegadas y tres tarjetas; información integrada en Detección. Build y s
 
 ## 2026-11-25 — OBJETIVOS-HISTORIAL (E050)
 V5 con revisiones y archivado al borrar; vista histórica de Objetivos de solo lectura por día. 276/284 tests en verde; los 8 de `LocalBridgeServerTest` fallan por loopback en este entorno. Falta revisión visual del usuario y migrar la base real con respaldo. F6.2 pendiente.
+
+## 2026-11-25 — OBJETIVOS-RANGO (E051)
+Desde/Hasta en Objetivos con resumen por objetivo y detalle por día; borrados visibles en solo lectura con «Mostrar borrados». 278/286 tests en verde (8 de loopback del entorno); sonda FXML aprobada. Falta revisión del usuario en la app. F6.2 pendiente.

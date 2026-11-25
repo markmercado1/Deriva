@@ -169,41 +169,109 @@ public final class GoalsService implements PassiveGoalProvider {
     public record DayHistory(List<Goal> goals, java.util.Map<Long, List<com.deriva.goals.model.GoalRevision>> revisions,
                              java.util.Set<Long> archived, List<GoalProgress> progress) {}
 
+    /** Longest inclusive period the history screen may request. */
+    public static final int MAX_RANGE_DAYS = 366;
+
+    /**
+     * One goal on one local day: the last configuration recorded before the day ended,
+     * whether it was deleted during that day, and its progress frozen at deletion.
+     */
+    public record GoalDay(LocalDate day, Goal goal, boolean archivedThatDay, Instant archivedAt,
+                          GoalProgress progress) {}
+
+    /** Read-only history of an inclusive local period, grouped by goal id. */
+    public record RangeHistory(LocalDate from, LocalDate to,
+                               java.util.Map<Long, List<GoalDay>> days,
+                               java.util.Map<Long, List<com.deriva.goals.model.GoalRevision>> revisions,
+                               List<GoalAlert> alerts) {}
+
     /** Last configuration known that day; all changes remain available separately. */
     public DayHistory history(LocalDate day, ZoneId zone) {
-        DayWindow window = DayWindow.of(day, zone);
-        var grouped = new java.util.LinkedHashMap<Long, List<com.deriva.goals.model.GoalRevision>>();
-        for (var revision : goals.revisionsBefore(window.end()))
-            grouped.computeIfAbsent(revision.goal().id(), ignored -> new ArrayList<>()).add(revision);
+        RangeHistory range = history(day, day, zone);
         var selected = new ArrayList<Goal>();
         var archived = new java.util.HashSet<Long>();
         var progress = new ArrayList<GoalProgress>();
-        var daySegments = segments.between(window.start(), window.end());
-        var justifications = justificationsIn(window);
-        for (var entry : grouped.entrySet()) {
-            var last = entry.getValue().getLast();
-            if (last.archived() && last.recordedAt().isBefore(window.start())) continue;
-            Goal goal = last.goal();
-            selected.add(goal);
-            if (last.archived()) archived.add(goal.id());
-            // Existing daily-goal semantics count the context over the day. An
-            // archived goal freezes at deletion, rather than accruing later use.
-            Instant cutoff = last.archived() ? last.recordedAt() : window.end();
-            var clipped = new ArrayList<Segment>();
-            for (Segment segment : daySegments) {
-                if (!segment.start().isBefore(cutoff)) continue;
-                Instant end = segment.end().isAfter(cutoff) ? cutoff : segment.end();
-                clipped.add(new Segment(segment.id(), segment.kind(), segment.context(),
-                        segment.siteLabel(), segment.siteSource(), segment.start(), end));
-            }
-            progress.addAll(GoalProgressCalculator.calculate(day, zone, clipped, List.of(goal), justifications));
+        for (List<GoalDay> goalDays : range.days().values()) {
+            GoalDay entry = goalDays.getFirst();
+            selected.add(entry.goal());
+            if (entry.archivedThatDay()) archived.add(entry.goal().id());
+            progress.add(entry.progress());
         }
-        return new DayHistory(List.copyOf(selected), java.util.Map.copyOf(grouped),
+        return new DayHistory(List.copyOf(selected), range.revisions(),
                 java.util.Set.copyOf(archived), List.copyOf(progress));
     }
 
+    /**
+     * Applies the daily semantics to every local day of an inclusive period with one
+     * query per table. Goals appear only on the days they existed; deleted goals stay
+     * visible up to their deletion day and stop accruing use at the moment of deletion.
+     */
+    public RangeHistory history(LocalDate from, LocalDate to, ZoneId zone) {
+        Objects.requireNonNull(from, "from");
+        Objects.requireNonNull(to, "to");
+        Objects.requireNonNull(zone, "zone");
+        if (from.isAfter(to)) throw new IllegalArgumentException("from is after to");
+        if (java.time.temporal.ChronoUnit.DAYS.between(from, to) + 1 > MAX_RANGE_DAYS)
+            throw new IllegalArgumentException("period longer than " + MAX_RANGE_DAYS + " days");
+        Instant start = DayWindow.of(from, zone).start();
+        Instant end = DayWindow.of(to, zone).end();
+
+        var grouped = new java.util.LinkedHashMap<Long, List<com.deriva.goals.model.GoalRevision>>();
+        for (var revision : goals.revisionsBefore(end))
+            grouped.computeIfAbsent(revision.goal().id(), ignored -> new ArrayList<>()).add(revision);
+
+        var segmentsByDay = new java.util.HashMap<LocalDate, List<Segment>>();
+        for (Segment segment : segments.between(start, end)) {
+            LocalDate first = segment.start().atZone(zone).toLocalDate();
+            LocalDate last = segment.end().atZone(zone).toLocalDate();
+            if (first.isBefore(from)) first = from;
+            if (last.isAfter(to)) last = to;
+            for (LocalDate day = first; !day.isAfter(last); day = day.plusDays(1))
+                segmentsByDay.computeIfAbsent(day, ignored -> new ArrayList<>()).add(segment);
+        }
+        List<GoalJustification> justifications = justificationsIn(start, end);
+
+        var days = new java.util.LinkedHashMap<Long, List<GoalDay>>();
+        for (LocalDate day = from; !day.isAfter(to); day = day.plusDays(1)) {
+            DayWindow window = DayWindow.of(day, zone);
+            List<Segment> daySegments = segmentsByDay.getOrDefault(day, List.of());
+            for (var entry : grouped.entrySet()) {
+                com.deriva.goals.model.GoalRevision last = null;
+                for (var revision : entry.getValue()) {
+                    if (!revision.recordedAt().isBefore(window.end())) break;
+                    last = revision;
+                }
+                if (last == null) continue;
+                if (last.archived() && last.recordedAt().isBefore(window.start())) continue;
+                Goal goal = last.goal();
+                // An archived goal freezes at deletion rather than accruing later use.
+                Instant cutoff = last.archived() ? last.recordedAt() : window.end();
+                var clipped = new ArrayList<Segment>();
+                for (Segment segment : daySegments) {
+                    if (!segment.start().isBefore(cutoff)) continue;
+                    Instant segmentEnd = segment.end().isAfter(cutoff) ? cutoff : segment.end();
+                    clipped.add(new Segment(segment.id(), segment.kind(), segment.context(),
+                            segment.siteLabel(), segment.siteSource(), segment.start(), segmentEnd));
+                }
+                GoalProgress progress = GoalProgressCalculator.calculate(day, zone, clipped,
+                        List.of(goal), justifications).getFirst();
+                days.computeIfAbsent(entry.getKey(), ignored -> new ArrayList<>())
+                        .add(new GoalDay(day, goal, last.archived(),
+                                last.archived() ? last.recordedAt() : null, progress));
+            }
+        }
+        var frozen = new java.util.LinkedHashMap<Long, List<GoalDay>>();
+        days.forEach((id, list) -> frozen.put(id, List.copyOf(list)));
+        return new RangeHistory(from, to, java.util.Collections.unmodifiableMap(frozen),
+                java.util.Map.copyOf(grouped), alerts.listBetween(start, end));
+    }
+
     private List<GoalJustification> justificationsIn(DayWindow window) {
-        return alerts.listJustifiedBetween(window.start(), window.end()).stream()
+        return justificationsIn(window.start(), window.end());
+    }
+
+    private List<GoalJustification> justificationsIn(Instant start, Instant end) {
+        return alerts.listJustifiedBetween(start, end).stream()
                 .filter(alert -> alert.thresholdPercent() == 100 && alert.isJustified())
                 .map(alert -> new GoalJustification(alert.goalId(), alert.metric(),
                         alert.justifiedExcess(), alert.justifiedAt()))

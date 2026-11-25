@@ -51,11 +51,17 @@ public final class GoalsViewModel {
             "Aviso enviado; resultado posterior pendiente de la observación de 2 min.";
     public static final String NO_OUTCOME_TEXT = "Aviso registrado sin resultado posterior.";
     public static final String HISTORY_NOTE =
-            "Los días pasados son de solo lectura. Solo se conserva la configuración registrada "
+            "Los días pasados y los periodos son de solo lectura. Solo se conserva la configuración registrada "
                     + "desde que se añadió el historial; los objetivos borrados antes no se pueden recuperar.";
+    public static final String RANGE_NOTE =
+            "Cada día usa la configuración vigente ese día y solo los segmentos cerrados; "
+                    + "un objetivo borrado deja de sumar en el momento del borrado.";
     public static final String HISTORY_EMPTY_TEXT =
-            "No hay objetivos con historial para este día. Los objetivos borrados antes de que "
+            "No hay objetivos con historial en estas fechas. Los objetivos borrados antes de que "
                     + "existiera el historial no se pueden recuperar.";
+    public static final String RANGE_ORDER_ERROR = "«Desde» no puede ser posterior a «Hasta».";
+    public static final String RANGE_LENGTH_ERROR =
+            "El periodo no puede superar " + GoalsService.MAX_RANGE_DAYS + " días.";
 
     public record Outcome(GoalsPage page, String message, boolean error) {
         public boolean saved() {
@@ -83,7 +89,11 @@ public final class GoalsViewModel {
     private boolean active = true;
     private String validationError;
     private LocalDate selectedDate;
+    private LocalDate rangeTo;
     private boolean followToday = true;
+    private boolean showArchived = true;
+    private GoalsService.RangeHistory rangeHistory;
+    private List<Goal> archivedToday = List.of();
     private String historyNote;
     private List<String> revisionLines = List.of();
     private Set<Long> archivedGoalIds = Set.of();
@@ -101,9 +111,26 @@ public final class GoalsViewModel {
 
     public GoalsPage load() {
         LocalDate today = service.today(zone);
-        if (followToday || selectedDate == null) selectedDate = today;
+        if (followToday || selectedDate == null || rangeTo == null) {
+            selectedDate = today;
+            rangeTo = today;
+        }
         contexts = buildContexts(service.observedContexts());
-        if (isHistorical()) {
+        archivedToday = List.of();
+        rangeHistory = null;
+        if (isRange()) {
+            rangeHistory = service.history(selectedDate, rangeTo, zone);
+            goals = List.of();
+            archivedGoalIds = Set.of();
+            progressByGoal = Map.of();
+            alertsByGoal = Map.of();
+            fullAlertsByGoal = Map.of();
+            DayWindow first = DayWindow.of(selectedDate, zone);
+            DayWindow last = DayWindow.of(rangeTo, zone);
+            revisionLines = revisionLines(rangeHistory.revisions(), first.start(), last.end(), true);
+            historyNote = HISTORY_NOTE + " " + RANGE_NOTE;
+            resetForm();
+        } else if (isHistorical()) {
             GoalsService.DayHistory history = service.history(selectedDate, zone);
             goals = history.goals();
             archivedGoalIds = history.archived();
@@ -111,7 +138,8 @@ public final class GoalsViewModel {
             for (GoalProgress progress : history.progress())
                 progressByGoal.put(progress.goal().id(), progress);
             loadAlerts(selectedDate);
-            revisionLines = revisionLines(history);
+            DayWindow window = DayWindow.of(selectedDate, zone);
+            revisionLines = revisionLines(history.revisions(), window.start(), window.end(), false);
             historyNote = HISTORY_NOTE;
             resetForm();
         } else {
@@ -120,6 +148,15 @@ public final class GoalsViewModel {
             progressByGoal = new LinkedHashMap<>();
             for (GoalProgress progress : service.progressForDay(today, zone, openSegments))
                 progressByGoal.put(progress.goal().id(), progress);
+            // Goals deleted today stay visible read-only, frozen at deletion.
+            GoalsService.DayHistory todayHistory = service.history(today, zone);
+            List<Goal> deleted = new ArrayList<>();
+            for (Goal goal : todayHistory.goals())
+                if (todayHistory.archived().contains(goal.id())) deleted.add(goal);
+            for (GoalProgress progress : todayHistory.progress())
+                if (todayHistory.archived().contains(progress.goal().id()))
+                    progressByGoal.put(progress.goal().id(), progress);
+            archivedToday = List.copyOf(deleted);
             loadAlerts(today);
             revisionLines = List.of();
             historyNote = null;
@@ -131,9 +168,42 @@ public final class GoalsViewModel {
     /** Selects a local day; the controller reloads asynchronously afterwards. */
     public void selectDate(LocalDate day) {
         Objects.requireNonNull(day, "day");
-        selectedDate = day;
-        followToday = day.equals(service.today(zone));
+        selectRange(day, day);
+    }
+
+    /**
+     * Selects an inclusive local period. Returns an error text and keeps the previous
+     * selection when the period is invalid; otherwise the controller reloads.
+     */
+    public String selectRange(LocalDate from, LocalDate to) {
+        Objects.requireNonNull(from, "from");
+        Objects.requireNonNull(to, "to");
+        if (from.isAfter(to)) return RANGE_ORDER_ERROR;
+        if (java.time.temporal.ChronoUnit.DAYS.between(from, to) + 1 > GoalsService.MAX_RANGE_DAYS)
+            return RANGE_LENGTH_ERROR;
+        LocalDate today = service.today(zone);
+        selectedDate = from;
+        rangeTo = to;
+        followToday = from.equals(today) && to.equals(today);
         if (!followToday) resetForm();
+        return null;
+    }
+
+    public GoalsPage load(LocalDate from, LocalDate to) {
+        String error = selectRange(from, to);
+        if (error != null) throw new IllegalArgumentException(error);
+        return load();
+    }
+
+    /** Local today according to the service clock. */
+    public LocalDate today() {
+        return service.today(zone);
+    }
+
+    /** Shows or hides deleted goals; they are always read-only. */
+    public GoalsPage setShowArchived(boolean show) {
+        showArchived = show;
+        return page();
     }
 
     public GoalsPage load(LocalDate day) {
@@ -294,49 +364,183 @@ public final class GoalsViewModel {
 
     public GoalsPage page() {
         boolean historical = isHistorical();
+        boolean range = isRange();
         List<GoalRow> rows = new ArrayList<>(goals.size());
-        for (Goal goal : goals) {
-            GoalProgress progress = progressByGoal.get(goal.id());
-            rows.add(row(goal, progress, fullAlertsByGoal.getOrDefault(goal.id(), List.of()),
-                    historical, archivedGoalIds.contains(goal.id())));
+        if (range) {
+            rows.addAll(rangeRows());
+        } else {
+            for (Goal goal : goals) {
+                boolean archived = archivedGoalIds.contains(goal.id());
+                if (archived && !showArchived) continue;
+                GoalProgress progress = progressByGoal.get(goal.id());
+                rows.add(row(goal, progress, fullAlertsByGoal.getOrDefault(goal.id(), List.of()),
+                        historical, archived));
+            }
+            if (!historical && showArchived) {
+                for (Goal goal : archivedToday)
+                    rows.add(row(goal, progressByGoal.get(goal.id()),
+                            fullAlertsByGoal.getOrDefault(goal.id(), List.of()), true, true));
+            }
         }
-        String summary = historical ? historySummary() : todaySummary();
+        String summary = range ? rangeSummary() : historical ? historySummary() : todaySummary();
         LocalDate day = selectedDate == null ? service.today(zone) : selectedDate;
-        return new GoalsPage(rows, contexts, summary, !goals.isEmpty(),
+        LocalDate to = rangeTo == null ? day : rangeTo;
+        return new GoalsPage(rows, contexts, summary, !rows.isEmpty(),
                 !historical && editingId > 0, !historical && editingId > 0,
                 historical ? "Consulta histórica"
                         : editingId > 0 ? "Editar objetivo" : "Nuevo objetivo",
                 processText, hostText, minutesText, entriesText, passive, active,
-                validationError, canSave(), day, historical, historyNote, revisionLines);
+                validationError, canSave(), day, historical, historyNote, revisionLines,
+                to, range, showArchived,
+                range ? "Objetivos del periodo" : "Objetivos del día",
+                range ? "Detalle por día" : historical ? "Resumen del día" : "Resumen de hoy");
     }
 
     private String todaySummary() {
         long activeCount = goals.stream().filter(Goal::active).count();
-        return goals.isEmpty()
+        String summary = goals.isEmpty()
                 ? "Sin objetivos"
                 : goals.size() + (goals.size() == 1 ? " objetivo · " : " objetivos · ")
                 + activeCount + (activeCount == 1 ? " activo" : " activos");
+        return withArchived(summary, archivedToday.size(), " hoy");
     }
 
     private String historySummary() {
         long archived = goals.stream().filter(goal -> archivedGoalIds.contains(goal.id())).count();
         String summary = "Historial de " + dayFormat.format(selectedDate) + " · "
                 + goals.size() + (goals.size() == 1 ? " objetivo" : " objetivos");
-        return archived == 0 ? summary
-                : summary + " · " + archived + (archived == 1 ? " borrado" : " borrados");
+        return withArchived(summary, archived, "");
     }
 
-    private List<String> revisionLines(GoalsService.DayHistory history) {
-        DayWindow window = DayWindow.of(selectedDate, zone);
+    private String rangeSummary() {
+        long days = java.time.temporal.ChronoUnit.DAYS.between(selectedDate, rangeTo) + 1;
+        int total = rangeHistory == null ? 0 : rangeHistory.days().size();
+        long archived = rangeHistory == null ? 0 : rangeHistory.days().values().stream()
+                .filter(list -> list.getLast().archivedThatDay()).count();
+        String summary = dayFormat.format(selectedDate) + " – " + dayFormat.format(rangeTo)
+                + " · " + days + " días · " + total + (total == 1 ? " objetivo" : " objetivos");
+        return withArchived(summary, archived, "");
+    }
+
+    private String withArchived(String summary, long archived, String suffix) {
+        if (archived == 0) return summary;
+        return summary + " · " + archived + (archived == 1 ? " borrado" : " borrados") + suffix
+                + (showArchived ? "" : (archived == 1 ? " oculto" : " ocultos"));
+    }
+
+    /** One read-only card per goal that existed in the period, with one line per day. */
+    private List<GoalRow> rangeRows() {
+        if (rangeHistory == null) return List.of();
+        Map<Long, Map<LocalDate, List<GoalAlert>>> fullAlerts = new LinkedHashMap<>();
+        for (GoalAlert alert : rangeHistory.alerts()) {
+            if (alert.thresholdPercent() != 100) continue;
+            fullAlerts.computeIfAbsent(alert.goalId(), ignored -> new LinkedHashMap<>())
+                    .computeIfAbsent(alert.triggeredAt().atZone(zone).toLocalDate(),
+                            ignored -> new ArrayList<>())
+                    .add(alert);
+        }
+        List<GoalRow> rows = new ArrayList<>();
+        for (Map.Entry<Long, List<GoalsService.GoalDay>> entry : rangeHistory.days().entrySet()) {
+            List<GoalsService.GoalDay> days = entry.getValue();
+            GoalsService.GoalDay last = days.getLast();
+            boolean archived = last.archivedThatDay();
+            if (archived && !showArchived) continue;
+            Goal goal = last.goal();
+            int counted = 0;
+            int exceeded = 0;
+            int unjustified = 0;
+            long used = 0;
+            long entries = 0;
+            long excess = 0;
+            long justified = 0;
+            boolean anyMinutes = false;
+            List<String> lines = new ArrayList<>(days.size());
+            for (GoalsService.GoalDay day : days) {
+                String date = dayFormat.format(day.day());
+                String deleted = day.archivedThatDay() && day.archivedAt() != null
+                        ? " · Borrado a las " + timeFormat.format(day.archivedAt()) : "";
+                if (!day.goal().active() || day.progress() == null) {
+                    lines.add(date + " · Desactivado" + deleted);
+                    continue;
+                }
+                GoalProgress progress = day.progress();
+                counted++;
+                used += progress.usedMillis();
+                entries += progress.entries();
+                GoalState state = progress.state();
+                if (state == GoalState.EXCEEDED || state == GoalState.JUSTIFIED) exceeded++;
+                if (state == GoalState.EXCEEDED) unjustified++;
+                if (day.goal().dailyMinutes() != null) {
+                    anyMinutes = true;
+                    long dayExcess = Math.max(0,
+                            progress.usedMillis() - day.goal().dailyMinutes() * 60_000L);
+                    excess += dayExcess;
+                    justified += Math.min(dayExcess, progress.justifiedMillis());
+                }
+                String reason = fullAlerts.getOrDefault(goal.id(), Map.of())
+                        .getOrDefault(day.day(), List.of()).stream()
+                        .filter(GoalAlert::isJustified)
+                        .map(GoalAlert::justification)
+                        .filter(Objects::nonNull)
+                        .filter(text -> !text.isBlank())
+                        .findFirst()
+                        .map(text -> " · Motivo: " + text)
+                        .orElse("");
+                lines.add(date + " · " + progressText(day.goal(), progress) + " · "
+                        + stateLabel(state) + reason + deleted);
+            }
+            String label;
+            String icon;
+            String key;
+            if (counted == 0) {
+                label = "Desactivado";
+                icon = "—";
+                key = "inactive";
+            } else if (exceeded == 0) {
+                label = "Sin excesos";
+                icon = stateIcon(GoalState.IN_PROGRESS);
+                key = stateKey(GoalState.IN_PROGRESS);
+            } else if (unjustified > 0) {
+                label = "Tope superado " + exceeded + " de " + counted + (counted == 1 ? " día" : " días");
+                icon = stateIcon(GoalState.EXCEEDED);
+                key = stateKey(GoalState.EXCEEDED);
+            } else {
+                label = "Justificado " + exceeded + " de " + counted + (counted == 1 ? " día" : " días");
+                icon = stateIcon(GoalState.JUSTIFIED);
+                key = stateKey(GoalState.JUSTIFIED);
+            }
+            String progressText = "Total: " + minutesText(used) + " · " + entries
+                    + (entries == 1 ? " entrada" : " entradas") + " · " + counted
+                    + (counted == 1 ? " día medido" : " días medidos");
+            String balance = anyMinutes
+                    ? "Justificado: " + minutesText(justified)
+                    + " · Excedido sin justificar: " + minutesText(excess - justified)
+                    : null;
+            String note = "Configuración al final del periodo: " + limitsText(goal)
+                    + (archived && last.archivedAt() != null
+                    ? " · Borrado el " + dayFormat.format(last.archivedAt().atZone(zone).toLocalDate())
+                    + " · solo lectura"
+                    : "");
+            double ratio = counted == 0 ? 0 : exceeded / (double) counted;
+            rows.add(new GoalRow(goal.id(), contextLabel(goal.context()), limitsText(goal),
+                    progressText, null, label, icon, key, ratio, counted > 0, goal.passive(),
+                    false, null, null, balance, lines, note, archived));
+        }
+        return rows;
+    }
+
+    private List<String> revisionLines(Map<Long, List<GoalRevision>> revisionsByGoal,
+                                       java.time.Instant start, java.time.Instant end,
+                                       boolean withDate) {
         List<GoalRevision> changes = new ArrayList<>();
-        for (List<GoalRevision> revisions : history.revisions().values())
+        for (List<GoalRevision> revisions : revisionsByGoal.values())
             for (GoalRevision revision : revisions)
-                if (!revision.recordedAt().isBefore(window.start())
-                        && revision.recordedAt().isBefore(window.end()))
+                if (!revision.recordedAt().isBefore(start) && revision.recordedAt().isBefore(end))
                     changes.add(revision);
         changes.sort(Comparator.comparing(GoalRevision::recordedAt));
         if (changes.isEmpty())
-            return List.of("Sin cambios de configuración registrados ese día.");
+            return List.of(withDate ? "Sin cambios de configuración registrados en el periodo."
+                    : "Sin cambios de configuración registrados ese día.");
         List<String> lines = new ArrayList<>(changes.size());
         for (GoalRevision revision : changes) {
             Goal goal = revision.goal();
@@ -346,18 +550,26 @@ public final class GoalsViewModel {
             String detail = revision.archived()
                     ? "; configuración conservada: " + limitsText(goal)
                     : ": " + limitsText(goal) + " · " + (goal.active() ? "Activo" : "Inactivo");
-            lines.add(timeFormat.format(revision.recordedAt()) + " · "
+            String when = withDate
+                    ? dayFormat.format(revision.recordedAt().atZone(zone).toLocalDate()) + " "
+                    + timeFormat.format(revision.recordedAt())
+                    : timeFormat.format(revision.recordedAt());
+            lines.add(when + " · "
                     + contextLabel(goal.context()) + " · " + kind + detail);
         }
         return List.copyOf(lines);
     }
 
+    private boolean isRange() {
+        return selectedDate != null && rangeTo != null && !selectedDate.equals(rangeTo);
+    }
+
     private boolean isHistorical() {
-        return selectedDate != null && !selectedDate.equals(service.today(zone));
+        return isRange() || (selectedDate != null && !selectedDate.equals(service.today(zone)));
     }
 
     private Outcome readOnly() {
-        return new Outcome(page(), "Los días pasados son de solo lectura.", true);
+        return new Outcome(page(), "Los días pasados y los periodos son de solo lectura.", true);
     }
 
     private boolean canSave() {
@@ -432,13 +644,14 @@ public final class GoalsViewModel {
         String limits = limitsText(goal);
         String configurationNote = historical
                 ? "Configuración usada para el resumen: " + limits
-                + (archived ? " · Borrado ese día" : "")
+                + (archived ? " · Borrado ese día · solo lectura" : "")
                 : null;
         if (!goal.active() || progress == null) {
             return new GoalRow(goal.id(), contextLabel, limits,
                     "Sin progreso mientras está desactivado.", null, "Desactivado", "—",
                     "inactive", 0, false, goal.passive(), false, null,
-                    alertOutcomeText(goal.id()), null, alertLines(goal.id()), configurationNote);
+                    alertOutcomeText(goal.id()), null, alertLines(goal.id()), configurationNote,
+                    archived);
         }
         GoalState state = progress.state();
         String label = stateLabel(state);
@@ -456,7 +669,7 @@ public final class GoalsViewModel {
                 progress.unmeasurable(),
                 justificationView(goal, progress, fullAlerts, anyJustified, anyUnanswered),
                 alertOutcomeText(goal.id()), balanceText(goal, progress), alertLines(goal.id()),
-                configurationNote);
+                configurationNote, archived);
     }
 
     /**

@@ -1,3 +1,6 @@
+# OBJETIVOS-RANGO HECHO (E051) (2026-11-25)
+Desde/Hasta en Objetivos (un día = vista anterior; varios días = solo lectura con detalle por día) y borrados visibles en solo lectura con «Mostrar borrados». Sin cambios de esquema. Archivos: `GoalsService`, `GoalsViewModel`, `GoalsPage`, `GoalRow`, `GoalsController`, `objetivos.fxml`, `GoalsViewModelTest`. 278/286 en verde (8 loopback del entorno); sonda `GoalsRangeProbe` PASS. Próximo: revisión del usuario, PR `f6b-objetivos` → `main`, luego F6.2.
+
 # OBJETIVOS-HISTORIAL HECHO (E050) (2026-11-25)
 V5 (revisiones en `goal_history`, archivado al borrar) y vista histórica de Objetivos: selector de día, días pasados de solo lectura, configuración usada y registro de revisiones; aviso de que lo borrado antes de V5 no se recupera. `mvn verify`: 276/284 en verde; 8 errores de loopback en `LocalBridgeServerTest` (entorno, repetir en terminal normal). Rama `f6b-objetivos` preparada para PR a `main`. Próximo: revisión visual del usuario, migrar la base real con respaldo y F6.2.
 

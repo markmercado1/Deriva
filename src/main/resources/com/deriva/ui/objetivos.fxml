@@ -15,21 +15,28 @@
         <HBox spacing="18" VBox.vgrow="ALWAYS">
             <VBox styleClass="usage-panel" spacing="10" HBox.hgrow="ALWAYS">
                 <HBox alignment="CENTER_LEFT" spacing="10">
-                    <Label text="Objetivos del día" styleClass="usage-title"/>
+                    <Label fx:id="listTitle" text="Objetivos del día" styleClass="usage-title"/>
                     <Region HBox.hgrow="ALWAYS"/>
-                    <Label text="Día" styleClass="filter-label"/>
-                    <DatePicker fx:id="datePicker" styleClass="filter-control" prefWidth="150"/>
                     <Label fx:id="summaryLabel" text="Sin objetivos" styleClass="data-note"/>
+                </HBox>
+                <HBox alignment="CENTER_LEFT" spacing="10">
+                    <Label text="Desde" styleClass="filter-label"/>
+                    <DatePicker fx:id="datePicker" styleClass="filter-control" prefWidth="150"/>
+                    <Label text="Hasta" styleClass="filter-label"/>
+                    <DatePicker fx:id="toPicker" styleClass="filter-control" prefWidth="150"/>
+                    <Button fx:id="todayButton" text="Hoy" styleClass="secondary-button"/>
+                    <Region HBox.hgrow="ALWAYS"/>
+                    <CheckBox fx:id="showArchivedCheck" text="Mostrar borrados" selected="true"/>
                 </HBox>
                 <Label text="Progreso con segmentos cerrados y el segmento abierto confirmado, cortado en la última muestra; no se cierra ningún segmento"
                        styleClass="usage-note" wrapText="true"/>
                 <Label fx:id="listStatusLabel" text="" styleClass="usage-status" wrapText="true"/>
                 <Label fx:id="historyNoteLabel" text="" styleClass="usage-note"
-                       wrapText="true" managed="false" visible="false"/>
+                       wrapText="true" managed="false" visible="false" minHeight="-Infinity"/>
                 <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" styleClass="usage-scroll">
                     <VBox fx:id="goalsList" spacing="8"/>
                 </ScrollPane>
-                <TitledPane fx:id="revisionPane" text="Cambios de configuración del día"
+                <TitledPane fx:id="revisionPane" text="Cambios de configuración"
                             styleClass="goal-summary" animated="false" expanded="true"
                             managed="false" visible="false">
                     <VBox fx:id="revisionList" spacing="4"/>
@@ -39,7 +46,7 @@
             <VBox styleClass="usage-panel" spacing="10" prefWidth="410" minWidth="380">
                 <Label fx:id="formTitle" text="Nuevo objetivo" styleClass="usage-title"/>
                 <Label fx:id="historyFormNote"
-                       text="Consulta de otro día: solo lectura. No se puede crear, editar, borrar ni justificar desde aquí."
+                       text="Consulta de otro día o de un periodo: solo lectura. No se puede crear, editar, borrar ni justificar desde aquí. Vuelve a Hoy para editar."
                        styleClass="settings-help" wrapText="true" managed="false" visible="false"/>
                 <Label text="Elige un contexto ya visto o escríbelo. Al editar solo se cambian los topes y los indicadores; para otro contexto, borra y crea uno nuevo."
                        styleClass="settings-help" wrapText="true"/>

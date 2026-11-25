@@ -323,3 +323,6 @@ Petición del usuario: al cambiar el selector a Día, usar fecha local actual en
 
 ## A56 — 2026-11-25 — Ayudas plegadas en Ajustes
 Por solicitud del usuario, tres accesos configurables; información de valores y aplicación movida a Detección en desplegables, al igual que las explicaciones de campos. Errores y cambios sin guardar fuera del plegado. Sustituye navegación de cuatro tarjetas A53. E049.
+
+## A57 — 2026-11-25 — Objetivos por periodo y borrados visibles
+Petición del usuario: Desde/Hasta en Objetivos y ver los objetivos borrados en solo lectura con opción de ocultarlos. Un único día conserva la vista anterior (hoy editable, pasado de solo lectura); un periodo de varios días es solo lectura, con una tarjeta por objetivo (total, días con tope superado, balance justificado/sin justificar) y una línea por día con la configuración vigente ese día. Cada día usa solo segmentos cerrados y el objetivo borrado deja de sumar en el momento del borrado. «Mostrar borrados» está activado por defecto y no se persiste; en la vista de hoy muestra los borrados hoy. Máximo 366 días; una consulta de segmentos por periodo. Sin cambios de esquema. E051.
