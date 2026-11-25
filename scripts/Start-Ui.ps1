@@ -16,8 +16,9 @@ if (!(Test-Path -LiteralPath $jar)) { throw 'Compila primero con Maven verify (v
 $uiDirectory = Join-Path $projectRoot 'work\ui-preview'
 New-Item -ItemType Directory -Path $uiDirectory -Force | Out-Null
 $classpathFile = Join-Path $uiDirectory 'classpath.txt'
-& mvn "-Dmaven.repo.local=$projectRoot\work\m2" --offline --batch-mode --no-transfer-progress dependency:build-classpath "-Dmdep.outputFile=$classpathFile"
-if ($LASTEXITCODE -ne 0) { throw 'No se pudo resolver el classpath de Maven.' }
+$builtClasspath = Join-Path $projectRoot 'target\classpath.txt'
+if (!(Test-Path -LiteralPath $builtClasspath)) { throw 'Falta target\classpath.txt. Compila primero con Maven verify (ver README).' }
+Copy-Item -LiteralPath $builtClasspath -Destination $classpathFile -Force
 $dependencies = (Get-Content -LiteralPath $classpathFile -Raw).Trim()
 if ([string]::IsNullOrWhiteSpace($dependencies)) { throw 'El classpath de Maven esta vacio.' }
 $classpath = "$projectRoot\target\classes;$dependencies"

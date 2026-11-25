@@ -80,6 +80,23 @@
           <archive><manifest><mainClass>com.deriva.app.Main</mainClass></manifest></archive>
         </configuration>
       </plugin>
+      <plugin>
+        <!-- Writes the runtime classpath used by scripts/Start-Ui.ps1 and Start-ConsoleCapture.ps1. -->
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.7.0</version>
+        <executions>
+          <execution>
+            <id>runtime-classpath</id>
+            <phase>package</phase>
+            <goals><goal>build-classpath</goal></goals>
+            <configuration>
+              <includeScope>runtime</includeScope>
+              <outputFile>${project.build.directory}/classpath.txt</outputFile>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
 </project>
