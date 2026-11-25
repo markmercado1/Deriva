@@ -5,6 +5,7 @@ import com.deriva.app.usecase.CaptureSettingsPolicy;
 import com.deriva.app.usecase.CaptureSnapshot;
 import com.deriva.app.usecase.CaptureState;
 import com.deriva.app.usecase.CaptureStatus;
+import com.deriva.app.usecase.GoalAlertMonitor;
 import com.deriva.app.usecase.SettingsService;
 import com.deriva.bridge.BrowserStateStore;
 import com.deriva.bridge.http.LocalBridgeServer;
@@ -62,6 +63,7 @@ public final class CaptureSession implements CaptureControl {
     private final Clock clock;
     private final SettingsService settingsService;
     private final PassiveGoalProvider passiveGoals;
+    private final GoalAlertMonitor goalAlerts;
     private final Object lock = new Object();
     private final AtomicBoolean running = new AtomicBoolean(false);
 
@@ -73,12 +75,14 @@ public final class CaptureSession implements CaptureControl {
     private volatile Thread thread;
 
     public CaptureSession(Path databasePath, BridgeConfig bridgeConfig, Clock clock,
-                          SettingsService settingsService, PassiveGoalProvider passiveGoals) {
+                          SettingsService settingsService, PassiveGoalProvider passiveGoals,
+                          GoalAlertMonitor goalAlerts) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath();
         this.bridgeConfig = bridgeConfig;
         this.clock = Objects.requireNonNull(clock, "clock");
         this.settingsService = Objects.requireNonNull(settingsService, "settingsService");
         this.passiveGoals = Objects.requireNonNull(passiveGoals, "passiveGoals");
+        this.goalAlerts = Objects.requireNonNull(goalAlerts, "goalAlerts");
         this.effectivePassiveMax = settingsService.passiveMax();
     }
 
@@ -272,8 +276,11 @@ public final class CaptureSession implements CaptureControl {
                 List<DriftUpdate> driftUpdates = drift.onTick(result.tick());
                 for (DriftUpdate update : driftUpdates) driftRepository.upsertDetection(update);
 
-                Segmenter.Snapshot live = segmenter.snapshot(clock.instant());
+                Instant now = clock.instant();
+                Segmenter.Snapshot live = segmenter.snapshot(now);
                 snapshot = new CaptureSnapshot(live.at(), live.open(), live.pending(), true);
+                goalAlerts.tick(status.state(), observation.kind(), now,
+                        at -> Optional.ofNullable(segmenter.snapshot(at).open()));
 
                 long elapsed = Duration.between(tickStart, clock.instant()).toMillis();
                 if (elapsed < 1000) Thread.sleep(1000 - elapsed);

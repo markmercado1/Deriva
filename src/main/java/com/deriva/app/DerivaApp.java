@@ -1,10 +1,13 @@
 package com.deriva.app;
 
 import com.deriva.app.usecase.DailyUsageService;
+import com.deriva.app.usecase.GoalAlertMonitor;
+import com.deriva.app.usecase.GoalAlertService;
 import com.deriva.app.usecase.GoalsService;
 import com.deriva.app.usecase.InterruptionsService;
 import com.deriva.app.usecase.SettingsService;
 import com.deriva.storage.sqlite.SQLiteDriftRepository;
+import com.deriva.storage.sqlite.SQLiteGoalAlertRepository;
 import com.deriva.storage.sqlite.SQLiteGoalRepository;
 import com.deriva.storage.sqlite.SQLiteSegmentRepository;
 import com.deriva.storage.sqlite.SQLiteSettingsRepository;
@@ -66,10 +69,16 @@ public final class DerivaApp extends Application {
                 DailyUsageService usageService = new DailyUsageService(segmentRepository, clock);
                 SettingsService settingsService =
                         new SettingsService(new SQLiteSettingsRepository(databasePath));
-                GoalsService goalsService = new GoalsService(
-                        new SQLiteGoalRepository(databasePath, clock), segmentRepository, clock);
+                SQLiteGoalRepository goalRepository = new SQLiteGoalRepository(databasePath, clock);
+                GoalsService goalsService = new GoalsService(goalRepository, segmentRepository, clock);
+                GoalAlertService alertService = new GoalAlertService(goalRepository, segmentRepository,
+                        new SQLiteGoalAlertRepository(databasePath),
+                        notice -> {
+                            AppTray current = tray;
+                            if (current != null) current.notifyGoal(notice);
+                        }, clock, zone);
                 CaptureSession capture = new CaptureSession(databasePath, bridgeConfig(),
-                        clock, settingsService, goalsService);
+                        clock, settingsService, goalsService, new GoalAlertMonitor(alertService));
                 GoalsViewModel goals = new GoalsViewModel(goalsService, zone);
                 SettingsViewModel settings = new SettingsViewModel();
                 settings.load(settingsService.snapshot(), capture.effectiveSettings());
