@@ -15,7 +15,8 @@ public record GoalRow(
         double ratio,
         boolean active,
         boolean passive,
-        boolean unmeasurable) {
+        boolean unmeasurable,
+        GoalJustificationView justification) {
 
     public GoalRow {
         if (id <= 0) throw new IllegalArgumentException("id");

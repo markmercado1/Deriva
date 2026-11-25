@@ -12,9 +12,9 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Objects;
 
-/** SQLite connection settings and schema migrations (V1 to V2). */
+/** SQLite connection settings and schema migrations (V1 to V3). */
 final class SQLiteSchema {
-    static final int VERSION = 2;
+    static final int VERSION = 3;
 
     static final String[] V1 = {
             """
@@ -72,7 +72,7 @@ final class SQLiteSchema {
             "CREATE TABLE excluded_site (host TEXT PRIMARY KEY)"
     };
 
-    private static final String[] V2 = {
+    static final String[] V2 = {
             """
             CREATE TABLE IF NOT EXISTS goals (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -122,6 +122,14 @@ final class SQLiteSchema {
             """
     };
 
+    private static final String[] V3 = {
+            "ALTER TABLE goal_alerts ADD COLUMN justified_at INTEGER",
+            """
+            ALTER TABLE goal_alerts ADD COLUMN justified_excess INTEGER
+              CHECK (justified_excess IS NULL OR justified_excess >= 0)
+            """
+    };
+
     private SQLiteSchema() {}
 
     static Connection open(Path databasePath) {
@@ -161,6 +169,11 @@ final class SQLiteSchema {
                 if (version < 2) {
                     run(connection, V2);
                     version = 2;
+                    migrated = true;
+                }
+                if (version < 3) {
+                    run(connection, V3);
+                    version = 3;
                     migrated = true;
                 }
                 if (migrated) writeVersion(connection, version);

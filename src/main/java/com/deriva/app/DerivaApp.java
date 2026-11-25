@@ -70,16 +70,19 @@ public final class DerivaApp extends Application {
                 SettingsService settingsService =
                         new SettingsService(new SQLiteSettingsRepository(databasePath));
                 SQLiteGoalRepository goalRepository = new SQLiteGoalRepository(databasePath, clock);
-                GoalsService goalsService = new GoalsService(goalRepository, segmentRepository, clock);
+                SQLiteGoalAlertRepository alertRepository = new SQLiteGoalAlertRepository(databasePath);
+                GoalsService goalsService =
+                        new GoalsService(goalRepository, segmentRepository, alertRepository, clock);
                 GoalAlertService alertService = new GoalAlertService(goalRepository, segmentRepository,
-                        new SQLiteGoalAlertRepository(databasePath),
+                        alertRepository,
                         notice -> {
                             AppTray current = tray;
                             if (current != null) current.notifyGoal(notice);
                         }, clock, zone);
                 CaptureSession capture = new CaptureSession(databasePath, bridgeConfig(),
                         clock, settingsService, goalsService, new GoalAlertMonitor(alertService));
-                GoalsViewModel goals = new GoalsViewModel(goalsService, zone);
+                GoalsViewModel goals = new GoalsViewModel(goalsService, zone,
+                        now -> java.util.Optional.ofNullable(capture.snapshot().open()));
                 SettingsViewModel settings = new SettingsViewModel();
                 settings.load(settingsService.snapshot(), capture.effectiveSettings());
                 PassiveMaxSettingsViewModel passiveMax = new PassiveMaxSettingsViewModel();
@@ -184,6 +187,10 @@ public final class DerivaApp extends Application {
             } else if ("goals".equalsIgnoreCase(smoke)) {
                 UiSmoke.goalsCycle(scene,
                         () -> saveScreenshot(scene, variantPath(screenshot, "-creado")),
+                        () -> finish(scene, controller, screenshot));
+            } else if ("goals-justify".equalsIgnoreCase(smoke)) {
+                UiSmoke.goalsJustifyCycle(scene,
+                        () -> saveScreenshot(scene, variantPath(screenshot, "-justificado")),
                         () -> finish(scene, controller, screenshot));
             } else if (screenshot != null && !screenshot.isBlank()) {
                 PauseTransition pause = new PauseTransition(Duration.seconds(1.2));

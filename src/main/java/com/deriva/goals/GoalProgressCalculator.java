@@ -2,6 +2,8 @@ package com.deriva.goals;
 
 import com.deriva.analysis.DayWindow;
 import com.deriva.goals.model.Goal;
+import com.deriva.goals.model.GoalJustification;
+import com.deriva.goals.model.GoalMetric;
 import com.deriva.goals.model.GoalProgress;
 import com.deriva.goals.model.GoalState;
 import com.deriva.privacy.ObservationKind;
@@ -15,7 +17,9 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -44,10 +48,23 @@ public final class GoalProgressCalculator {
      */
     public static List<GoalProgress> calculate(LocalDate day, ZoneId zone,
                                                List<Segment> segments, List<Goal> goals) {
+        return calculate(day, zone, segments, goals, List.of());
+    }
+
+    /**
+     * Calculates progress applying user justifications as plain data. A justification
+     * covers the excess accumulated when it was marked, never later use, and only
+     * affects the local day of its {@code justifiedAt}. The raw used time and entries
+     * are returned unchanged so callers can show what was measured.
+     */
+    public static List<GoalProgress> calculate(LocalDate day, ZoneId zone,
+                                               List<Segment> segments, List<Goal> goals,
+                                               List<GoalJustification> justifications) {
         Objects.requireNonNull(day, "day");
         Objects.requireNonNull(zone, "zone");
         Objects.requireNonNull(segments, "segments");
         Objects.requireNonNull(goals, "goals");
+        Objects.requireNonNull(justifications, "justifications");
         DayWindow window = DayWindow.of(day, zone);
         boolean excludedInDay = segments.stream()
                 .anyMatch(segment -> segment.kind() == ObservationKind.EXCLUDED && window.overlaps(segment));
@@ -61,10 +78,31 @@ public final class GoalProgressCalculator {
                     .sum();
             int entries = countEntries(intervals);
             boolean unmeasurable = excludedInDay && mayHaveExcludedTime(goal.context());
+            List<GoalJustification> applied = applicableJustifications(goal, justifications, window);
             progress.add(new GoalProgress(goal, usedMillis, entries,
-                    state(goal, usedMillis, entries), unmeasurable));
+                    state(goal, usedMillis, entries, applied), unmeasurable, applied));
         }
         return List.copyOf(progress);
+    }
+
+    /**
+     * Keeps at most one justification per metric: the latest one replaces earlier
+     * coverage instead of accumulating it. Justifications from another local day are
+     * ignored even if a caller passes them.
+     */
+    private static List<GoalJustification> applicableJustifications(
+            Goal goal, List<GoalJustification> justifications, DayWindow window) {
+        Map<GoalMetric, GoalJustification> byMetric = new EnumMap<>(GoalMetric.class);
+        for (GoalJustification justification : justifications) {
+            Objects.requireNonNull(justification, "justification");
+            if (justification.goalId() != goal.id()) continue;
+            Instant at = justification.justifiedAt();
+            if (at.isBefore(window.start()) || !at.isBefore(window.end())) continue;
+            GoalJustification previous = byMetric.get(justification.metric());
+            if (previous == null || !at.isBefore(previous.justifiedAt()))
+                byMetric.put(justification.metric(), justification);
+        }
+        return List.copyOf(byMetric.values());
     }
 
     private static List<Interval> intervalsFor(Goal goal, List<Segment> segments, DayWindow window) {
@@ -120,21 +158,51 @@ public final class GoalProgressCalculator {
         return entries;
     }
 
-    private static GoalState state(Goal goal, long usedMillis, int entries) {
-        boolean near = false;
+    /**
+     * A justification covers an over-limit metric only while the excess accumulated
+     * after it was marked stays at zero. Any later use makes that metric exceeded
+     * again, even though the stored justification remains for display.
+     */
+    private static GoalState state(Goal goal, long usedMillis, int entries,
+                                   List<GoalJustification> applied) {
         boolean exceeded = false;
+        boolean covered = false;
         if (goal.dailyMinutes() != null) {
             long limitMillis = goal.dailyMinutes() * 60_000L;
-            exceeded = usedMillis >= limitMillis;
-            near = usedMillis * 100L >= limitMillis * NEAR_PERCENT;
+            if (usedMillis >= limitMillis) {
+                GoalJustification justification = find(applied, GoalMetric.MINUTES);
+                if (justification != null && usedMillis - limitMillis <= justification.covered())
+                    covered = true;
+                else
+                    exceeded = true;
+            }
         }
         if (goal.dailyEntries() != null) {
-            exceeded |= entries >= goal.dailyEntries();
-            near |= (long) entries * 100L >= (long) goal.dailyEntries() * NEAR_PERCENT;
+            if (entries >= goal.dailyEntries()) {
+                GoalJustification justification = find(applied, GoalMetric.ENTRIES);
+                if (justification != null && (long) entries - goal.dailyEntries() <= justification.covered())
+                    covered = true;
+                else
+                    exceeded = true;
+            }
         }
         if (exceeded) return GoalState.EXCEEDED;
-        if (near) return GoalState.NEAR;
-        return GoalState.IN_PROGRESS;
+        if (covered) return GoalState.JUSTIFIED;
+
+        boolean near = false;
+        if (goal.dailyMinutes() != null) {
+            long limitMillis = goal.dailyMinutes() * 60_000L;
+            near = usedMillis * 100L >= limitMillis * NEAR_PERCENT;
+        }
+        if (goal.dailyEntries() != null)
+            near |= (long) entries * 100L >= (long) goal.dailyEntries() * NEAR_PERCENT;
+        return near ? GoalState.NEAR : GoalState.IN_PROGRESS;
+    }
+
+    private static GoalJustification find(List<GoalJustification> applied, GoalMetric metric) {
+        for (GoalJustification justification : applied)
+            if (justification.metric() == metric) return justification;
+        return null;
     }
 
     /**

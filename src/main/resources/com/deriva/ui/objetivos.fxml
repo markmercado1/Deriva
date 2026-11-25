@@ -19,7 +19,7 @@
                     <Region HBox.hgrow="ALWAYS"/>
                     <Label fx:id="summaryLabel" text="Sin objetivos" styleClass="data-note"/>
                 </HBox>
-                <Label text="Progreso según segmentos ya cerrados; el segmento actual se suma en una fase posterior"
+                <Label text="Progreso con segmentos cerrados y el segmento abierto confirmado, cortado en la última muestra; no se cierra ningún segmento"
                        styleClass="usage-note" wrapText="true"/>
                 <Label fx:id="listStatusLabel" text="" styleClass="usage-status" wrapText="true"/>
                 <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" styleClass="usage-scroll">
@@ -102,6 +102,26 @@
                 <Button fx:id="confirmDeleteButton" text="Borrar objetivo"
                         styleClass="danger-button" onAction="#confirmDelete"/>
             </HBox>
+        </VBox>
+    </StackPane>
+
+    <StackPane fx:id="justifyOverlay" styleClass="modal-backdrop" visible="false" managed="false">
+        <VBox styleClass="modal-card" maxWidth="560" maxHeight="420" spacing="12">
+            <Label text="Justificar el exceso" styleClass="modal-title"/>
+            <Label fx:id="justifyContextLabel" text="" styleClass="modal-text" wrapText="true"/>
+            <Label text="El motivo es opcional (máximo 500 caracteres). Se guarda tal cual y no se envía a ningún sitio. Solo descuenta el exceso marcado; los registros de actividad no cambian."
+                   styleClass="modal-text" wrapText="true"/>
+            <TextArea fx:id="justifyReasonField" prefRowCount="4" wrapText="true"
+                      styleClass="goal-reason-input"/>
+            <HBox alignment="CENTER_RIGHT" spacing="10">
+                <Label fx:id="justifyCounterLabel" text="0/500" styleClass="data-note"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Button text="Cancelar" styleClass="secondary-button" onAction="#cancelJustify"/>
+                <Button fx:id="confirmJustifyButton" text="Guardar justificación"
+                        styleClass="primary-button" onAction="#confirmJustify"/>
+            </HBox>
+            <Label fx:id="justifyErrorLabel" text="" styleClass="settings-error"
+                   wrapText="true" managed="false" visible="false"/>
         </VBox>
     </StackPane>
 </StackPane>

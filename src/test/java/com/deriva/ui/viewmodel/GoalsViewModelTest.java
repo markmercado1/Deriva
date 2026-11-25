@@ -2,8 +2,11 @@ package com.deriva.ui.viewmodel;
 
 import com.deriva.app.usecase.GoalsService;
 import com.deriva.goals.model.Goal;
+import com.deriva.goals.model.GoalAlert;
+import com.deriva.goals.model.GoalMetric;
 import com.deriva.goals.model.GoalState;
 import com.deriva.privacy.ObservationKind;
+import com.deriva.storage.port.GoalAlertRepository;
 import com.deriva.storage.port.GoalRepository;
 import com.deriva.storage.port.SegmentRepository;
 import com.deriva.tracking.model.ContextKey;
@@ -12,11 +15,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -29,6 +35,7 @@ class GoalsViewModelTest {
 
     private InMemoryGoalRepository repository;
     private FakeSegments segments;
+    private InMemoryAlertRepository alerts;
     private GoalsService service;
     private GoalsViewModel viewModel;
 
@@ -36,7 +43,8 @@ class GoalsViewModelTest {
     void setUp() {
         repository = new InMemoryGoalRepository();
         segments = new FakeSegments();
-        service = new GoalsService(repository, segments, CLOCK);
+        alerts = new InMemoryAlertRepository();
+        service = new GoalsService(repository, segments, alerts, CLOCK);
         viewModel = new GoalsViewModel(service, ZONE);
         viewModel.load();
     }
@@ -92,6 +100,145 @@ class GoalsViewModelTest {
         assertEquals("◆", row.stateIcon());
         assertEquals("50 de 60 min · 2 de 4 entradas", row.progressText());
         assertTrue(row.ratio() >= 0.8 && row.ratio() < 1);
+    }
+
+    @Test
+    void showsExceededUnansweredAndJustifiedStatesAndReverts() {
+        segments.add(observed("chess.exe", null,
+                "2026-11-24T09:00:00Z", "2026-11-24T10:10:00Z"));
+        long id = createChessGoal().page().goals().getFirst().id();
+
+        GoalRow exceeded = viewModel.load().goals().getFirst();
+        assertEquals(GoalState.EXCEEDED, exceeded.state());
+        assertEquals("Excedido", exceeded.stateLabel());
+        assertEquals("●", exceeded.stateIcon());
+        assertEquals("exceeded", exceeded.stateKey());
+        assertNull(exceeded.justification());
+
+        alerts.add(GoalAlert.draft(id, NOW, 100, GoalMetric.MINUTES));
+        GoalRow unanswered = viewModel.load().goals().getFirst();
+        assertEquals(GoalState.EXCEEDED, unanswered.state());
+        assertEquals("Sin responder", unanswered.stateLabel());
+        assertEquals("○", unanswered.stateIcon());
+        assertEquals("unanswered", unanswered.stateKey());
+        assertNotNull(unanswered.justification());
+        assertEquals(GoalsViewModel.UNANSWERED_NOTE, unanswered.justification().note());
+        assertTrue(unanswered.justification().canJustify());
+        assertEquals("Justificar exceso", unanswered.justification().actionLabel());
+        assertFalse(unanswered.justification().canRemove());
+
+        String reason = "Preparé una partida larga";
+        GoalsViewModel.Outcome justified = viewModel.justify(id, reason);
+        assertFalse(justified.error(), justified.message());
+        GoalRow row = justified.page().goals().getFirst();
+        assertEquals(GoalState.JUSTIFIED, row.state());
+        assertEquals("Justificado por ti", row.stateLabel());
+        assertEquals("✓", row.stateIcon());
+        assertEquals("justified", row.stateKey());
+        assertEquals(reason, row.justification().reason());
+        assertEquals("Cubierto: 10 min", row.justification().coverage());
+        assertNull(row.justification().note());
+        assertTrue(row.justification().canRemove());
+        assertFalse(row.justification().canJustify());
+        GoalAlert stored = alerts.listByGoal(id).getFirst();
+        assertTrue(stored.isJustified());
+        assertEquals(reason, stored.justification());
+        assertEquals(Duration.ofMinutes(10).toMillis(), stored.justifiedExcess());
+
+        GoalsViewModel.Outcome removed = viewModel.removeJustification(id);
+        assertFalse(removed.error(), removed.message());
+        GoalRow reverted = removed.page().goals().getFirst();
+        assertEquals("Sin responder", reverted.stateLabel());
+        assertEquals(GoalsViewModel.UNANSWERED_NOTE, reverted.justification().note());
+        assertFalse(alerts.listByGoal(id).getFirst().isJustified());
+        assertNull(alerts.listByGoal(id).getFirst().justification());
+    }
+
+    @Test
+    void laterUseCountsAgainAndRejustifyReplacesCoverage() {
+        segments.add(observed("chess.exe", null,
+                "2026-11-24T09:00:00Z", "2026-11-24T10:10:00Z"));
+        long id = createChessGoal().page().goals().getFirst().id();
+        alerts.add(GoalAlert.draft(id, NOW, 100, GoalMetric.MINUTES));
+        viewModel.load();
+        viewModel.justify(id, "Primera");
+        assertEquals(Duration.ofMinutes(10).toMillis(),
+                alerts.listByGoal(id).getFirst().justifiedExcess());
+
+        segments.add(observed("chess.exe", null,
+                "2026-11-24T10:10:00Z", "2026-11-24T10:15:00Z"));
+        GoalRow exhausted = viewModel.load().goals().getFirst();
+        assertEquals(GoalState.EXCEEDED, exhausted.state());
+        assertEquals("Excedido", exhausted.stateLabel());
+        assertEquals(GoalsViewModel.EXHAUSTED_NOTE, exhausted.justification().note());
+        assertEquals("Justificar de nuevo", exhausted.justification().actionLabel());
+        assertTrue(exhausted.justification().canRemove());
+
+        viewModel.justify(id, "Segunda");
+        GoalRow again = viewModel.load().goals().getFirst();
+        assertEquals(GoalState.JUSTIFIED, again.state());
+        assertEquals(Duration.ofMinutes(15).toMillis(),
+                alerts.listByGoal(id).getFirst().justifiedExcess());
+        assertEquals("Segunda", alerts.listByGoal(id).getFirst().justification());
+    }
+
+    @Test
+    void openSegmentIsIncludedSoTheAlertCanBeJustified() {
+        segments.add(observed("code.exe", null,
+                "2026-11-24T09:00:00Z", "2026-11-24T09:08:00Z"));
+        viewModel.updateForm("code.exe", "", "10", "", false, true);
+        long id = viewModel.save().page().goals().getFirst().id();
+        alerts.add(GoalAlert.draft(id, NOW, 100, GoalMetric.MINUTES));
+
+        GoalRow closedOnly = viewModel.load().goals().getFirst();
+        assertEquals(GoalState.NEAR, closedOnly.state());
+        assertFalse(closedOnly.justification().canJustify());
+
+        Segment open = observed("code.exe", null,
+                "2026-11-24T09:08:00Z", "2026-11-24T09:12:00Z");
+        GoalsViewModel withOpen = new GoalsViewModel(service, ZONE, now -> Optional.of(open));
+        GoalRow live = withOpen.load().goals().getFirst();
+        assertEquals(GoalState.EXCEEDED, live.state());
+        assertEquals("Sin responder", live.stateLabel());
+        assertTrue(live.justification().canJustify());
+
+        GoalsViewModel.Outcome outcome = withOpen.justify(id, "Incluye el segmento abierto");
+        assertFalse(outcome.error(), outcome.message());
+        assertEquals(GoalState.JUSTIFIED, outcome.page().goals().getFirst().state());
+        assertEquals(Duration.ofMinutes(2).toMillis(),
+                alerts.listByGoal(id).getFirst().justifiedExcess());
+    }
+
+    @Test
+    void rejectsAReasonLongerThanFiveHundredCharacters() {
+        segments.add(observed("chess.exe", null,
+                "2026-11-24T09:00:00Z", "2026-11-24T10:10:00Z"));
+        long id = createChessGoal().page().goals().getFirst().id();
+        alerts.add(GoalAlert.draft(id, NOW, 100, GoalMetric.MINUTES));
+        viewModel.load();
+
+        GoalsViewModel.Outcome outcome = viewModel.justify(id, "x".repeat(501));
+
+        assertTrue(outcome.error());
+        assertTrue(outcome.message().contains("500"));
+        assertFalse(alerts.listByGoal(id).getFirst().isJustified());
+    }
+
+    @Test
+    void justificationTextsDoNotClaimCausalityOrVerification() {
+        String texts = String.join(" ",
+                GoalsViewModel.stateLabel(GoalState.IN_PROGRESS),
+                GoalsViewModel.stateLabel(GoalState.NEAR),
+                GoalsViewModel.stateLabel(GoalState.JUSTIFIED),
+                GoalsViewModel.stateLabel(GoalState.EXCEEDED),
+                GoalsViewModel.UNANSWERED_NOTE,
+                GoalsViewModel.EXHAUSTED_NOTE).toLowerCase(Locale.ROOT);
+        for (String forbidden : List.of("comprobado", "aprobado", "válido", "porque",
+                "causa", "debido", "provoca"))
+            assertFalse(texts.contains(forbidden), forbidden);
+        assertEquals("Justificado por ti", GoalsViewModel.stateLabel(GoalState.JUSTIFIED));
+        assertEquals("Sin responder es solo una anotación tuya; no cambia los registros de actividad.",
+                GoalsViewModel.UNANSWERED_NOTE);
     }
 
     @Test
@@ -235,6 +382,79 @@ class GoalsViewModelTest {
                         String bh = b.context().siteHost() == null ? "" : b.context().siteHost();
                         return ah.compareTo(bh);
                     })
+                    .toList();
+        }
+    }
+
+    private static final class InMemoryAlertRepository implements GoalAlertRepository {
+        private final Map<Long, GoalAlert> alerts = new LinkedHashMap<>();
+        private long nextId = 1;
+
+        private GoalAlert add(GoalAlert alert) {
+            GoalAlert stored = new GoalAlert(nextId++, alert.goalId(), alert.triggeredAt(),
+                    alert.thresholdPercent(), alert.metric(), alert.outcome(),
+                    alert.justification(), alert.justifiedAt(), alert.justifiedExcess());
+            alerts.put(stored.id(), stored);
+            return stored;
+        }
+
+        @Override
+        public GoalAlert create(GoalAlert alert) {
+            return add(alert);
+        }
+
+        @Override
+        public Optional<GoalAlert> find(long id) {
+            return Optional.ofNullable(alerts.get(id));
+        }
+
+        @Override
+        public void update(GoalAlert alert) {
+            alerts.put(alert.id(), alert);
+        }
+
+        @Override
+        public void updateAll(List<GoalAlert> values) {
+            for (GoalAlert alert : values) alerts.put(alert.id(), alert);
+        }
+
+        @Override
+        public boolean delete(long id) {
+            return alerts.remove(id) != null;
+        }
+
+        @Override
+        public List<GoalAlert> listByGoal(long goalId) {
+            return alerts.values().stream()
+                    .filter(alert -> alert.goalId() == goalId)
+                    .sorted(Comparator.comparing(GoalAlert::triggeredAt).thenComparingLong(GoalAlert::id))
+                    .toList();
+        }
+
+        @Override
+        public List<GoalAlert> listPending() {
+            return alerts.values().stream()
+                    .filter(alert -> alert.outcome() == null)
+                    .sorted(Comparator.comparing(GoalAlert::triggeredAt).thenComparingLong(GoalAlert::id))
+                    .toList();
+        }
+
+        @Override
+        public List<GoalAlert> listBetween(Instant from, Instant to) {
+            return alerts.values().stream()
+                    .filter(alert -> !alert.triggeredAt().isBefore(from)
+                            && alert.triggeredAt().isBefore(to))
+                    .sorted(Comparator.comparing(GoalAlert::triggeredAt).thenComparingLong(GoalAlert::id))
+                    .toList();
+        }
+
+        @Override
+        public List<GoalAlert> listJustifiedBetween(Instant from, Instant to) {
+            return alerts.values().stream()
+                    .filter(GoalAlert::isJustified)
+                    .filter(alert -> !alert.justifiedAt().isBefore(from)
+                            && alert.justifiedAt().isBefore(to))
+                    .sorted(Comparator.comparing(GoalAlert::justifiedAt).thenComparingLong(GoalAlert::id))
                     .toList();
         }
     }

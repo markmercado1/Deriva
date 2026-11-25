@@ -1,6 +1,8 @@
 package com.deriva.ui.fx;
 
+import com.deriva.goals.model.GoalAlert;
 import com.deriva.ui.viewmodel.GoalContextOption;
+import com.deriva.ui.viewmodel.GoalJustificationView;
 import com.deriva.ui.viewmodel.GoalRow;
 import com.deriva.ui.viewmodel.GoalsPage;
 import com.deriva.ui.viewmodel.GoalsViewModel;
@@ -15,6 +17,7 @@ import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
 import javafx.scene.layout.HBox;
@@ -53,6 +56,12 @@ public final class GoalsController {
     @FXML private StackPane deleteOverlay;
     @FXML private Label deleteWarning;
     @FXML private Button confirmDeleteButton;
+    @FXML private StackPane justifyOverlay;
+    @FXML private Label justifyContextLabel;
+    @FXML private TextArea justifyReasonField;
+    @FXML private Label justifyCounterLabel;
+    @FXML private Label justifyErrorLabel;
+    @FXML private Button confirmJustifyButton;
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "deriva-goals");
@@ -69,6 +78,7 @@ public final class GoalsController {
     private boolean loading;
     private boolean busy;
     private long pendingDeleteId;
+    private long pendingJustifyId;
 
     @FXML
     private void initialize() {
@@ -87,8 +97,16 @@ public final class GoalsController {
         saveButton.setOnAction(event -> save());
         cancelButton.setOnAction(event -> show(viewModel.cancelEdit()));
         newButton.setOnAction(event -> show(viewModel.cancelEdit()));
+        justifyReasonField.setTextFormatter(new TextFormatter<String>(change ->
+                change.getControlNewText().length() <= GoalAlert.MAX_JUSTIFICATION_LENGTH
+                        ? change : null));
+        justifyReasonField.textProperty().addListener((observable, old, value) -> {
+            justifyCounterLabel.setText(value.length() + "/" + GoalAlert.MAX_JUSTIFICATION_LENGTH);
+            hide(justifyErrorLabel);
+        });
         autoRefresh.setCycleCount(Animation.INDEFINITE);
         hide(validationLabel);
+        hide(justifyErrorLabel);
     }
 
     public void init(GoalsViewModel viewModel) {
@@ -180,6 +198,53 @@ public final class GoalsController {
         busy = true;
         updateButtons();
         runOutcome(() -> viewModel.delete(id), false);
+    }
+
+    private void requestJustify(long id, String context, String existingReason) {
+        if (busy || viewModel == null) return;
+        pendingJustifyId = id;
+        justifyContextLabel.setText("Objetivo: " + context);
+        justifyReasonField.setText(existingReason == null ? "" : existingReason);
+        justifyCounterLabel.setText(justifyReasonField.getText().length() + "/"
+                + GoalAlert.MAX_JUSTIFICATION_LENGTH);
+        hide(justifyErrorLabel);
+        justifyOverlay.setManaged(true);
+        justifyOverlay.setVisible(true);
+        justifyOverlay.toFront();
+        justifyReasonField.requestFocus();
+    }
+
+    @FXML
+    private void cancelJustify() {
+        if (busy) return;
+        pendingJustifyId = 0;
+        hideJustifyOverlay();
+    }
+
+    @FXML
+    private void confirmJustify() {
+        if (busy || viewModel == null || pendingJustifyId <= 0) return;
+        String reason = justifyReasonField.getText();
+        if (reason != null && reason.length() > GoalAlert.MAX_JUSTIFICATION_LENGTH) {
+            justifyErrorLabel.setText("El motivo no puede superar los 500 caracteres.");
+            show(justifyErrorLabel);
+            return;
+        }
+        long id = pendingJustifyId;
+        pendingJustifyId = 0;
+        hideJustifyOverlay();
+        busy = true;
+        updateButtons();
+        setStatus("Guardando justificación…", false);
+        runOutcome(() -> viewModel.justify(id, reason), false);
+    }
+
+    private void removeJustification(long id) {
+        if (busy || viewModel == null) return;
+        busy = true;
+        updateButtons();
+        setStatus("Quitando justificación…", false);
+        runOutcome(() -> viewModel.removeJustification(id), false);
     }
 
     private void runOutcome(Supplier<GoalsViewModel.Outcome> action, boolean formAction) {
@@ -293,8 +358,42 @@ public final class GoalsController {
         HBox.setHgrow(bar, Priority.ALWAYS);
         bar.setMaxWidth(190);
 
+        card.getChildren().addAll(heading, details);
+        GoalJustificationView justification = row.justification();
+        if (justification != null && justification.reason() != null) {
+            Label reason = new Label("Motivo: " + justification.reason());
+            reason.getStyleClass().add("goal-justification");
+            reason.setWrapText(true);
+            card.getChildren().add(reason);
+        }
+        if (justification != null && justification.coverage() != null) {
+            Label coverage = new Label(justification.coverage());
+            coverage.getStyleClass().add("goal-justification-coverage");
+            coverage.setWrapText(true);
+            card.getChildren().add(coverage);
+        }
+        if (justification != null && justification.note() != null) {
+            Label note = new Label(justification.note());
+            note.getStyleClass().add("goal-justification-note");
+            note.setWrapText(true);
+            card.getChildren().add(note);
+        }
+
         HBox actions = new HBox(8);
         actions.setAlignment(Pos.CENTER_RIGHT);
+        if (justification != null && justification.canJustify()) {
+            Button justify = new Button(justification.actionLabel());
+            justify.getStyleClass().addAll("goal-action-button", "goal-justify-button");
+            justify.setOnAction(event ->
+                    requestJustify(row.id(), row.contextLabel(), justification.reason()));
+            actions.getChildren().add(justify);
+        }
+        if (justification != null && justification.canRemove()) {
+            Button remove = new Button("Quitar justificación");
+            remove.getStyleClass().addAll("goal-action-button", "goal-justify-button");
+            remove.setOnAction(event -> removeJustification(row.id()));
+            actions.getChildren().add(remove);
+        }
         Button edit = new Button("Editar");
         edit.getStyleClass().addAll("goal-action-button", "goal-edit-button");
         edit.setOnAction(event -> edit(row.id()));
@@ -306,7 +405,7 @@ public final class GoalsController {
         delete.setOnAction(event -> requestDelete(row.id(), row.contextLabel()));
         actions.getChildren().addAll(edit, toggle, delete);
 
-        card.getChildren().addAll(heading, details, actions);
+        card.getChildren().add(actions);
         if (row.unmeasurable()) {
             Label note = new Label("Puede haber subconteo: parte del tiempo excluido ante duda no se "
                     + "puede atribuir a este contexto.");
@@ -341,6 +440,7 @@ public final class GoalsController {
         cancelButton.setDisable(busy || loading);
         newButton.setDisable(busy || loading);
         confirmDeleteButton.setDisable(busy);
+        if (confirmJustifyButton != null) confirmJustifyButton.setDisable(busy);
     }
 
     private void setStatus(String text, boolean error) {
@@ -362,6 +462,11 @@ public final class GoalsController {
     private void hideOverlay() {
         deleteOverlay.setManaged(false);
         deleteOverlay.setVisible(false);
+    }
+
+    private void hideJustifyOverlay() {
+        justifyOverlay.setManaged(false);
+        justifyOverlay.setVisible(false);
     }
 
     private static void show(Label label) {

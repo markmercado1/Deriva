@@ -1,7 +1,10 @@
 package com.deriva.ui.viewmodel;
 
 import com.deriva.app.usecase.GoalsService;
+import com.deriva.goals.OpenSegmentProvider;
 import com.deriva.goals.model.Goal;
+import com.deriva.goals.model.GoalAlert;
+import com.deriva.goals.model.GoalMetric;
 import com.deriva.goals.model.GoalProgress;
 import com.deriva.goals.model.GoalState;
 import com.deriva.tracking.model.ContextKey;
@@ -13,12 +16,21 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Pure presentation and validation model for daily goals. It never touches JavaFX;
  * the controller supplies plain strings and runs the blocking calls off the FX thread.
  */
 public final class GoalsViewModel {
+    /** Explains that the visible state is only the user's note, not a verification. */
+    public static final String UNANSWERED_NOTE =
+            "Sin responder es solo una anotación tuya; no cambia los registros de actividad.";
+    /** Shown when later use has outgrown the stored justification. */
+    public static final String EXHAUSTED_NOTE =
+            "El uso posterior supera el exceso justificado; vuelve a contar.";
+
     public record Outcome(GoalsPage page, String message, boolean error) {
         public boolean saved() {
             return !error;
@@ -27,10 +39,12 @@ public final class GoalsViewModel {
 
     private final GoalsService service;
     private final ZoneId zone;
+    private final OpenSegmentProvider openSegments;
 
     private List<Goal> goals = List.of();
     private List<GoalContextOption> contexts = List.of();
     private Map<Long, GoalProgress> progressByGoal = Map.of();
+    private Map<Long, List<GoalAlert>> fullAlertsByGoal = Map.of();
     private long editingId;
     private String processText = "";
     private String hostText = "";
@@ -41,8 +55,13 @@ public final class GoalsViewModel {
     private String validationError;
 
     public GoalsViewModel(GoalsService service, ZoneId zone) {
+        this(service, zone, now -> Optional.empty());
+    }
+
+    public GoalsViewModel(GoalsService service, ZoneId zone, OpenSegmentProvider openSegments) {
         this.service = Objects.requireNonNull(service, "service");
         this.zone = Objects.requireNonNull(zone, "zone");
+        this.openSegments = Objects.requireNonNull(openSegments, "openSegments");
     }
 
     public GoalsPage load() {
@@ -50,8 +69,12 @@ public final class GoalsViewModel {
         contexts = buildContexts(service.observedContexts());
         LocalDate today = service.today(zone);
         progressByGoal = new LinkedHashMap<>();
-        for (GoalProgress progress : service.progressForDay(today, zone))
+        for (GoalProgress progress : service.progressForDay(today, zone, openSegments))
             progressByGoal.put(progress.goal().id(), progress);
+        fullAlertsByGoal = service.alertsForDay(today, zone).stream()
+                .filter(alert -> alert.thresholdPercent() == 100)
+                .collect(Collectors.groupingBy(GoalAlert::goalId, LinkedHashMap::new,
+                        Collectors.toList()));
         if (editingId > 0 && find(editingId) == null) resetForm();
         return page();
     }
@@ -133,6 +156,39 @@ public final class GoalsViewModel {
         }
     }
 
+    /**
+     * Marks the excess of the 100 % alert of today. The reason is optional and is kept
+     * exactly as supplied; an empty text stores no reason.
+     */
+    public Outcome justify(long id, String reason) {
+        Goal goal = find(id);
+        if (goal == null) return new Outcome(page(), "El objetivo ya no existe.", true);
+        if (!goal.active())
+            return new Outcome(page(), "Activa el objetivo para justificar su exceso.", true);
+        if (fullAlertsByGoal.getOrDefault(id, List.of()).isEmpty())
+            return new Outcome(page(), "Este objetivo no tiene una alerta al 100 % hoy.", true);
+        if (reason != null && reason.length() > GoalAlert.MAX_JUSTIFICATION_LENGTH)
+            return new Outcome(page(), "El motivo no puede superar los 500 caracteres.", true);
+        String clean = reason != null && reason.isBlank() ? null : reason;
+        try {
+            service.justify(id, clean, zone, openSegments);
+            return new Outcome(load(), "Justificación guardada.", false);
+        } catch (RuntimeException e) {
+            return new Outcome(page(), "No se pudo guardar la justificación. " + message(e), true);
+        }
+    }
+
+    /** Removes the user justification; the recorded 100 % alert is kept. */
+    public Outcome removeJustification(long id) {
+        if (find(id) == null) return new Outcome(page(), "El objetivo ya no existe.", true);
+        try {
+            service.removeJustification(id, zone);
+            return new Outcome(load(), "Justificación quitada.", false);
+        } catch (RuntimeException e) {
+            return new Outcome(page(), "No se pudo quitar la justificación. " + message(e), true);
+        }
+    }
+
     public Outcome toggleActive(long id) {
         Goal goal = find(id);
         if (goal == null) return new Outcome(page(), "El objetivo ya no existe.", true);
@@ -161,7 +217,7 @@ public final class GoalsViewModel {
         List<GoalRow> rows = new ArrayList<>(goals.size());
         for (Goal goal : goals) {
             GoalProgress progress = progressByGoal.get(goal.id());
-            rows.add(row(goal, progress));
+            rows.add(row(goal, progress, fullAlertsByGoal.getOrDefault(goal.id(), List.of())));
         }
         long activeCount = goals.stream().filter(Goal::active).count();
         String summary = goals.isEmpty()
@@ -240,20 +296,78 @@ public final class GoalsViewModel {
         return !host.chars().anyMatch(Character::isWhitespace);
     }
 
-    private GoalRow row(Goal goal, GoalProgress progress) {
+    private GoalRow row(Goal goal, GoalProgress progress, List<GoalAlert> fullAlerts) {
         String contextLabel = contextLabel(goal.context());
         String limits = limitsText(goal);
         if (!goal.active() || progress == null) {
             return new GoalRow(goal.id(), contextLabel, limits,
                     "Sin progreso mientras está desactivado.", null, "Desactivado", "—",
-                    "inactive", 0, false, goal.passive(), false);
+                    "inactive", 0, false, goal.passive(), false, null);
         }
         GoalState state = progress.state();
-        String progressText = progressText(goal, progress);
-        double ratio = ratio(goal, progress, state);
-        return new GoalRow(goal.id(), contextLabel, limits, progressText, state,
-                stateLabel(state), stateIcon(state), stateKey(state), ratio, true,
-                goal.passive(), progress.unmeasurable());
+        String label = stateLabel(state);
+        String icon = stateIcon(state);
+        String key = stateKey(state);
+        boolean anyJustified = fullAlerts.stream().anyMatch(GoalAlert::isJustified);
+        boolean anyUnanswered = fullAlerts.stream().anyMatch(alert -> !alert.isJustified());
+        if (state == GoalState.EXCEEDED && anyUnanswered) {
+            label = "Sin responder";
+            icon = "○";
+            key = "unanswered";
+        }
+        return new GoalRow(goal.id(), contextLabel, limits, progressText(goal, progress), state,
+                label, icon, key, ratio(goal, progress, state), true, goal.passive(),
+                progress.unmeasurable(),
+                justificationView(goal, progress, fullAlerts, anyJustified, anyUnanswered));
+    }
+
+    private static GoalJustificationView justificationView(
+            Goal goal, GoalProgress progress, List<GoalAlert> fullAlerts,
+            boolean anyJustified, boolean anyUnanswered) {
+        if (fullAlerts.isEmpty()) return null;
+
+        String reason = null;
+        String coverage = null;
+        if (anyJustified) {
+            reason = fullAlerts.stream()
+                    .filter(GoalAlert::isJustified)
+                    .map(GoalAlert::justification)
+                    .filter(Objects::nonNull)
+                    .filter(text -> !text.isBlank())
+                    .findFirst()
+                    .orElse("Sin motivo");
+            coverage = coverageText(fullAlerts);
+        }
+        String note = null;
+        if (progress.state() == GoalState.EXCEEDED && anyUnanswered)
+            note = UNANSWERED_NOTE;
+        else if (progress.state() == GoalState.EXCEEDED && anyJustified)
+            note = EXHAUSTED_NOTE;
+
+        boolean canJustify = goal.active() && progress.state() == GoalState.EXCEEDED;
+        String actionLabel = canJustify
+                ? (anyJustified ? "Justificar de nuevo" : "Justificar exceso")
+                : null;
+        return new GoalJustificationView(reason, coverage, note, canJustify, actionLabel,
+                anyJustified);
+    }
+
+    private static String coverageText(List<GoalAlert> fullAlerts) {
+        long millis = fullAlerts.stream()
+                .filter(GoalAlert::isJustified)
+                .filter(alert -> alert.metric() == GoalMetric.MINUTES)
+                .mapToLong(GoalAlert::justifiedExcess)
+                .sum();
+        long entries = fullAlerts.stream()
+                .filter(GoalAlert::isJustified)
+                .filter(alert -> alert.metric() == GoalMetric.ENTRIES)
+                .mapToLong(GoalAlert::justifiedExcess)
+                .sum();
+        List<String> parts = new ArrayList<>(2);
+        if (millis > 0) parts.add(DisplayFormats.duration(millis));
+        if (entries > 0) parts.add(entries + (entries == 1 ? " entrada" : " entradas"));
+        if (parts.isEmpty()) return "Sin exceso acumulado al marcar.";
+        return "Cubierto: " + String.join(" · ", parts);
     }
 
     private static String limitsText(Goal goal) {
@@ -280,7 +394,7 @@ public final class GoalsViewModel {
                     / (double) (goal.dailyMinutes() * 60_000L));
         if (goal.dailyEntries() != null)
             ratio = Math.max(ratio, progress.entries() / (double) goal.dailyEntries());
-        if (state == GoalState.EXCEEDED) return 1;
+        if (state == GoalState.EXCEEDED || state == GoalState.JUSTIFIED) return 1;
         return Math.min(1, ratio);
     }
 
@@ -288,7 +402,8 @@ public final class GoalsViewModel {
         return switch (state) {
             case IN_PROGRESS -> "En curso";
             case NEAR -> "Cerca del tope";
-            case EXCEEDED -> "Tope superado";
+            case JUSTIFIED -> "Justificado por ti";
+            case EXCEEDED -> "Excedido";
         };
     }
 
@@ -296,6 +411,7 @@ public final class GoalsViewModel {
         return switch (state) {
             case IN_PROGRESS -> "▲";
             case NEAR -> "◆";
+            case JUSTIFIED -> "✓";
             case EXCEEDED -> "●";
         };
     }
@@ -304,6 +420,7 @@ public final class GoalsViewModel {
         return switch (state) {
             case IN_PROGRESS -> "in-progress";
             case NEAR -> "near";
+            case JUSTIFIED -> "justified";
             case EXCEEDED -> "exceeded";
         };
     }

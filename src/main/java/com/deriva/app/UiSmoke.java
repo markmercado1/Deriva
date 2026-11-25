@@ -11,6 +11,7 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableView;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
@@ -482,6 +483,90 @@ final class UiSmoke {
             edited.play();
         });
         opened.play();
+    }
+
+    static void goalsJustifyCycle(Scene scene, Runnable onJustified, Runnable onComplete) {
+        Button goals = (Button) scene.lookup("#goalsButton");
+        if (goals == null) {
+            System.out.println("UI smoke: no se encontró Objetivos");
+            onComplete.run();
+            return;
+        }
+        goals.fire();
+        PauseTransition opened = new PauseTransition(Duration.seconds(0.8));
+        opened.setOnFinished(event -> {
+            Button justify = buttonByText(scene, "Justificar exceso");
+            if (justify == null) {
+                System.out.println("UI smoke: no se encontró Justificar exceso");
+                onComplete.run();
+                return;
+            }
+            justify.fire();
+            PauseTransition modal = new PauseTransition(Duration.seconds(0.4));
+            modal.setOnFinished(modalEvent -> {
+                TextArea reason = (TextArea) scene.lookup("#justifyReasonField");
+                Button confirm = (Button) scene.lookup("#confirmJustifyButton");
+                if (reason == null || confirm == null) {
+                    System.out.println("UI smoke: no se encontró el diálogo de justificación");
+                    onComplete.run();
+                    return;
+                }
+                reason.setText("Partida con un amigo");
+                confirm.fire();
+                waitForJustificationStatus(scene, "Justificación guardada", 20, () -> {
+                    System.out.println("UI smoke: justificado=" + firstText(scene, ".goal-state")
+                            + "; motivo=" + firstText(scene, ".goal-justification")
+                            + "; cobertura=" + firstText(scene, ".goal-justification-coverage")
+                            + "; estado=" + labelText(scene, "#saveStatus"));
+                    onJustified.run();
+                    Button remove = buttonByText(scene, "Quitar justificación");
+                    if (remove == null) {
+                        System.out.println("UI smoke: no se encontró Quitar justificación");
+                        onComplete.run();
+                        return;
+                    }
+                    remove.fire();
+                    waitForJustificationStatus(scene, "Justificación quitada", 20, () -> {
+                        System.out.println("UI smoke: tras quitar=" + firstText(scene, ".goal-state")
+                                + "; nota=" + firstText(scene, ".goal-justification-note")
+                                + "; estado=" + labelText(scene, "#saveStatus"));
+                        onComplete.run();
+                    });
+                });
+            });
+            modal.play();
+        });
+        opened.play();
+    }
+
+    private static void waitForJustificationStatus(Scene scene, String prefix, int attempts,
+                                                   Runnable onComplete) {
+        PauseTransition wait = new PauseTransition(Duration.seconds(0.3));
+        wait.setOnFinished(event -> {
+            String text = labelText(scene, "#saveStatus");
+            if (text.startsWith(prefix) || text.startsWith("No se pudo") || attempts <= 1) {
+                onComplete.run();
+            } else {
+                waitForJustificationStatus(scene, prefix, attempts - 1, onComplete);
+            }
+        });
+        wait.play();
+    }
+
+    private static Button buttonByText(Scene scene, String text) {
+        return scene.getRoot().lookupAll(".goal-justify-button").stream()
+                .filter(node -> node instanceof Button button && text.equals(button.getText()))
+                .map(node -> (Button) node)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private static String firstText(Scene scene, String selector) {
+        return scene.getRoot().lookupAll(selector).stream()
+                .filter(node -> node instanceof Label)
+                .map(node -> ((Label) node).getText())
+                .findFirst()
+                .orElse("null");
     }
 
     private static void waitForGoalSaved(Scene scene, int attempts, Runnable onComplete) {

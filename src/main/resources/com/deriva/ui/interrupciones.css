@@ -688,6 +688,16 @@
     -fx-background-color: #F8E9DE;
 }
 
+.goal-state-justified {
+    -fx-text-fill: #3F5B47;
+    -fx-background-color: #E3EEE6;
+}
+
+.goal-state-unanswered {
+    -fx-text-fill: #A66A1F;
+    -fx-background-color: #FBF1DC;
+}
+
 .goal-state-inactive {
     -fx-text-fill: #7A756C;
     -fx-background-color: #F0ECE3;
@@ -729,12 +739,53 @@
     -fx-text-fill: #B75436;
 }
 
+.goal-justify-button {
+    -fx-text-fill: #B75436;
+    -fx-font-weight: bold;
+}
+
+.goal-justify-button:hover {
+    -fx-text-fill: #9E462C;
+}
+
 .goal-warning {
     -fx-text-fill: #7A5A1E;
     -fx-background-color: #FBF1DC;
     -fx-background-radius: 8;
     -fx-padding: 7 9;
     -fx-font-size: 11px;
+}
+
+.goal-justification {
+    -fx-text-fill: #302E2A;
+    -fx-font-size: 12px;
+}
+
+.goal-justification-coverage {
+    -fx-text-fill: #746F66;
+    -fx-font-size: 11px;
+}
+
+.goal-justification-note {
+    -fx-text-fill: #7A5A1E;
+    -fx-background-color: #FBF1DC;
+    -fx-background-radius: 8;
+    -fx-padding: 7 9;
+    -fx-font-size: 11px;
+}
+
+.goal-reason-input {
+    -fx-font-family: "Segoe UI";
+    -fx-font-size: 12px;
+    -fx-background-color: #FFFEFB;
+    -fx-border-color: #E2DDD3;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+
+.goal-reason-input .content {
+    -fx-background-color: #FFFEFB;
+    -fx-background-radius: 8;
 }
 
 .goal-text-input {

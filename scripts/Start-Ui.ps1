@@ -3,7 +3,7 @@ param(
     [string]$Screenshot,
     [string]$Database,
     [ValidateSet('interruptions', 'usage', 'goals', 'settings')][string]$View,
-    [ValidateSet('annotate', 'invalid-range', 'capture', 'capture-close', 'shutdown-close', 'capture-hold', 'delete', 'delete-confirm', 'capture-failure', 'demo-episodes', 'pause', 'tray', 'settings', 'settings-session', 'goals')][string]$Smoke,
+    [ValidateSet('annotate', 'invalid-range', 'capture', 'capture-close', 'shutdown-close', 'capture-hold', 'delete', 'delete-confirm', 'capture-failure', 'demo-episodes', 'pause', 'tray', 'settings', 'settings-session', 'goals', 'goals-justify')][string]$Smoke,
     [ValidatePattern('^[a-p]{32}$')][string]$ExtensionId,
     [ValidateRange(1024,65535)][int]$Port = 47821,
     [string]$BridgeTokenFile

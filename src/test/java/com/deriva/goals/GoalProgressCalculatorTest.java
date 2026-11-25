@@ -1,6 +1,8 @@
 package com.deriva.goals;
 
 import com.deriva.goals.model.Goal;
+import com.deriva.goals.model.GoalJustification;
+import com.deriva.goals.model.GoalMetric;
 import com.deriva.goals.model.GoalProgress;
 import com.deriva.goals.model.GoalState;
 import com.deriva.privacy.ObservationKind;
@@ -215,6 +217,87 @@ class GoalProgressCalculatorTest {
 
         assertEquals(0, progress.usedMillis());
         assertEquals(0, progress.entries());
+    }
+
+    @Test
+    void justificationCoversTheExcessAtMarkTimeAndLaterUseCountsAgain() {
+        Goal goal = storedAppGoal("code.exe", 10, null);
+        GoalJustification justification = new GoalJustification(goal.id(), GoalMetric.MINUTES,
+                Duration.ofMinutes(2).toMillis(), Instant.parse("2026-11-24T10:00:00Z"));
+
+        GoalProgress covered = calculate(List.of(observed("code.exe", null,
+                "2026-11-24T09:00:00Z", "2026-11-24T09:12:00Z")),
+                List.of(justification), goal).get(0);
+
+        assertEquals(Duration.ofMinutes(12).toMillis(), covered.usedMillis());
+        assertEquals(GoalState.JUSTIFIED, covered.state());
+        assertEquals(Duration.ofMinutes(2).toMillis(), covered.justifiedMillis());
+
+        GoalProgress later = calculate(List.of(observed("code.exe", null,
+                "2026-11-24T09:00:00Z", "2026-11-24T09:15:00Z")),
+                List.of(justification), goal).get(0);
+
+        assertEquals(Duration.ofMinutes(15).toMillis(), later.usedMillis());
+        assertEquals(GoalState.EXCEEDED, later.state());
+    }
+
+    @Test
+    void justificationFromAnotherDayIsIgnored() {
+        Goal goal = storedAppGoal("code.exe", 10, null);
+        GoalJustification yesterday = new GoalJustification(goal.id(), GoalMetric.MINUTES,
+                Duration.ofMinutes(2).toMillis(), Instant.parse("2026-11-23T12:00:00Z"));
+
+        GoalProgress progress = calculate(List.of(observed("code.exe", null,
+                "2026-11-24T09:00:00Z", "2026-11-24T09:12:00Z")),
+                List.of(yesterday), goal).get(0);
+
+        assertEquals(GoalState.EXCEEDED, progress.state());
+        assertTrue(progress.justifications().isEmpty());
+    }
+
+    @Test
+    void latestJustificationReplacesEarlierCoverageInsteadOfAccumulating() {
+        Goal goal = storedAppGoal("code.exe", 10, null);
+        GoalJustification first = new GoalJustification(goal.id(), GoalMetric.MINUTES,
+                Duration.ofMinutes(2).toMillis(), Instant.parse("2026-11-24T10:00:00Z"));
+        GoalJustification second = new GoalJustification(goal.id(), GoalMetric.MINUTES,
+                Duration.ofMinutes(5).toMillis(), Instant.parse("2026-11-24T11:00:00Z"));
+
+        GoalProgress progress = calculate(List.of(observed("code.exe", null,
+                "2026-11-24T09:00:00Z", "2026-11-24T09:15:00Z")),
+                List.of(first, second), goal).get(0);
+
+        assertEquals(GoalState.JUSTIFIED, progress.state());
+        assertEquals(1, progress.justifications().size());
+        assertEquals(Duration.ofMinutes(5).toMillis(), progress.justifiedMillis());
+    }
+
+    @Test
+    void entryJustificationCoversExtraEntries() {
+        Goal goal = storedAppGoal("code.exe", null, 2);
+        GoalJustification justification = new GoalJustification(goal.id(), GoalMetric.ENTRIES,
+                1, Instant.parse("2026-11-24T10:00:00Z"));
+
+        GoalProgress progress = calculate(List.of(
+                observed("code.exe", null, "2026-11-24T09:00:00Z", "2026-11-24T09:05:00Z"),
+                observed("code.exe", null, "2026-11-24T09:05:04Z", "2026-11-24T09:10:00Z"),
+                observed("code.exe", null, "2026-11-24T09:10:04Z", "2026-11-24T09:15:00Z")),
+                List.of(justification), goal).get(0);
+
+        assertEquals(3, progress.entries());
+        assertEquals(1, progress.justifiedEntries());
+        assertEquals(GoalState.JUSTIFIED, progress.state());
+    }
+
+    private static Goal storedAppGoal(String process, Integer minutes, Integer entries) {
+        Instant at = Instant.parse("2026-11-24T00:00:00Z");
+        return new Goal(7, new ContextKey(process, null), minutes, entries, false, true, at, at);
+    }
+
+    private static List<GoalProgress> calculate(List<Segment> segments,
+                                                List<GoalJustification> justifications,
+                                                Goal... goals) {
+        return GoalProgressCalculator.calculate(DAY, ZONE, segments, List.of(goals), justifications);
     }
 
     private static GoalProgress progress(Goal goal, Duration used) {

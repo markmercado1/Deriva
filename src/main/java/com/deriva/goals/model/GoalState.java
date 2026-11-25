@@ -6,6 +6,8 @@ public enum GoalState {
     IN_PROGRESS,
     /** At least one limit reached 80 % but none reached 100 %. */
     NEAR,
-    /** At least one configured limit reached or passed 100 %. */
+    /** The current excess over 100 % is covered by a justification for the day. */
+    JUSTIFIED,
+    /** At least one configured limit reached or passed 100 % without full coverage. */
     EXCEEDED
 }

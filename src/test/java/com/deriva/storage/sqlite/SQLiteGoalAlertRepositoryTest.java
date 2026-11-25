@@ -113,6 +113,51 @@ class SQLiteGoalAlertRepositoryTest {
     }
 
     @Test
+    void storesReopensAndClearsJustification() {
+        Goal goal = goal("code.exe", null);
+        SQLiteGoalAlertRepository alerts = new SQLiteGoalAlertRepository(database());
+        GoalAlert alert = alerts.create(GoalAlert.draft(goal.id(), T0, 100, GoalMetric.MINUTES));
+        Instant justAt = T0.plusSeconds(60);
+
+        alerts.update(alert.justified(600_000, justAt, "Motivo tal cual"));
+
+        GoalAlert stored = new SQLiteGoalAlertRepository(database()).find(alert.id()).orElseThrow();
+        assertTrue(stored.isJustified());
+        assertEquals(600_000L, stored.justifiedExcess().longValue());
+        assertEquals(justAt, stored.justifiedAt());
+        assertEquals("Motivo tal cual", stored.justification());
+        assertEquals(List.of(stored), alerts.listBetween(T0, T0.plusSeconds(1)));
+        assertEquals(List.of(stored),
+                alerts.listJustifiedBetween(justAt, justAt.plusSeconds(1)));
+
+        alerts.updateAll(List.of(stored.unjustified()));
+        GoalAlert cleared = alerts.find(alert.id()).orElseThrow();
+        assertFalse(cleared.isJustified());
+        assertNull(cleared.justifiedAt());
+        assertNull(cleared.justifiedExcess());
+        assertNull(cleared.justification());
+        assertEquals(1, alerts.listBetween(T0, T0.plusSeconds(1)).size());
+        assertTrue(alerts.listJustifiedBetween(justAt, justAt.plusSeconds(1)).isEmpty());
+    }
+
+    @Test
+    void rejectsIncompleteOrNegativeJustificationData() {
+        Goal goal = goal("code.exe", null);
+        assertThrows(IllegalArgumentException.class,
+                () -> new GoalAlert(1, goal.id(), T0, 100, GoalMetric.MINUTES,
+                        null, null, T0, null));
+        assertThrows(IllegalArgumentException.class,
+                () -> new GoalAlert(1, goal.id(), T0, 100, GoalMetric.MINUTES,
+                        null, null, null, 1L));
+        assertThrows(IllegalArgumentException.class,
+                () -> new GoalAlert(1, goal.id(), T0, 100, GoalMetric.MINUTES,
+                        null, null, T0, -1L));
+        assertThrows(IllegalArgumentException.class,
+                () -> new GoalAlert(1, goal.id(), T0, 80, GoalMetric.MINUTES,
+                        null, null, T0, 1L));
+    }
+
+    @Test
     void rejectsInvalidThresholdInTheDatabase() throws Exception {
         Goal siteGoal = goal("chrome.exe", "youtube.com");
         try (Connection connection = SQLiteSchema.open(database());

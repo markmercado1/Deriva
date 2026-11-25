@@ -152,6 +152,11 @@ class GoalAlertMonitorTest {
         }
 
         @Override
+        public void updateAll(List<GoalAlert> alerts) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public boolean delete(long id) {
             throw new UnsupportedOperationException();
         }
@@ -163,6 +168,16 @@ class GoalAlertMonitorTest {
 
         @Override
         public List<GoalAlert> listPending() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<GoalAlert> listBetween(java.time.Instant from, java.time.Instant to) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<GoalAlert> listJustifiedBetween(java.time.Instant from, java.time.Instant to) {
             throw new UnsupportedOperationException();
         }
     }
