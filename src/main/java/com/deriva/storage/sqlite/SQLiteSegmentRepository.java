@@ -81,6 +81,29 @@ public final class SQLiteSegmentRepository implements SegmentRepository {
         }
     }
 
+    @Override
+    public List<ContextKey> observedContexts() {
+        String sql = """
+                SELECT DISTINCT process_name, site_host
+                FROM segment
+                WHERE kind = 'OBSERVED'
+                ORDER BY process_name, COALESCE(site_host, '')
+                """;
+        try (Connection connection = SQLiteSchema.open(databasePath);
+             PreparedStatement statement = connection.prepareStatement(sql);
+             ResultSet result = statement.executeQuery()) {
+            List<ContextKey> contexts = new ArrayList<>();
+            while (result.next()) {
+                String host = result.getString("site_host");
+                contexts.add(new ContextKey(result.getString("process_name"),
+                        host == null || host.isBlank() ? null : host));
+            }
+            return List.copyOf(contexts);
+        } catch (SQLException e) {
+            throw new StorageException("Could not read observed contexts", e);
+        }
+    }
+
     private static void bind(PreparedStatement statement, Segment segment) throws SQLException {
         statement.setString(1, segment.kind().name());
         if (segment.kind() == ObservationKind.OBSERVED) {

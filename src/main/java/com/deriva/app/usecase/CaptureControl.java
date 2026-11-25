@@ -11,6 +11,12 @@ public interface CaptureControl {
     /** Values used by the current session, or the saved values when stopped. */
     DetectionSettings effectiveSettings();
 
+    /** Passive-activity maximum used by the current session, or the saved value. */
+    java.time.Duration effectivePassiveMax();
+
+    /** Maximum wait for a deferred goal notice in the current session. */
+    java.time.Duration effectiveAlertDeferral();
+
     void start();
 
     void stop();

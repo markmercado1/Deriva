@@ -5,6 +5,7 @@ import com.deriva.app.usecase.CaptureSettingsPolicy;
 import com.deriva.app.usecase.CaptureSnapshot;
 import com.deriva.app.usecase.CaptureState;
 import com.deriva.app.usecase.CaptureStatus;
+import com.deriva.app.usecase.GoalAlertMonitor;
 import com.deriva.app.usecase.SettingsService;
 import com.deriva.bridge.BrowserStateStore;
 import com.deriva.bridge.http.LocalBridgeServer;
@@ -12,7 +13,12 @@ import com.deriva.coach.DriftStateMachine;
 import com.deriva.coach.model.CloseReason;
 import com.deriva.coach.model.DetectionSettings;
 import com.deriva.coach.model.DriftUpdate;
+import com.deriva.goals.DriftSignal;
+import com.deriva.goals.PassiveActivity;
+import com.deriva.goals.PassiveGoalProvider;
+import com.deriva.goals.PassiveGoalSnapshot;
 import com.deriva.privacy.Observation;
+import com.deriva.privacy.ObservationKind;
 import com.deriva.privacy.PrivacyFilter;
 import com.deriva.sensor.ActivitySample;
 import com.deriva.sensor.windows.WindowsIdleDetector;
@@ -57,6 +63,8 @@ public final class CaptureSession implements CaptureControl {
     private final BridgeConfig bridgeConfig;
     private final Clock clock;
     private final SettingsService settingsService;
+    private final PassiveGoalProvider passiveGoals;
+    private final GoalAlertMonitor goalAlerts;
     private final Object lock = new Object();
     private final AtomicBoolean running = new AtomicBoolean(false);
 
@@ -64,14 +72,21 @@ public final class CaptureSession implements CaptureControl {
     private volatile CaptureStatus status = CaptureStatus.stopped();
     private volatile CaptureSnapshot snapshot = CaptureSnapshot.stopped();
     private volatile DetectionSettings effectiveSettings;
+    private volatile Duration effectivePassiveMax;
+    private volatile Duration effectiveAlertDeferral;
     private volatile Thread thread;
 
     public CaptureSession(Path databasePath, BridgeConfig bridgeConfig, Clock clock,
-                          SettingsService settingsService) {
+                          SettingsService settingsService, PassiveGoalProvider passiveGoals,
+                          GoalAlertMonitor goalAlerts) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath();
         this.bridgeConfig = bridgeConfig;
         this.clock = Objects.requireNonNull(clock, "clock");
         this.settingsService = Objects.requireNonNull(settingsService, "settingsService");
+        this.passiveGoals = Objects.requireNonNull(passiveGoals, "passiveGoals");
+        this.goalAlerts = Objects.requireNonNull(goalAlerts, "goalAlerts");
+        this.effectivePassiveMax = settingsService.passiveMax();
+        this.effectiveAlertDeferral = settingsService.alertDeferralMax();
     }
 
     @Override
@@ -95,6 +110,26 @@ public final class CaptureSession implements CaptureControl {
     }
 
     @Override
+    public Duration effectivePassiveMax() {
+        CaptureState state = status.state();
+        Duration session = effectivePassiveMax;
+        if (session != null && (state == CaptureState.STARTING || state == CaptureState.RUNNING
+                || state == CaptureState.PAUSED || state == CaptureState.STOPPING))
+            return session;
+        return settingsService.passiveMax();
+    }
+
+    @Override
+    public Duration effectiveAlertDeferral() {
+        CaptureState state = status.state();
+        Duration session = effectiveAlertDeferral;
+        if (session != null && (state == CaptureState.STARTING || state == CaptureState.RUNNING
+                || state == CaptureState.PAUSED || state == CaptureState.STOPPING))
+            return session;
+        return settingsService.alertDeferralMax();
+    }
+
+    @Override
     public void start() {
         synchronized (lock) {
             CaptureState state = status.state();
@@ -103,6 +138,10 @@ public final class CaptureSession implements CaptureControl {
             pauseRequested = false;
             effectiveSettings = CaptureSettingsPolicy.onStart(state, effectiveSettings,
                     settingsService.current());
+            effectivePassiveMax = CaptureSettingsPolicy.onStart(state, effectivePassiveMax,
+                    settingsService.passiveMax());
+            effectiveAlertDeferral = CaptureSettingsPolicy.onStart(state, effectiveAlertDeferral,
+                    settingsService.alertDeferralMax());
             running.set(true);
             status = new CaptureStatus(CaptureState.STARTING, "Iniciando captura…");
             thread = new Thread(this::runLoop, "deriva-capture");
@@ -192,6 +231,7 @@ public final class CaptureSession implements CaptureControl {
         Segmenter segmenter = new Segmenter();
         DetectionSettings sessionSettings = effectiveSettings;
         DriftStateMachine drift = new DriftStateMachine(sessionSettings);
+        DriftTracker driftTracker = new DriftTracker();
         boolean failed = false;
         String failure = null;
         try {
@@ -199,6 +239,12 @@ public final class CaptureSession implements CaptureControl {
             driftRepository = new SQLiteDriftRepository(databasePath);
             driftRepository.recoverOpenEpisodes();
             SQLitePrivacyCheck.verify(databasePath);
+            Duration sessionPassiveMax = effectivePassiveMax;
+            Duration sessionAlertDeferral = effectiveAlertDeferral;
+            PassiveGoalSnapshot goalSnapshot = passiveGoals.snapshot();
+            long goalsRevision = goalSnapshot.revision();
+            PassiveActivity passiveActivity = new PassiveActivity(sessionPassiveMax,
+                    goalSnapshot.activeGoals());
 
             BrowserStateStore browserState = new BrowserStateStore(clock, System::nanoTime);
             if (bridgeConfig != null) {
@@ -221,6 +267,11 @@ public final class CaptureSession implements CaptureControl {
 
             while (running.get()) {
                 Instant tickStart = clock.instant();
+                PassiveGoalSnapshot currentGoals = passiveGoals.snapshot();
+                if (currentGoals.revision() != goalsRevision) {
+                    passiveActivity.updateGoals(currentGoals.activeGoals());
+                    goalsRevision = currentGoals.revision();
+                }
                 ActivitySample sample = sensor.sample();
                 Duration idleTime;
                 try {
@@ -231,14 +282,24 @@ public final class CaptureSession implements CaptureControl {
                 }
 
                 Observation observation = filter.filter(sample, idleTime);
+                Observation foreground = observation.kind() == ObservationKind.IDLE
+                        && passiveActivity.hasContexts()
+                        ? filter.filter(sample, Duration.ZERO)
+                        : observation;
+                observation = passiveActivity.apply(observation, foreground, idleTime);
                 TickResult result = segmenter.onObservation(observation);
                 saveSegments(segmentRepository, result.completedSegments());
 
                 List<DriftUpdate> driftUpdates = drift.onTick(result.tick());
+                driftTracker.apply(driftUpdates);
                 for (DriftUpdate update : driftUpdates) driftRepository.upsertDetection(update);
 
-                Segmenter.Snapshot live = segmenter.snapshot(clock.instant());
+                Instant now = clock.instant();
+                Segmenter.Snapshot live = segmenter.snapshot(now);
                 snapshot = new CaptureSnapshot(live.at(), live.open(), live.pending(), true);
+                goalAlerts.tick(status.state(), observation.kind(), now,
+                        at -> Optional.ofNullable(segmenter.snapshot(at).open()),
+                        driftTracker::current, sessionAlertDeferral);
 
                 long elapsed = Duration.between(tickStart, clock.instant()).toMillis();
                 if (elapsed < 1000) Thread.sleep(1000 - elapsed);
@@ -264,6 +325,7 @@ public final class CaptureSession implements CaptureControl {
                 String closeFailure = "No se pudo cerrar la captura: " + failureMessage(e);
                 failure = failure == null ? closeFailure : failure + " · el cierre también falló.";
             } finally {
+                goalAlerts.interrupt(clock.instant());
                 if (bridge != null) bridge.close();
                 running.set(false);
                 snapshot = CaptureSnapshot.stopped();
@@ -291,5 +353,26 @@ public final class CaptureSession implements CaptureControl {
 
     private static void saveSegments(SQLiteSegmentRepository repository, List<Segment> segments) {
         if (!segments.isEmpty()) repository.saveAll(segments);
+    }
+
+    /** Read-only view of the drift updates already produced by the state machine. */
+    private static final class DriftTracker {
+        private DriftSignal signal = DriftSignal.inactive();
+
+        void apply(List<DriftUpdate> updates) {
+            for (DriftUpdate update : updates) {
+                switch (update.type()) {
+                    case OPENED -> signal = DriftSignal.activeOf(
+                            signal.generation() + 1, update.episode().detectedAt());
+                    case CLOSED -> signal = new DriftSignal(false, signal.generation(),
+                            update.episode().closedAt());
+                    case UPDATED -> { }
+                }
+            }
+        }
+
+        DriftSignal current() {
+            return signal;
+        }
     }
 }

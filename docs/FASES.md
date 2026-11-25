@@ -35,11 +35,21 @@ Los días de la sección 12 del plano son hitos de alcance. Cada fase puede repa
 | AJUSTES-DETECCION | Cuatro umbrales configurables de detección | HECHO | Ajustes edita cambios/ventana/estabilidad/inactividad, persiste en `setting`, distingue efectivo/pendiente, restaura sin guardar y avisa inactividad≤estabilidad. Pausar/Reanudar conserva; Detener/Iniciar reaplica. Configuración inválida usa predeterminados visibles sin sobrescribir. No cierra F6.2 ni añade exclusiones, bridge o empaquetado (E034) |
 | BRAVE-EXCLUSIONES | UNKNOWN transitorio durante navegación normal | HECHO | Sonda real: UNKNOWN fresco aceptado con Brave en primer plano, sin STALE ni reinicio de sesión; el filtro lo convertía en EXCLUDED y la ventana de deriva se limpiaba. La extensión relee la pestaña de forma acotada ante cambio de revisión o URL no lista en carga, sin reutilizar hosts ni relajar incógnito/foco/perfiles. Verificación real posterior: 38 s NORMAL continuos y episodio abierto con 6 cambios (E035). No cierra F6.2 ni el gate completo de Brave |
 | F6.1 | Prueba sostenida y rendimiento | HECHO | Medición real de 2 h 7 min 30 s con 256 muestras, CPU media 0,15 % (máx. 0,40 % de 16 CPUs), working set 249–416 MB y captura activa con Brave/bridge (E030). Límites: una máquina, resolución 30 s |
+| F6B-1 | Objetivos: modelo de datos | HECHO | Esquema V2 con `goals` y `goal_alerts`, versionado por `schema_version` y migración V1→V2 idempotente; puertos y adaptadores SQLite con crear/leer/actualizar/borrar/listar activos; topes validados por dominio y base; sin URL/ruta/consulta/título (E036) |
+| F6B-0 | Objetivos: actividad pasiva | HECHO | `PassiveActivity` puro promueve `IDLE` a `OBSERVED` solo si la muestra coincide con un objetivo activo `passive=true` y la inactividad no supera 10 min desde la última entrada; `UNAVAILABLE`/`EXCLUDED`, los huecos >3 s y el cambio de ventana mandan (también entre objetivos pasivos) hasta que vuelva la actividad. Regla de coincidencia app sin host frente a app+sitio exacta documentada en A43. Lee objetivos una vez al iniciar: los cambios se aplican al reiniciar la captura (limitación de F6B-0, sustituida por la recarga de F6B-3/A45) (E037) |
+| F6B-2 | Objetivos: motor de cálculo | HECHO | `GoalProgressCalculator` puro: minutos/entradas/estado por objetivo con día local recortado, umbrales 80/100 %, entradas >=3 s, app con o sin host y aviso conservador de tiempo no medible; A43 sigue siendo solo la regla pasiva. 201 tests Java + 14 JS (E038) |
+| F6B-3 | Objetivos: UI | HECHO | Pantalla **Objetivos** en la navegación lateral: crear, editar topes/pasivo/activo, activar/desactivar y borrar con confirmación; contexto elegido entre apps/sitios ya vistos o escrito a mano, sin poder cambiar el contexto al editar. Progreso del día con `GoalProgressCalculator` y estados En curso/Cerca del tope/Tope superado (icono+texto), aviso de subconteo y refresco cada 30 s solo en la vista. `PassiveGoalProvider` recarga la captura en curso sin reiniciar y conserva una promoción activa si su contexto sigue siendo pasivo. Máximo pasivo persistido en Ajustes con efectivo/pendiente (A45; E039) |
+| F6B-4 | Objetivos: alarma básica | HECHO | `GoalAlertService` evalúa cada 30 s en el hilo `deriva-capture` solo con `OBSERVED`; añade el segmento en curso cortado en «ahora» vía `OpenSegmentProvider`; avisa por bandeja al 80/100 % por tope y día, deduplicado en `goal_alerts` tras reinicio; registra ambos umbrales y notifica solo el más alto si coinciden; un fallo de evaluación se registra y no detiene la captura; cambio de límite no repite un umbral ya registrado (A46; E040) |
+| F6B-6 | Objetivos: justificar excesos | HECHO | Justificación por alerta al 100 % y día local; cubre el exceso acumulado con segmentos cerrados + abierto (A44), el uso posterior vuelve a contar, rejustificar reemplaza y quitar revierte. Tres estados icono+texto (Excedido/Justificado por ti/Sin responder) y nota de Sin responder; motivo ≤500 mostrado tal cual. V3 por `schema_version` sin tocar segmentos/episodios; motor puro con `GoalJustification`; escrituras en `deriva-goals`. 251 Java + 14 JS (A47; E041) |
+| F6B-5 | Objetivos: alarma diferida durante deriva | HECHO | Aviso diferido con tope configurable (300 s por defecto, 60–1800 s, efectivo/pendiente) mientras hay deriva; consulta por puerto de solo lectura `DriftStateProvider`; V4 con `notified_at`, `observed_until`, `outcome_at` y `outcome_after_ms`; pendientes de una sesión anterior se descartan al arrancar (`DISCARDED`), pausa/reanudación de la misma sesión los entrega; observación de 2 min con `NO_DRIFT`, `STABLE`, `NEW_DRIFT`, `STILL_DRIFTING`, `NOT_OBSERVED`; mensaje combinado por objetivo; textos sin causalidad (A48; E042) |
+| F6B-7 | Objetivos: resumen y gate | HECHO | «Resumen de hoy» por objetivo con minutos justificados/excedidos y avisos A48; auditoría de `goals`/`goal_alerts`; gate 65 min/130 muestras, CPU 0,20 % vs 0,15 % de E030, cierre con `deriva-capture` y `deriva-goals` vivos=0, 278 Java + 14 JS, hash de hechos idéntico y copia V1→V4 sin pérdida. Salvedad: hueco de 96 s por suspensión S0 (E043) |
 | F6.2 | Entrega local reproducible | PENDIENTE | Instrucciones verificadas de arranque/test, limitaciones y pendientes claros |
+
+Paquete **F6B (objetivos)**, alcance fijado por el usuario el 2026-11-24: un objetivo es un límite diario definido por el usuario sobre un contexto (una app, o app + sitio), con tope de minutos y/o tope de entradas; no clasifica nada como bueno o malo. Usa los segmentos como fuente y no los modifica; la justificación de un exceso reutiliza el espíritu de la anotación Justificada (E031); la alarma diferida consulta la máquina de deriva sin modificarla. Orden de ejecución: F6B-1, F6B-0, F6B-2, F6B-3, F6B-4, F6B-6, F6B-5 y F6B-7 están HECHOS. **F6.2 es el siguiente bloque y sigue PENDIENTE.** El modelo de datos de F6B-1 lo entrega el usuario; no se asume nada fuera de él.
 
 Pendiente de revisión de comportamiento, fuera de AJUSTES-DETECCION: enfocar la propia ventana de Deriva puede cerrar un episodio por **EXCLUSION**; no se cambia esa regla aquí ni se afirma que los umbrales la resuelvan.
 
-Dependencias: F1.1 → F1.2 → F1.3 → F2 → F3 → F4 → F5 → F6. GATE-Q2 PASS, F2.4 y F2.4b habilitan Chrome/Brave + un perfil en el filtro; F4.1, F4.2 y F4.3 están hechos (F4.3 solo con segmentos cerrados), F5.1a conecta la captura real con la UI, F5.1b añade borrado coordinado y fallo SQLite, F5.1c cubre la matriz de fallos/privacidad y F5.1d cierra el bloqueo/reanudación. **F5.1 HECHO** con límites documentados: el equipo solo ofrece suspensión S0, no S3/hibernación; el fallo nativo del sensor sigue sin inducir (SEN-01 PARCIAL). **F5.2 HECHO** el 2026-11-23 con pausa manual y bandeja básica (E029). P1/P2, Brave y USE-02 siguen abiertos fuera de F5.1/F5.2. **AJUSTES-DETECCION HECHO** (E034): cuatro umbrales de detección, sin editor de exclusiones ni bridge. **F6.1 HECHO** con la medición sostenida E030; el siguiente bloque es F6.2, pendiente de autorización. El gate de Brave es reducido: faltan segundo perfil, reinicio, una hora y resolver la colisión de sesiones Chrome/Brave (`browser:"chrome"`). La captura ya tiene un bucle desde la UI, pero la orquestación completa de producto sigue pendiente; F4.1–F4.3 aportan la UI de lectura y F3.1b es consola diagnóstica. Si el navegador exige una acción externa, registrar el bloqueo del piloto y continuar la captura independiente; nunca postergar silenciosamente su primera prueba hasta F6.
+Dependencias: F1.1 → F1.2 → F1.3 → F2 → F3 → F4 → F5 → F6. GATE-Q2 PASS, F2.4 y F2.4b habilitan Chrome/Brave + un perfil en el filtro; F4.1, F4.2 y F4.3 están hechos (F4.3 solo con segmentos cerrados), F5.1a conecta la captura real con la UI, F5.1b añade borrado coordinado y fallo SQLite, F5.1c cubre la matriz de fallos/privacidad y F5.1d cierra el bloqueo/reanudación. **F5.1 HECHO** con límites documentados: el equipo solo ofrece suspensión S0, no S3/hibernación; el fallo nativo del sensor sigue sin inducir (SEN-01 PARCIAL). **F5.2 HECHO** el 2026-11-23 con pausa manual y bandeja básica (E029). P1/P2, Brave y USE-02 siguen abiertos fuera de F5.1/F5.2. **AJUSTES-DETECCION HECHO** (E034): cuatro umbrales de detección, sin editor de exclusiones ni bridge. **F6.1 HECHO** con la medición sostenida E030; **F6B-7 HECHO** con el gate E043 y sus limitaciones; el siguiente bloque es F6.2, pendiente de autorización. El gate de Brave es reducido: faltan segundo perfil, reinicio, una hora y resolver la colisión de sesiones Chrome/Brave (`browser:"chrome"`). La captura ya tiene un bucle desde la UI, pero la orquestación completa de producto sigue pendiente; F4.1–F4.3 aportan la UI de lectura y F3.1b es consola diagnóstica. Si el navegador exige una acción externa, registrar el bloqueo del piloto y continuar la captura independiente; nunca postergar silenciosamente su primera prueba hasta F6.
 
 ## Avance F1.3
 
@@ -236,3 +246,52 @@ Guardar solo con cambios pendientes y bloquear solicitudes simultáneas. F6.2 pe
 - [x] Sin cambios en Java, `PrivacyFilter`, frescura de 3 s, semántica de EXCLUDED ni umbrales.
 - [x] 14 tests JS (report/sampling/background) y 158 tests Java, 0 fallos; verificación real posterior con 38 s NORMAL continuos y episodio abierto con 6 cambios.
 - Límites: una máquina y un perfil/ventana de Brave; no se repitieron incógnito, pérdida de foco real ni caducidad real en navegador. El gate completo de Brave y F6.2 siguen pendientes. La UI muestra que el bridge está configurado, no que reciba un sitio fresco; queda como mejora separada.
+
+## Avance F6B-5 (E042)
+
+- [x] `DriftStateProvider` de solo lectura; `CaptureSession` deriva `DriftSignal` de los `DriftUpdate` sin cambiar la máquina de deriva.
+- [x] Aviso registrado con `notified_at = NULL` y entregado al terminar la deriva o al alcanzar `alert_deferral_max_s` (300 s por defecto, 60–1800 s, efectivo/pendiente).
+- [x] V4 con `notified_at`, `observed_until`, `outcome_at` y `outcome_after_ms`; migración V3→V4 fija `notified_at = triggered_at` en las alertas existentes.
+- [x] Reinicio: pendientes de una ejecución anterior se cierran con `DISCARDED`; pausa/reanudación de la misma sesión entrega el pendiente.
+- [x] Observación de 2 min: `NO_DRIFT`, `STABLE` con tiempo, `NEW_DRIFT`, `STILL_DRIFTING`, `NOT_OBSERVED`; sin causalidad en los textos.
+- [x] Un solo aviso por objetivo y evaluación con los umbrales de sus métricas combinados; se registran todos.
+- [x] 21 tests nuevos, 272 Java + 14 JS, 0 fallos; smokes `settings` y `goals` con hilos de captura 0.
+- Límites: deriva y reloj simulados, sin sesión real de 10 min; la migración de la base real la hará el usuario con respaldo; `SQLitePrivacyCheck` sigue pendiente para F6B-7.
+
+## Avance F6B-7 (E043)
+
+- [x] «Resumen de hoy» en cada tarjeta de Objetivos: minutos justificados separados de los excedidos sin justificar y una línea «Aviso …» por alerta con umbral, métrica, hora y resultado A48.
+- [x] `SQLitePrivacyCheck` audita `segment`, `goals` y `goal_alerts`; sin columnas prohibidas y sin identidades con forma de URL/ruta/consulta en `goals`. La justificación es texto libre y no se bloquea por patrones (A49).
+- [x] Gate: 65 min, 130 muestras cada 30 s, CPU media 0,20 % / máxima 0,89 % (E030: 0,15 %), sin crecimiento sostenido de memoria/hilos; salvedad de un hueco de 96 s por suspensión S0.
+- [x] Cierre limpio: `deriva-capture` y `deriva-goals` vivos=0; solo queda la UI 18972 abierta antes de la fase, visible y ajena a la corrida.
+- [x] Suite: 278 tests Java + 14 JS, 0 fallos. Huella de `segment`/`drift_event`/`drift_context` idéntica antes/después de crear objetivo, alarma, justificar y quitar; copia V1→V4 con 14 segmentos y hash idéntico, original intacta.
+- Límites para F6.2: subconteo de sitios por exclusión ante duda; P1 solo en objetivos pasivos; aviso de bandeja no verificado con clic humano y mensaje de dos topes solo con notificador falso; progreso con segmentos cerrados (hasta 30 s tarde); máximo pasivo fijo por sesión; migración real por el usuario con respaldo.
+
+## UI-VENTANA — HECHO (2026-11-25, E044)
+Petición del usuario: barra nativa accesible al arrancar (minimizar/maximizar/cerrar y arrastrar). Ajustar tamaño y posición al área útil del monitor; conservar colores y comportamiento de bandeja. F6.2 permanece pendiente.
+
+Compilación y arranque JavaFX real verificados: ventana DECORATED/redimensionable dentro del área útil con escala 125 %. Sin prueba de clic/arrastre humano (E044).
+
+## UI-OBJETIVOS-RESUMEN — HECHO (2026-11-25)
+Resumen de hoy plegable por objetivo y eliminación de las dos burbujas señaladas por el usuario. Mantener paleta y lógica de objetivos. F6.2 pendiente.
+Evidencia E045: compilación y sonda JavaFX correctas; sin clic humano.
+
+## UI-AJUSTES-MENU — HECHO (2026-11-25)
+Cuatro tarjetas de acceso a apartados de Ajustes, regreso claro y conservación del formulario. Mantener guardado y validaciones. F6.2 pendiente.
+E046: build, navegación programática, conservación de borrador y snapshot revisado.
+
+## USO-RANGOS — HECHO (2026-11-25)
+Autorizado: Día/Semana/Mes/Año/Personalizado, fechas inclusivas y totales del intervalo sin doble conteo. F6.2 pendiente.
+E047: 281 tests aprobados, sonda FXML y captura revisada; rendimiento masivo sin medir.
+
+## USO-DIA-HOY — HECHO (E048) (2026-11-25)
+Al cambiar a Día, seleccionar hoy local; conservar selección manual posterior.
+
+## AJUSTES-AYUDA — HECHO (E049) (2026-11-25)
+Tres tarjetas; ayudas plegadas y valores/aplicación dentro de Detección.
+
+## OBJETIVOS-HISTORIAL — HECHO (E050) (2026-11-25)
+Selector diario, historial de versiones y archivado al borrar, lectura histórica sin modificar el pasado. Migración V5; no reconstruir datos antiguos perdidos. Pruebas SQLite/migración/UI necesarias.
+
+## OBJETIVOS-RANGO — HECHO (E051) (2026-11-25)
+Petición del usuario: consultar Objetivos con Desde/Hasta y mostrar los objetivos borrados en solo lectura con una opción para ocultarlos. Un día = vista actual (hoy editable, pasado solo lectura); varios días = resumen por objetivo y detalle por día, solo lectura. Sin cambios de esquema. F6.2 pendiente.

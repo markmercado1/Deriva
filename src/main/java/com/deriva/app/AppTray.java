@@ -2,6 +2,7 @@ package com.deriva.app;
 
 import com.deriva.app.usecase.CaptureControl;
 import com.deriva.app.usecase.CaptureState;
+import com.deriva.app.usecase.GoalAlertNotice;
 import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
@@ -91,6 +92,18 @@ final class AppTray {
         } catch (RuntimeException ignored) {
             // A notification failure must not affect capture or shutdown.
         }
+    }
+
+    void notifyGoal(GoalAlertNotice notice) {
+        Objects.requireNonNull(notice, "notice");
+        EventQueue.invokeLater(() -> {
+            try {
+                icon.displayMessage(notice.title(), notice.body(), TrayIcon.MessageType.INFO);
+            } catch (RuntimeException e) {
+                System.err.println("Tray: no se pudo mostrar el aviso ("
+                        + e.getClass().getSimpleName() + ")");
+            }
+        });
     }
 
     void remove() {

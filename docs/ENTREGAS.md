@@ -250,3 +250,75 @@ Guardar sin cambios queda deshabilitado; controles bloqueados durante escritura/
 - Probado: sonda real de solo lectura sobre el bridge (250 ms, sin hosts/URLs/títulos/tokens) mostró UNKNOWN frescos de ~0,5-0,8 s con Brave en primer plano, sin STALE ni reinicio de sesión, coincidiendo con EXCLUDED y con el cierre del episodio 3. Tras recargar la extensión, 38 s NORMAL continuos durante la navegación y episodio 4 abierto con 6 cambios. 14 tests JS y 158 tests Java, 0 fallos. Artefactos en `work/diagnostico-continuidad-brave/`; base protegida intacta.
 - Límites: una máquina y un perfil/ventana de Brave; sin repetición real de incógnito, pérdida de foco, caducidad o segundo perfil. El gate completo de Brave y F6.2 siguen pendientes. La UI indica bridge configurado, no frescura del sitio.
 - Siguiente: F6.2 pendiente; completar el gate reducido de Brave (segundo perfil, reinicio, 1 h, colisión Chrome/Brave) y decidir aparte el mensaje de estado del bridge.
+
+## 2026-11-24 - F6B-1 modelo de datos de objetivos (E036)
+- Funciona: esquema V2 con `goals` y `goal_alerts`, migración V1→V2 idempotente sobre `schema_version`, y repositorios SQLite con crear/leer/actualizar/borrar/listar activos. Topes de minutos y/o entradas validados por dominio y base; un objetivo por contexto (app o app+sitio), proceso insensible a mayúsculas; sin columnas de URL/título.
+- Probado: Maven verify offline 177 tests Java, 0 fallos (19 nuevos); migración con datos V1 sin pérdida, doble inicialización, base nueva en V2, CRUD con reapertura, cascada objetivo→alertas, FK, límites de justificación y umbral, rechazos por `CHECK`, y `deleteActivity` borrando alertas sin tocar objetivos.
+- Límites: bases temporales `@TempDir`; no se migró la base real (la hará el usuario con respaldo y SHA-256); V2 no la abre el código V1; `SQLitePrivacyCheck` no se amplía hasta F6B-7. Sin UI, sensor ni máquina de deriva.
+- Siguiente: F6B-0 (actividad pasiva); F6.2 sigue pendiente después de F6B-7.
+
+## 2026-11-24 - F6B-0 actividad pasiva (E037)
+- Funciona: un objetivo activo `passive=true` mantiene su contexto como `OBSERVED` sin teclado ni mouse hasta 10 min desde la última entrada; después vuelve a `IDLE`. `UNAVAILABLE` (bloqueo/suspensión), los huecos >3 s y `EXCLUDED` mandan; cambiar de ventana corta la promoción hasta que vuelva la actividad. Objetivo de app solo coincide sin host; objetivo de sitio exige proceso+host exactos.
+- Probado: Maven verify offline 189 tests Java, 0 fallos (12 nuevos); 14 tests JS, 0 fallos. `SegmenterTest` conserva 16 tests y `PrivacyFilterTest` 17, sin editar esos archivos.
+- Límites: pruebas puras con tiempo simulado, sin sesión real de 10 min ni vídeo/ajedrez; los objetivos se leen una vez al iniciar la captura y sus cambios se aplican al reiniciar (F6B-3). El máximo de 10 min no se persiste todavía. P1 queda resuelto solo para contextos con objetivo pasivo. Sin UI ni cambio de esquema; no se abrió la base real.
+- Siguiente: F6B-2 (motor de cálculo); F6.2 sigue pendiente después de F6B-7.
+
+## 2026-11-24 - F6B-2 motor de cálculo de objetivos (E038)
+- Funciona: `GoalProgressCalculator` puro calcula por objetivo minutos usados, entradas, estado (`IN_PROGRESS`/`NEAR`/`EXCEEDED`) y aviso de tiempo no medible. Recorta al día local con `analysis.DayWindow`; objetivo de app suma todo el proceso con o sin host, objetivo de sitio exige proceso+host; los límites son independientes y cada instante se cuenta una vez dentro de cada objetivo. Entradas nuevas a partir de 3 s fuera; solo `OBSERVED` suma.
+- Probado: Maven verify offline 201 tests Java, 0 fallos (12 nuevos); 14 tests JS, 0 fallos. Cubre medianoche, umbrales 79/80/100 %, uno/dos topes, huecos de sitio, app+sitio, navegador con host, `IDLE`/`EXCLUDED`/`UNAVAILABLE`, solapes y segmentos fuera del día. Las 3 pruebas de `DailyUsageServiceTest` (E020) siguen intactas y verdes.
+- Límites: sin UI, alarmas, base ni reloj; no incluye el segmento en curso (F6B-4 lo pasará cortado en «ahora»). `unmeasurable` es conservador porque `EXCLUDED` no lleva identidad. F6.2 sigue pendiente después de F6B-7.
+- Siguiente: F6B-3 (UI de objetivos).
+
+## 2026-11-24 - F6B-3 pantalla de objetivos y máximo pasivo (E039)
+- Funciona: pantalla **Objetivos** para crear, editar topes/pasivo/activo, activar/desactivar y borrar con confirmación; contexto elegido entre apps/sitios vistos o escrito; contexto inmutable al editar. Progreso del día con estado En curso/Cerca del tope/Tope superado, icono+texto, aviso de subconteo y refresco cada 30 s solo en la vista. La captura en curso recarga los objetivos pasivos al cambiar la revisión y conserva una promoción activa si su contexto sigue pasivo. El máximo pasivo (10 min por defecto) se persiste y edita en Ajustes con efectivo/pendiente.
+- Probado: Maven verify offline 220 tests Java, 0 fallos (19 nuevos); 14 tests JS, 0 fallos. Smoke `goals` crea «Ajedrez» 60 min/4 entradas, muestra progreso, borra con confirmación y deja hilos 0; capturas `work/ui-preview/f6b-3/{objetivos-creado,objetivos,ajustes}.png`. Las pantallas existentes siguen igual salvo el botón **Objetivos** y la sección «Actividad pasiva» en Ajustes.
+- Límites: smoke de controles, no clic humano; sin sesión real de 10 min ni ajedrez real; el progreso no incluye el segmento en curso (F6B-4). Base temporal, no `work/console-day/deriva.db`. La consola diagnóstica conserva la lectura única y el máximo fijo. F6.2 sigue pendiente después de F6B-7.
+- Siguiente: F6B-4 (alarma básica), que debe pasar el segmento abierto cortado en «ahora».
+
+## 2026-11-24 - F6B-4 alarma básica por umbral (E040)
+- Funciona: `GoalAlertService` evalúa los objetivos activos cada 30 s en el hilo de captura, solo con observación `OBSERVED` y captura `RUNNING`; añade el segmento abierto acotado por «ahora» vía `OpenSegmentProvider`, registra en `goal_alerts` los umbrales nuevos del día y avisa por la bandeja. Deduplica por objetivo, métrica, umbral y día local, también tras reiniciar; si 80 y 100 coinciden, registra ambos y notifica solo el más alto. Un fallo de evaluación se registra y no detiene la captura; subir o bajar el límite el mismo día no repite un umbral ya registrado (A46).
+- Probado: Maven verify offline 235 tests Java, 0 fallos (15 nuevos); 14 tests JS, 0 fallos. Cubre 80/100 una vez, sin repetición, tope de 4 entradas, salto de minutos, cambio de límite, segmento abierto, cambio de día, reinicio, pausa/IDLE/bloqueo/suspensión, fallo de repositorio y fallo de notificador. Integración real con `java.exe` en primer plano: dos alertas 80/100 con `outcome`/`justification` nulos; cierre con hilos `deriva-capture` vivos=0. CPU corta: 0,21 % medio sin evaluación y 0,27 % con actividad observada y una alarma (45 s y 90 s, 5 s, 16 CPUs); E030 sostiene 0,15 % en 2 h 7 min. Bases temporales; base protegida intacta (`0446AE5D…`).
+- Límites: globo de bandeja no capturado visualmente ni clic humano; se reutiliza `TrayIcon.displayMessage` de E029 y el texto se prueba con notificador falso. Sin sesión real de 10 min ni ajedrez; la pantalla Objetivos sigue sin el segmento en curso. Medición de CPU corta y de una máquina. F6.2 sigue pendiente después de F6B-7.
+- Siguiente: F6B-6 (justificar excesos).
+
+## 2026-11-24 - F6B-6 justificar excesos de objetivos (E041)
+- Funciona: con una alerta al 100 % registrada, la pantalla Objetivos distingue **Excedido ●**, **Justificado por ti ✓** y **Sin responder ○**. **Justificar exceso** abre un motivo opcional ≤500 que se guarda tal cual; **Quitar justificación** revierte. La justificación cubre el exceso acumulado al marcar con la misma base que la alarma (cerrados + abierto confirmado), no el resto del día; el uso posterior vuelve a contar y **Justificar de nuevo** reemplaza la cobertura. Solo aplica al día local de `justified_at`; el motor `GoalProgressCalculator` sigue puro y recibe `GoalJustification` como dato.
+- Probado: Maven verify offline 251 tests Java, 0 fallos (235 + 16 nuevos); 14 tests JS, 0 fallos. Cubre tres estados, revocar, uso posterior, rejustificar sin acumular, segmento abierto y cierre, día distinto, persistencia al reabrir, V2→V3 y V1→V3, y comparación SHA-256 de todas las columnas de `segment`, `drift_event` y `drift_context` antes/después de justificar y quitar (sin diferencias). Smoke `goals-justify` guarda «Partida con un amigo», muestra «Justificado por ti», «Cubierto: 10 min» y «Justificación guardada.», y al quitar vuelve a «Sin responder» con la nota; hilos `deriva-capture` vivos=0. Capturas `work/ui-preview/f6b-6/{exceeded,unanswered,justified,exhausted,justify-smoke-justificado}.png`.
+- Límites: smokes de controles, no clics humanos; una máquina; sin sesión real de 10 min ni ajedrez; el segmento abierto se simula en tests; la migración de la base real la hará el usuario con respaldo (A41). Base protegida intacta (`0446AE5D…`). F6.2 sigue pendiente después de F6B-7.
+- Siguiente: F6B-5 (alarma diferida durante deriva).
+
+## 2026-11-24 - F6B-5 alarma diferida durante deriva (E042)
+- Funciona: un aviso de objetivo que coincide con una deriva activa se difiere hasta que la deriva termina o se alcanza un tope configurable (`alert_deferral_max_s`, 300 s por defecto, 60–1800 s, efectivo/pendiente). Se consulta por el puerto de solo lectura `DriftStateProvider`; `DriftStateMachine` no cambia. V4 añade `notified_at`, `observed_until`, `outcome_at` y `outcome_after_ms`; la migración marca las alertas existentes con `notified_at = triggered_at` para que no se envíen como pendientes. Un pendiente de una ejecución anterior se descarta al arrancar (`DISCARDED`); pausar y reanudar en la misma sesión lo entrega. La observación posterior de 2 min guarda `NO_DRIFT`, `STABLE` con su tiempo, `NEW_DRIFT`, `STILL_DRIFTING`, `NOT_OBSERVED` o `DISCARDED`, con textos que no afirman causalidad. Dos topes del mismo objetivo en la misma evaluación producen un solo aviso combinado y registran todos los umbrales.
+- Probado: Maven verify offline 272 tests Java, 0 fallos (251 previos + 21 nuevos); 14 tests JS, 0 fallos. Cubre diferir y entregar al terminar, tope, los cuatro resultados de observación, cierre/reinicio, pausa y bloqueo, mensaje combinado, V3→V4 con `notified_at = triggered_at` y arranque sin notificaciones. Smokes `settings` y `goals` sobre bases temporales con hilos `deriva-capture` vivos=0; capturas `work/ui-preview/f6b-5/{settings,goals,goals-creado}.png`.
+- Límites: smokes de controles, no clics humanos; deriva y reloj simulados, sin sesión real de 10 min; el resultado es una observación, no prueba de que el aviso causara nada. La migración de la base real la hará el usuario con respaldo (A41). Base protegida intacta (`0446AE5D…`). `SQLitePrivacyCheck` no cubre aún las tablas nuevas (F6B-7). F6.2 sigue pendiente después de F6B-7.
+- Siguiente: F6B-7 (resumen y gate).
+
+## 2026-11-24 - F6B-7 resumen diario y gate final (E043)
+- Funciona: **Resumen de hoy** en cada tarjeta de Objetivos con minutos justificados separados de los excedidos sin justificar y una línea «Aviso …» por alerta (umbral, métrica, hora y resultado A48). `SQLitePrivacyCheck` audita `goals` y `goal_alerts`; la justificación libre se conserva sin bloquear patrones y el formulario avisa «Evita pegar direcciones o datos personales.».
+- Probado: gate real de 65 min, 130 muestras cada 30 s y 16 CPUs; CPU media 0,20 % / máxima 0,89 % frente a 0,15 % de E030 (causa probable: seis objetivos y alarmas cada 30 s); working set 155,5→279,8 MB (máx. 422,2), hilos 63→65 (máx. 70) y handles 531→708 (máx. 718), sin crecimiento sostenido. Salvedad: hueco de 96 s por suspensión S0. Cierre con `deriva-capture` y `deriva-goals` vivos=0. Huella de `segment`/`drift_event`/`drift_context` idéntica (`76684c90…`) antes/después de crear objetivo, alarma, justificar y quitar; copia V1→V4 con 14 segmentos y hash idéntico, original intacta (`0446AE5D…`). 278 tests Java + 14 JS, 0 fallos. Capturas `work/ui-preview/f6b-7/{summary.png,goals-final.png}`.
+- Límites: el hueco de S0 impide llamar «sin cortes» a la muestra; smokes de controles, no clics humanos; bandeja no verificada con clic humano y dos topes juntos solo con notificador falso; P1 solo en objetivos pasivos; progreso con segmentos cerrados (hasta 30 s tarde); máximo pasivo fijo por sesión; subconteo de sitios por exclusión ante duda; migración real por el usuario con respaldo. F6.2 sigue PENDIENTE.
+- Siguiente: F6.2 (entrega local reproducible), pendiente de autorización.
+
+## 2026-11-25 — UI-VENTANA (E044)
+Arranque centrado con tamaño adaptado al área útil de Windows para mantener accesible la barra nativa. Compilación correcta y arranque real con escala 125 %, ventana completa en pantalla y cierre sin hilos. Pendiente comprobación humana de botones/arrastre y pantallas adicionales. F6.2 pendiente.
+
+## 2026-11-25 — UI-OBJETIVOS-RESUMEN (E045)
+Resumen de hoy plegado por defecto con expansión conservada al refrescar; retiradas ambas burbujas solicitadas. Build correcto y sonda JavaFX de plegado, contenido y refresco aprobada. Falta revisión visual del usuario; bases intactas y F6.2 pendiente.
+
+## 2026-11-25 — UI-AJUSTES-MENU (E046)
+Entrada con cuatro tarjetas, navegación y regreso, formularios conservados. Build correcto, sonda de cuatro rutas y borrador aprobada, captura visual revisada. Falta revisión del usuario en app abierta. F6.2 pendiente.
+
+## 2026-11-25 — USO-RANGOS (E047)
+Día, semana, mes, año y rango personalizado en Uso. Consulta y totales por intervalo, validación de fechas y snapshot conservado. 281 tests aprobados, sonda FXML y captura revisada. Límite: sin benchmark de años de datos reales. F6.2 pendiente.
+
+## 2026-11-25 — USO-DIA-HOY (E048)
+Corregido Año → Día: vuelve a hoy local. Build y sonda FXML aprobados; selección manual posterior conservada.
+
+## 2026-11-25 — AJUSTES-AYUDA (E049)
+Ayudas plegadas y tres tarjetas; información integrada en Detección. Build y sonda FXML correctos; base real intacta. Próximo: revisión del usuario tras reabrir.
+
+## 2026-11-25 — OBJETIVOS-HISTORIAL (E050)
+V5 con revisiones y archivado al borrar; vista histórica de Objetivos de solo lectura por día. 276/284 tests en verde; los 8 de `LocalBridgeServerTest` fallan por loopback en este entorno. Falta revisión visual del usuario y migrar la base real con respaldo. F6.2 pendiente.
+
+## 2026-11-25 — OBJETIVOS-RANGO (E051)
+Desde/Hasta en Objetivos con resumen por objetivo y detalle por día; borrados visibles en solo lectura con «Mostrar borrados». 278/286 tests en verde (8 de loopback del entorno); sonda FXML aprobada. Falta revisión del usuario en la app. F6.2 pendiente.

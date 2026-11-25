@@ -1,19 +1,28 @@
 package com.deriva.app;
 
 import com.deriva.app.usecase.DailyUsageService;
+import com.deriva.app.usecase.GoalAlertMonitor;
+import com.deriva.app.usecase.GoalAlertService;
+import com.deriva.app.usecase.GoalsService;
 import com.deriva.app.usecase.InterruptionsService;
 import com.deriva.app.usecase.SettingsService;
 import com.deriva.storage.sqlite.SQLiteDriftRepository;
+import com.deriva.storage.sqlite.SQLiteGoalAlertRepository;
+import com.deriva.storage.sqlite.SQLiteGoalRepository;
 import com.deriva.storage.sqlite.SQLiteSegmentRepository;
 import com.deriva.storage.sqlite.SQLiteSettingsRepository;
 import com.deriva.ui.fx.MainController;
 import com.deriva.ui.viewmodel.DailyUsageViewModel;
+import com.deriva.ui.viewmodel.GoalsViewModel;
 import com.deriva.ui.viewmodel.InterruptionsViewModel;
+import com.deriva.ui.viewmodel.AlertDeferralSettingsViewModel;
+import com.deriva.ui.viewmodel.PassiveMaxSettingsViewModel;
 import com.deriva.ui.viewmodel.SettingsViewModel;
 import javafx.animation.PauseTransition;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -22,6 +31,7 @@ import javafx.scene.image.PixelReader;
 import javafx.scene.image.WritableImage;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import javafx.stage.Screen;
 import javafx.util.Duration;
 
 import javax.imageio.ImageIO;
@@ -62,14 +72,35 @@ public final class DerivaApp extends Application {
                 DailyUsageService usageService = new DailyUsageService(segmentRepository, clock);
                 SettingsService settingsService =
                         new SettingsService(new SQLiteSettingsRepository(databasePath));
+                SQLiteGoalRepository goalRepository = new SQLiteGoalRepository(databasePath, clock);
+                SQLiteGoalAlertRepository alertRepository = new SQLiteGoalAlertRepository(databasePath);
+                GoalsService goalsService =
+                        new GoalsService(goalRepository, segmentRepository, alertRepository, clock);
+                GoalAlertService alertService = new GoalAlertService(goalRepository, segmentRepository,
+                        alertRepository,
+                        notice -> {
+                            AppTray current = tray;
+                            if (current != null) current.notifyGoal(notice);
+                        }, clock, zone);
+                alertService.recoverAfterRestart(clock.instant());
                 CaptureSession capture = new CaptureSession(databasePath, bridgeConfig(),
-                        clock, settingsService);
+                        clock, settingsService, goalsService, new GoalAlertMonitor(alertService));
+                GoalsViewModel goals = new GoalsViewModel(goalsService, zone,
+                        now -> java.util.Optional.ofNullable(capture.snapshot().open()));
                 SettingsViewModel settings = new SettingsViewModel();
                 settings.load(settingsService.snapshot(), capture.effectiveSettings());
+                PassiveMaxSettingsViewModel passiveMax = new PassiveMaxSettingsViewModel();
+                passiveMax.load(settingsService.passiveMaxSnapshot(), capture.effectivePassiveMax());
+                AlertDeferralSettingsViewModel alertDeferral = new AlertDeferralSettingsViewModel();
+                alertDeferral.load(settingsService.alertDeferralSnapshot(),
+                        capture.effectiveAlertDeferral());
                 return new ViewModels(
                         new InterruptionsViewModel(interruptionsService, zone),
                         new DailyUsageViewModel(usageService, zone, capture),
+                        goals,
                         settings,
+                        passiveMax,
+                        alertDeferral,
                         settingsService,
                         capture);
             } catch (Exception e) {
@@ -88,16 +119,16 @@ public final class DerivaApp extends Application {
             Parent root = loader.load();
             MainController controller = loader.getController();
             controller.init(viewModels.interruptions(), viewModels.usage(),
-                    viewModels.settings(), viewModels.settingsService(),
+                    viewModels.goals(), viewModels.settings(), viewModels.passiveMax(),
+                    viewModels.alertDeferral(), viewModels.settingsService(),
                     viewModels.capture(), demo);
 
             Scene scene = new Scene(root, 1440, 900);
             scene.getStylesheets().add(DerivaApp.class
                     .getResource("/com/deriva/ui/interrupciones.css").toExternalForm());
             stage.setTitle("Deriva — Actividad");
-            stage.setMinWidth(1180);
-            stage.setMinHeight(720);
             stage.setScene(scene);
+            fitInitialWindow(stage);
 
             String smoke = environment("DERIVA_UI_SMOKE", "");
             boolean trayAllowed = smoke.isBlank() || "tray".equalsIgnoreCase(smoke);
@@ -120,6 +151,8 @@ public final class DerivaApp extends Application {
 
             if ("usage".equalsIgnoreCase(environment("DERIVA_UI_VIEW", "")))
                 controller.showUsageView();
+            else if ("goals".equalsIgnoreCase(environment("DERIVA_UI_VIEW", "")))
+                controller.showGoalsView();
             else if ("settings".equalsIgnoreCase(environment("DERIVA_UI_VIEW", "")))
                 controller.showSettingsView();
 
@@ -159,6 +192,14 @@ public final class DerivaApp extends Application {
                 UiSmoke.settingsCycle(scene, () -> finish(scene, controller, screenshot));
             } else if ("settings-session".equalsIgnoreCase(smoke)) {
                 UiSmoke.settingsSessionCycle(scene, () -> finish(scene, controller, screenshot));
+            } else if ("goals".equalsIgnoreCase(smoke)) {
+                UiSmoke.goalsCycle(scene,
+                        () -> saveScreenshot(scene, variantPath(screenshot, "-creado")),
+                        () -> finish(scene, controller, screenshot));
+            } else if ("goals-justify".equalsIgnoreCase(smoke)) {
+                UiSmoke.goalsJustifyCycle(scene,
+                        () -> saveScreenshot(scene, variantPath(screenshot, "-justificado")),
+                        () -> finish(scene, controller, screenshot));
             } else if (screenshot != null && !screenshot.isBlank()) {
                 PauseTransition pause = new PauseTransition(Duration.seconds(1.2));
                 pause.setOnFinished(event -> finish(scene, controller, screenshot));
@@ -189,6 +230,20 @@ public final class DerivaApp extends Application {
         stage.setMinHeight(280);
         stage.setScene(scene);
         stage.show();
+    }
+
+    private static void fitInitialWindow(Stage stage) {
+        // Visual bounds are logical pixels: they account for Windows scaling and
+        // exclude the taskbar. Size the whole decorated window, not just its scene.
+        Rectangle2D bounds = Screen.getPrimary().getVisualBounds();
+        double width = Math.min(1440, bounds.getWidth() * 0.94);
+        double height = Math.min(900, bounds.getHeight() * 0.94);
+        stage.setMinWidth(Math.min(1180, width));
+        stage.setMinHeight(Math.min(720, height));
+        stage.setWidth(width);
+        stage.setHeight(height);
+        stage.setX(bounds.getMinX() + (bounds.getWidth() - width) / 2);
+        stage.setY(bounds.getMinY() + (bounds.getHeight() - height) / 2);
     }
 
     private static void saveLiveSnapshot(Scene scene, String screenshot) {
@@ -243,10 +298,15 @@ public final class DerivaApp extends Application {
     }
 
     private static void reportCaptureThreads() {
-        long alive = Thread.getAllStackTraces().keySet().stream()
-                .filter(thread -> thread.isAlive() && "deriva-capture".equals(thread.getName()))
+        System.out.println("UI shutdown: hilos deriva-capture vivos="
+                + liveThreads("deriva-capture") + "; deriva-goals vivos="
+                + liveThreads("deriva-goals"));
+    }
+
+    private static long liveThreads(String name) {
+        return Thread.getAllStackTraces().keySet().stream()
+                .filter(thread -> thread.isAlive() && name.equals(thread.getName()))
                 .count();
-        System.out.println("UI shutdown: hilos deriva-capture vivos=" + alive);
     }
 
     private static void saveSnapshot(Scene scene, Path target) throws Exception {
@@ -304,7 +364,7 @@ public final class DerivaApp extends Application {
     private static int holdSeconds() {
         try {
             int seconds = Integer.parseInt(environment("DERIVA_UI_HOLD_SECONDS", "60"));
-            return seconds >= 5 && seconds <= 600 ? seconds : 60;
+            return seconds >= 5 && seconds <= 7200 ? seconds : 60;
         } catch (NumberFormatException e) {
             return 60;
         }
@@ -316,6 +376,8 @@ public final class DerivaApp extends Application {
     }
 
     private record ViewModels(InterruptionsViewModel interruptions, DailyUsageViewModel usage,
-                              SettingsViewModel settings, SettingsService settingsService,
-                              CaptureSession capture) {}
+                              GoalsViewModel goals, SettingsViewModel settings,
+                              PassiveMaxSettingsViewModel passiveMax,
+                              AlertDeferralSettingsViewModel alertDeferral,
+                              SettingsService settingsService, CaptureSession capture) {}
 }

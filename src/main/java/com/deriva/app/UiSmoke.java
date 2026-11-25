@@ -11,6 +11,7 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableView;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
@@ -404,6 +405,181 @@ final class UiSmoke {
             opened.play();
         });
         running.play();
+    }
+
+    static void goalsCycle(Scene scene, Runnable onCreated, Runnable onComplete) {
+        Button goals = (Button) scene.lookup("#goalsButton");
+        if (goals == null) {
+            System.out.println("UI smoke: no se encontró Objetivos");
+            onComplete.run();
+            return;
+        }
+        goals.fire();
+        PauseTransition opened = new PauseTransition(Duration.seconds(0.8));
+        opened.setOnFinished(event -> {
+            TextField process = (TextField) scene.lookup("#processField");
+            TextField host = (TextField) scene.lookup("#hostField");
+            TextField minutes = (TextField) scene.lookup("#minutesField");
+            TextField entries = (TextField) scene.lookup("#entriesField");
+            CheckBox passive = (CheckBox) scene.lookup("#passiveCheck");
+            Button save = (Button) scene.lookup("#saveButton");
+            if (process == null || host == null || minutes == null || entries == null
+                    || passive == null || save == null) {
+                System.out.println("UI smoke: no se encontraron los campos de Objetivos");
+                onComplete.run();
+                return;
+            }
+            process.setText("chess.exe");
+            host.setText("");
+            minutes.setText("60");
+            entries.setText("4");
+            passive.setSelected(true);
+
+            PauseTransition edited = new PauseTransition(Duration.seconds(0.3));
+            edited.setOnFinished(editedEvent -> {
+                System.out.println("UI smoke: objetivo a crear=chess.exe 60 min 4 entradas, "
+                        + "guardarDeshabilitado=" + save.isDisabled());
+                save.fire();
+                waitForGoalSaved(scene, 20, () -> {
+                    Label context = (Label) scene.lookup(".goal-context");
+                    Label state = (Label) scene.lookup(".goal-state");
+                    Label progress = (Label) scene.lookup(".goal-progress");
+                    System.out.println("UI smoke: objetivo creado="
+                            + (context == null ? "null" : context.getText())
+                            + "; estado=" + (state == null ? "null" : state.getText())
+                            + "; progreso=" + (progress == null ? "null" : progress.getText()));
+                    onCreated.run();
+                    Button delete = (Button) scene.getRoot().lookupAll(".goal-delete-button").stream()
+                            .findFirst().orElse(null);
+                    if (delete == null) {
+                        System.out.println("UI smoke: no se encontró Borrar objetivo");
+                        onComplete.run();
+                        return;
+                    }
+                    delete.fire();
+                    PauseTransition confirm = new PauseTransition(Duration.seconds(0.4));
+                    confirm.setOnFinished(confirmEvent -> {
+                        System.out.println("UI smoke: confirmación de borrado="
+                                + labelText(scene, "#deleteWarning"));
+                        Button confirmButton = (Button) scene.lookup("#confirmDeleteButton");
+                        if (confirmButton == null) {
+                            System.out.println("UI smoke: no se encontró confirmar borrado");
+                            onComplete.run();
+                            return;
+                        }
+                        confirmButton.fire();
+                        PauseTransition done = new PauseTransition(Duration.seconds(1.5));
+                        done.setOnFinished(doneEvent -> {
+                            System.out.println("UI smoke: objetivo borrado="
+                                    + labelText(scene, "#saveStatus")
+                                    + "; resumen=" + labelText(scene, "#summaryLabel"));
+                            onComplete.run();
+                        });
+                        done.play();
+                    });
+                    confirm.play();
+                });
+            });
+            edited.play();
+        });
+        opened.play();
+    }
+
+    static void goalsJustifyCycle(Scene scene, Runnable onJustified, Runnable onComplete) {
+        Button goals = (Button) scene.lookup("#goalsButton");
+        if (goals == null) {
+            System.out.println("UI smoke: no se encontró Objetivos");
+            onComplete.run();
+            return;
+        }
+        goals.fire();
+        PauseTransition opened = new PauseTransition(Duration.seconds(0.8));
+        opened.setOnFinished(event -> {
+            Button justify = buttonByText(scene, "Justificar exceso");
+            if (justify == null) {
+                System.out.println("UI smoke: no se encontró Justificar exceso");
+                onComplete.run();
+                return;
+            }
+            justify.fire();
+            PauseTransition modal = new PauseTransition(Duration.seconds(0.4));
+            modal.setOnFinished(modalEvent -> {
+                TextArea reason = (TextArea) scene.lookup("#justifyReasonField");
+                Button confirm = (Button) scene.lookup("#confirmJustifyButton");
+                if (reason == null || confirm == null) {
+                    System.out.println("UI smoke: no se encontró el diálogo de justificación");
+                    onComplete.run();
+                    return;
+                }
+                reason.setText("Partida con un amigo");
+                confirm.fire();
+                waitForJustificationStatus(scene, "Justificación guardada", 20, () -> {
+                    System.out.println("UI smoke: justificado=" + firstText(scene, ".goal-state")
+                            + "; motivo=" + firstText(scene, ".goal-justification")
+                            + "; cobertura=" + firstText(scene, ".goal-justification-coverage")
+                            + "; estado=" + labelText(scene, "#saveStatus"));
+                    onJustified.run();
+                    Button remove = buttonByText(scene, "Quitar justificación");
+                    if (remove == null) {
+                        System.out.println("UI smoke: no se encontró Quitar justificación");
+                        onComplete.run();
+                        return;
+                    }
+                    remove.fire();
+                    waitForJustificationStatus(scene, "Justificación quitada", 20, () -> {
+                        System.out.println("UI smoke: tras quitar=" + firstText(scene, ".goal-state")
+                                + "; nota=" + firstText(scene, ".goal-justification-note")
+                                + "; estado=" + labelText(scene, "#saveStatus"));
+                        onComplete.run();
+                    });
+                });
+            });
+            modal.play();
+        });
+        opened.play();
+    }
+
+    private static void waitForJustificationStatus(Scene scene, String prefix, int attempts,
+                                                   Runnable onComplete) {
+        PauseTransition wait = new PauseTransition(Duration.seconds(0.3));
+        wait.setOnFinished(event -> {
+            String text = labelText(scene, "#saveStatus");
+            if (text.startsWith(prefix) || text.startsWith("No se pudo") || attempts <= 1) {
+                onComplete.run();
+            } else {
+                waitForJustificationStatus(scene, prefix, attempts - 1, onComplete);
+            }
+        });
+        wait.play();
+    }
+
+    private static Button buttonByText(Scene scene, String text) {
+        return scene.getRoot().lookupAll(".goal-justify-button").stream()
+                .filter(node -> node instanceof Button button && text.equals(button.getText()))
+                .map(node -> (Button) node)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private static String firstText(Scene scene, String selector) {
+        return scene.getRoot().lookupAll(selector).stream()
+                .filter(node -> node instanceof Label)
+                .map(node -> ((Label) node).getText())
+                .findFirst()
+                .orElse("null");
+    }
+
+    private static void waitForGoalSaved(Scene scene, int attempts, Runnable onComplete) {
+        PauseTransition wait = new PauseTransition(Duration.seconds(0.3));
+        wait.setOnFinished(event -> {
+            String text = labelText(scene, "#saveStatus");
+            if (text.startsWith("Objetivo creado") || text.startsWith("No se pudo") || attempts <= 1) {
+                onComplete.run();
+            } else {
+                waitForGoalSaved(scene, attempts - 1, onComplete);
+            }
+        });
+        wait.play();
     }
 
     private static void waitForSettingsSaved(Scene scene, int attempts, Runnable onComplete) {

@@ -1,3 +1,27 @@
+# OBJETIVOS-RANGO HECHO (E051) (2026-11-25)
+Desde/Hasta en Objetivos (un día = vista anterior; varios días = solo lectura con detalle por día) y borrados visibles en solo lectura con «Mostrar borrados». Sin cambios de esquema. Archivos: `GoalsService`, `GoalsViewModel`, `GoalsPage`, `GoalRow`, `GoalsController`, `objetivos.fxml`, `GoalsViewModelTest`. 286/286 en verde en la terminal del usuario (los 8 de loopback eran del entorno de la sesión); sonda `GoalsRangeProbe` PASS. PR #1 `f6b-objetivos` → `main` abierto. Próximo: merge, respaldo y migración V5 de la base real, revisión en la app y F6.2.
+
+# OBJETIVOS-HISTORIAL HECHO (E050) (2026-11-25)
+V5 (revisiones en `goal_history`, archivado al borrar) y vista histórica de Objetivos: selector de día, días pasados de solo lectura, configuración usada y registro de revisiones; aviso de que lo borrado antes de V5 no se recupera. `mvn verify`: 276/284 en verde; 8 errores de loopback en `LocalBridgeServerTest` (entorno, repetir en terminal normal). Rama `f6b-objetivos` preparada para PR a `main`. Próximo: revisión visual del usuario, migrar la base real con respaldo y F6.2.
+
+# Último cambio — AJUSTES-AYUDA HECHO (E049)
+SettingsController actualizado; ayudas plegadas, tres tarjetas y valores/aplicación dentro de Detección. Compilación y sonda correctas. Docs de seguimiento actualizados. Próximo: reabrir y revisar con usuario; F6.2 pendiente.
+
+# Último cambio — USO-DIA-HOY HECHO (E048)
+Al seleccionar Día vuelve a hoy local. Build y sonda FXML correctos; próximo: reabrir app. Archivo funcional UsageController.java; docs de seguimiento actualizados.
+
+# Trabajo actual — USO-RANGOS HECHO (E047) (2026-11-25)
+Extender consulta única por intervalo, conservar filtros y snapshot; validar límites temporales y UI. Cambios anteriores preservados. Implementado en DailyUsageService, DailyUsageViewModel, UsagePeriod, UsageController, uso-diario.fxml y main.fxml; tests DailyUsageServiceTest y DailyUsageViewModelTest, docs de seguimiento. 281 tests aprobados tras permitir sockets locales; sonda FXML y captura revisadas. Sin base real. Próximo: salir desde bandeja, reabrir y revisar periodos con usuario. Límite: rendimiento con millones de segmentos no medido; refresco 30 s.
+
+# Trabajo actual — UI-AJUSTES-MENU HECHO (E046) (2026-11-25)
+Crear entrada con cuatro tarjetas, navegación local y formularios conservados. Inspeccionados ajustes.fxml, SettingsController y MainController; cambios previos preservados. Implementado: cuatro tarjetas y regreso; controles conservados al navegar. Archivos: ajustes.fxml, SettingsController.java, MainController.java, interrupciones.css y docs de seguimiento. Build correcto; sonda FXML de cuatro rutas y borrador aprobada, snapshot settings-menu.png revisado. Sin base real ni prueba humana. Próximo: reabrir Deriva desde Salir en bandeja y revisar Ajustes con el usuario. F6.2 pendiente.
+
+# Trabajo actual — UI-OBJETIVOS-RESUMEN HECHO (E045) (2026-11-25)
+Alcance autorizado: resumen plegado por defecto, desplegable al hacer clic; retirar burbujas de Sin responder y subconteo. Inspeccionado GoalsController: reconstruye tarjetas en cada refresco; conservar expansión por id durante la sesión. Cambios anteriores de UI-VENTANA conservados. Implementado en GoalsController.java e interrupciones.css. Build package correcto; sonda JavaFX confirma plegado inicial, contenido conservado, expansión/cierre retenidos al reconstruir y ausencia de ambas burbujas. Sin base real ni clic humano. Documentados DISENO, FASES, PRUEBAS, DECISIONES y ENTREGAS. Próximo: salir desde bandeja, reabrir y revisar visualmente con el usuario. F6.2 pendiente.
+
+# Punto actual — UI-VENTANA HECHO (2026-11-25, E044)
+DerivaApp ajusta el tamaño exterior al 94 % del área útil (máximo 1440x900), centra y acota los mínimos. Marco nativo y colores conservados. Build package correcto; sonda JavaFX real con base work/ui-window/probe.db: escala 1,25, área 1536x816, ventana (48;24,8) de 1440x767,2, DECORATED y redimensionable; completamente dentro de pantalla. Cierre con hilos captura/objetivos 0. Sin clic/arrastre humano ni pruebas multimonitor. Archivos: DerivaApp.java y docs/{DISENO,FASES,ESTADO,PRUEBAS,DECISIONES,ENTREGAS}. Cuatro archivos no seguidos previos conservados. Próximo paso: salir de la instancia anterior mediante bandeja y abrir el build actualizado; verificar botones y arrastre con el usuario antes de continuar el rediseño. F6B-7 está HECHO (E043); F6.2 sigue pendiente. Los apartados antiguos siguientes son históricos.
+
 # Estado actual — leer primero
 
 Actualizado: 2026-11-23 (America/Lima).
@@ -344,3 +368,7 @@ Detalle envuelto en ScrollPane, sin cambios de lógica ni barra lateral. Archivo
 
 ## UI-SAVE — HECHO (2026-11-23, E033)
 Guardar compara motivo/Justificada con la fila persistida y answered_at. Sin cambios: Guardado ✓ deshabilitado; al editar: Guardar cambios. Bloqueo durante escritura y recarga; error permite reintentar. Archivos: InterruptionsController.java, InterruptionRow.java y InterruptionsViewModelTest.java. Maven verify offline: 129 tests, 0 fallos. Smoke JavaFX con repositorio simulado: 30 clics generan una escritura; cambios/reversión/error/reintento correctos. No se tocaron bases reales. Próximo paso: salir de la instancia abierta y relanzar el build actualizado; F6.2 pendiente.
+
+USO-DIA-HOY HECHO (E048): listener en UsageController corregido, LocalDate.now al seleccionar Día. Build y sonda FXML Año → Día/manual posterior aprobados. Sin base real. Próximo: reiniciar desde Salir y revisar con usuario.
+
+AJUSTES-AYUDA HECHO E049: SettingsController pliega ayudas y mueve información a Detección. Tres tarjetas. Build y sonda FXML correctos, captura revisada. Sin base real. Próximo: reabrir desde Salir y revisar.

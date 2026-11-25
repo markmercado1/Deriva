@@ -5,7 +5,10 @@ import com.deriva.app.usecase.CaptureState;
 import com.deriva.app.usecase.CaptureStatus;
 import com.deriva.app.usecase.SettingsService;
 import com.deriva.ui.viewmodel.DailyUsageViewModel;
+import com.deriva.ui.viewmodel.GoalsViewModel;
 import com.deriva.ui.viewmodel.InterruptionsViewModel;
+import com.deriva.ui.viewmodel.AlertDeferralSettingsViewModel;
+import com.deriva.ui.viewmodel.PassiveMaxSettingsViewModel;
 import com.deriva.ui.viewmodel.SettingsViewModel;
 import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
@@ -31,6 +34,7 @@ public final class MainController {
     @FXML private StackPane content;
     @FXML private Button interruptionsButton;
     @FXML private Button usageButton;
+    @FXML private Button goalsButton;
     @FXML private Button settingsButton;
     @FXML private Button captureButton;
     @FXML private Button pauseButton;
@@ -50,16 +54,21 @@ public final class MainController {
 
     private Parent interruptionsRoot;
     private Parent usageRoot;
+    private Parent goalsRoot;
     private Parent settingsRoot;
     private InterruptionsController interruptionsController;
     private UsageController usageController;
+    private GoalsController goalsController;
     private SettingsController settingsController;
     private CaptureControl capture;
     private boolean initialized;
     private boolean deleting;
 
     public void init(InterruptionsViewModel interruptions, DailyUsageViewModel usage,
-                     SettingsViewModel settings, SettingsService settingsService,
+                     GoalsViewModel goals, SettingsViewModel settings,
+                     PassiveMaxSettingsViewModel passiveMax,
+                     AlertDeferralSettingsViewModel alertDeferral,
+                     SettingsService settingsService,
                      CaptureControl capture, boolean demo) throws IOException {
         this.capture = Objects.requireNonNull(capture, "capture");
 
@@ -75,11 +84,17 @@ public final class MainController {
         usageController = usageLoader.getController();
         usageController.init(usage, demo);
 
+        FXMLLoader goalsLoader = new FXMLLoader(
+                MainController.class.getResource("/com/deriva/ui/objetivos.fxml"));
+        goalsRoot = goalsLoader.load();
+        goalsController = goalsLoader.getController();
+        goalsController.init(goals);
+
         FXMLLoader settingsLoader = new FXMLLoader(
                 MainController.class.getResource("/com/deriva/ui/ajustes.fxml"));
         settingsRoot = settingsLoader.load();
         settingsController = settingsLoader.getController();
-        settingsController.init(settings, settingsService, capture);
+        settingsController.init(settings, passiveMax, alertDeferral, settingsService, capture);
 
         initialized = true;
         setContent(interruptionsRoot);
@@ -95,6 +110,7 @@ public final class MainController {
         setContent(interruptionsRoot);
         setActive(interruptionsButton);
         usageController.stopAutoRefresh();
+        goalsController.stopAutoRefresh();
         interruptionsController.refresh();
     }
 
@@ -103,17 +119,32 @@ public final class MainController {
         if (!initialized) return;
         setContent(usageRoot);
         setActive(usageButton);
+        goalsController.stopAutoRefresh();
         usageController.startAutoRefresh();
         usageController.refresh();
     }
 
     @FXML
+    private void showGoals() {
+        if (!initialized) return;
+        setContent(goalsRoot);
+        setActive(goalsButton);
+        usageController.stopAutoRefresh();
+        goalsController.startAutoRefresh();
+        goalsController.refresh();
+    }
+
+    @FXML
     private void showSettings() {
+        settingsController.showOverview();
         if (!initialized) return;
         setContent(settingsRoot);
         setActive(settingsButton);
         usageController.stopAutoRefresh();
+        goalsController.stopAutoRefresh();
         settingsController.refresh();
+        settingsController.refreshPassive();
+        settingsController.refreshDeferral();
     }
 
     @FXML
@@ -170,6 +201,7 @@ public final class MainController {
                     updateCaptureStatus();
                     interruptionsController.refresh();
                     usageController.refresh();
+                    goalsController.refresh();
                     if (error != null) {
                         captureStatus.setText("No se pudieron borrar los registros: "
                                 + (error.getMessage() == null
@@ -188,12 +220,17 @@ public final class MainController {
         showSettings();
     }
 
+    public void showGoalsView() {
+        showGoals();
+    }
+
     public void shutdown() {
         capturePoll.stop();
         actionExecutor.shutdownNow();
         if (capture != null) capture.shutdown();
         if (interruptionsController != null) interruptionsController.shutdown();
         if (usageController != null) usageController.shutdown();
+        if (goalsController != null) goalsController.shutdown();
         if (settingsController != null) settingsController.shutdown();
     }
 
@@ -230,6 +267,10 @@ public final class MainController {
         if (deleteButton != null) deleteButton.setDisable(deleting || confirming);
         if (settingsController != null && capture != null)
             settingsController.updateEffective(capture.effectiveSettings());
+        if (settingsController != null && capture != null)
+            settingsController.updatePassiveEffective(capture.effectivePassiveMax());
+        if (settingsController != null && capture != null)
+            settingsController.updateDeferralEffective(capture.effectiveAlertDeferral());
     }
 
     private void setContent(Parent root) {
@@ -237,7 +278,7 @@ public final class MainController {
     }
 
     private void setActive(Button active) {
-        for (Button button : List.of(interruptionsButton, usageButton, settingsButton))
+        for (Button button : List.of(interruptionsButton, usageButton, goalsButton, settingsButton))
             button.getStyleClass().remove("nav-active");
         active.getStyleClass().add("nav-active");
     }

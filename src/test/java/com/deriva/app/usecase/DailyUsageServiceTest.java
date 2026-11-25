@@ -99,6 +99,42 @@ class DailyUsageServiceTest {
         assertEquals(0, usage.observedMillis());
     }
 
+    @Test
+    void rangeClipsBothEdgesAndIncludesLiveWithoutDuplicateSites() {
+        Segment first = observed("chrome.exe", "example.com", "2026-11-20T23:00:00Z", "2026-11-21T01:00:00Z");
+        Segment open = observed("chrome.exe", "example.com", "2026-11-22T11:00:00Z", "2026-11-22T12:00:00Z");
+        FakeRepository repo = new FakeRepository(List.of(first));
+        var usage = new DailyUsageService(repo, Clock.fixed(NOON, ZONE)).forRange(
+                DAY.minusDays(1), DAY.plusDays(3), ZONE, new CaptureSnapshot(NOON, open, null, true));
+        assertEquals(Duration.ofHours(2).toMillis(), usage.observedMillis());
+        assertEquals(usage.observedMillis(), usage.siteMillis().get("example.com"));
+        assertEquals(Duration.ofHours(36).toMillis(), usage.elapsedMillis());
+        assertEquals(instant("2026-11-21T00:00:00Z"), repo.from);
+        assertEquals(instant("2026-11-26T00:00:00Z"), repo.to);
+        assertTrue(usage.snapshot().captureRunning());
+    }
+
+    @Test
+    void rangeHandlesDstFutureAndInvalidOrder() {
+        var service = new DailyUsageService(new FakeRepository(List.of()), Clock.fixed(NOON, ZONE));
+        var dst = service.forRange(LocalDate.of(2026, 3, 7), LocalDate.of(2026, 3, 9),
+                ZoneId.of("America/New_York"), CaptureSnapshot.stopped());
+        assertEquals(Duration.ofHours(71).toMillis(), dst.elapsedMillis());
+        assertEquals(0, service.forRange(DAY.plusDays(1), DAY.plusYears(1), ZONE,
+                CaptureSnapshot.stopped()).elapsedMillis());
+        assertThrows(IllegalArgumentException.class, () -> service.forRange(DAY, DAY.minusDays(1), ZONE,
+                CaptureSnapshot.stopped()));
+    }
+
+    @Test
+    void presetsRespectLeapYearAndWeekAcrossYears() {
+        var leap = LocalDate.of(2024, 2, 15);
+        assertEquals(LocalDate.of(2024, 2, 29), com.deriva.ui.viewmodel.UsagePeriod.MONTH.end(leap));
+        assertEquals(LocalDate.of(2024, 12, 31), com.deriva.ui.viewmodel.UsagePeriod.YEAR.end(leap));
+        assertEquals(LocalDate.of(2025, 12, 29), com.deriva.ui.viewmodel.UsagePeriod.WEEK.start(LocalDate.of(2026, 1, 1)));
+        assertEquals(LocalDate.of(2026, 1, 4), com.deriva.ui.viewmodel.UsagePeriod.WEEK.end(LocalDate.of(2026, 1, 1)));
+    }
+
     private static Segment observed(String process, String host, String start, String end) {
         return new Segment(0, ObservationKind.OBSERVED, new ContextKey(process, host),
                 null, null, instant(start), instant(end));
@@ -127,6 +163,11 @@ class DailyUsageServiceTest {
             this.from = from;
             this.to = to;
             return segments;
+        }
+
+        @Override
+        public java.util.List<com.deriva.tracking.model.ContextKey> observedContexts() {
+            return java.util.List.of();
         }
     }
 }

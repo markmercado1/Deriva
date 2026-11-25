@@ -32,7 +32,7 @@ class DailyUsageViewModelTest {
         assertEquals("Sin datos", noData.totalText());
         assertFalse(noData.hasSegments());
         assertTrue(noData.statusText().contains("Sin datos"));
-        assertEquals("Sin registro para esta fecha", noData.coverageText());
+        assertEquals("Sin registro para este periodo", noData.coverageText());
         assertTrue(noData.apps().isEmpty());
         assertTrue(noData.sites().isEmpty());
 
@@ -137,6 +137,16 @@ class DailyUsageViewModelTest {
         }
 
         @Override
+        public java.time.Duration effectivePassiveMax() {
+            return java.time.Duration.ofMinutes(10);
+        }
+
+        @Override
+        public java.time.Duration effectiveAlertDeferral() {
+            return java.time.Duration.ofMinutes(5);
+        }
+
+        @Override
         public void start() {}
 
         @Override
@@ -167,6 +177,11 @@ class DailyUsageViewModelTest {
         @Override
         public List<Segment> between(Instant from, Instant to) {
             return segments;
+        }
+
+        @Override
+        public java.util.List<com.deriva.tracking.model.ContextKey> observedContexts() {
+            return java.util.List.of();
         }
     }
 }

@@ -11,22 +11,36 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Reads, validates and saves the four detection thresholds. Invalid persisted
- * values fall back to defaults for the affected field, are reported visibly and
- * are not written back automatically.
+ * Reads, validates and saves the four detection thresholds plus the passive-activity
+ * maximum and the maximum wait for a deferred goal notice. Invalid persisted values
+ * fall back to defaults for the affected field, are reported visibly and are not
+ * written back automatically.
  */
 public final class SettingsService {
     public static final String KEY_SWITCHES = "drift_switches";
     public static final String KEY_WINDOW = "drift_window_s";
     public static final String KEY_STABILITY = "stable_s";
     public static final String KEY_IDLE = "idle_threshold_s";
+    public static final String KEY_PASSIVE_MAX = "passive_max_s";
+    public static final String KEY_ALERT_DEFERRAL = "alert_deferral_max_s";
+    public static final int MIN_PASSIVE_SECONDS = 60;
+    public static final int MAX_PASSIVE_SECONDS = 3600;
+    public static final int DEFAULT_PASSIVE_SECONDS = 600;
+    public static final int MIN_ALERT_DEFERRAL_SECONDS = 60;
+    public static final int MAX_ALERT_DEFERRAL_SECONDS = 1800;
+    public static final int DEFAULT_ALERT_DEFERRAL_SECONDS = 300;
 
     private final SettingsRepository repository;
     private SettingsSnapshot snapshot;
+    private PassiveMaxSnapshot passiveMax;
+    private AlertDeferralSnapshot alertDeferral;
 
     public SettingsService(SettingsRepository repository) {
         this.repository = Objects.requireNonNull(repository, "repository");
-        this.snapshot = readSnapshot();
+        Map<String, String> stored = repository.loadAll();
+        this.snapshot = readSnapshot(stored);
+        this.passiveMax = readPassiveMax(stored);
+        this.alertDeferral = readAlertDeferral(stored);
     }
 
     public synchronized SettingsSnapshot snapshot() {
@@ -37,6 +51,22 @@ public final class SettingsService {
         return snapshot.values();
     }
 
+    public synchronized PassiveMaxSnapshot passiveMaxSnapshot() {
+        return passiveMax;
+    }
+
+    public synchronized Duration passiveMax() {
+        return passiveMax.value();
+    }
+
+    public synchronized AlertDeferralSnapshot alertDeferralSnapshot() {
+        return alertDeferral;
+    }
+
+    public synchronized Duration alertDeferralMax() {
+        return alertDeferral.value();
+    }
+
     public synchronized SettingsSnapshot save(DetectionSettings values) {
         Objects.requireNonNull(values, "values");
         repository.saveAll(toMap(values));
@@ -44,8 +74,44 @@ public final class SettingsService {
         return snapshot;
     }
 
-    private SettingsSnapshot readSnapshot() {
-        Map<String, String> stored = repository.loadAll();
+    public synchronized PassiveMaxSnapshot savePassiveMax(Duration value) {
+        Objects.requireNonNull(value, "value");
+        long seconds = value.getSeconds();
+        if (value.getNano() != 0 || seconds < MIN_PASSIVE_SECONDS || seconds > MAX_PASSIVE_SECONDS)
+            throw new IllegalArgumentException("passive max");
+        repository.saveAll(Map.of(KEY_PASSIVE_MAX, Long.toString(seconds)));
+        passiveMax = new PassiveMaxSnapshot(value, List.of());
+        return passiveMax;
+    }
+
+    public synchronized AlertDeferralSnapshot saveAlertDeferralMax(Duration value) {
+        Objects.requireNonNull(value, "value");
+        long seconds = value.getSeconds();
+        if (value.getNano() != 0 || seconds < MIN_ALERT_DEFERRAL_SECONDS
+                || seconds > MAX_ALERT_DEFERRAL_SECONDS)
+            throw new IllegalArgumentException("alert deferral");
+        repository.saveAll(Map.of(KEY_ALERT_DEFERRAL, Long.toString(seconds)));
+        alertDeferral = new AlertDeferralSnapshot(value, List.of());
+        return alertDeferral;
+    }
+
+    private AlertDeferralSnapshot readAlertDeferral(Map<String, String> stored) {
+        List<String> warnings = new ArrayList<>();
+        int seconds = readInt(stored, KEY_ALERT_DEFERRAL, DEFAULT_ALERT_DEFERRAL_SECONDS,
+                MIN_ALERT_DEFERRAL_SECONDS, MAX_ALERT_DEFERRAL_SECONDS,
+                "Máximo de espera de un aviso", "s", warnings);
+        return new AlertDeferralSnapshot(Duration.ofSeconds(seconds), warnings);
+    }
+
+    private PassiveMaxSnapshot readPassiveMax(Map<String, String> stored) {
+        List<String> warnings = new ArrayList<>();
+        int seconds = readInt(stored, KEY_PASSIVE_MAX, DEFAULT_PASSIVE_SECONDS,
+                MIN_PASSIVE_SECONDS, MAX_PASSIVE_SECONDS,
+                "Máximo de actividad pasiva", "s", warnings);
+        return new PassiveMaxSnapshot(Duration.ofSeconds(seconds), warnings);
+    }
+
+    private SettingsSnapshot readSnapshot(Map<String, String> stored) {
         List<String> warnings = new ArrayList<>();
         DetectionSettings defaults = DetectionSettings.defaults();
 

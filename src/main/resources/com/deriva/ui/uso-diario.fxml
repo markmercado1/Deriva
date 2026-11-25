@@ -8,16 +8,22 @@
       styleClass="content" spacing="18">
     <HBox alignment="CENTER_LEFT" spacing="12">
         <VBox spacing="2">
-            <Label text="Uso diario" styleClass="page-title"/>
+            <Label text="Uso" styleClass="page-title"/>
             <Label text="Tiempo de primer plano registrado en este equipo." styleClass="page-subtitle"/>
         </VBox>
         <Region HBox.hgrow="ALWAYS"/>
-        <HBox spacing="8" alignment="CENTER_RIGHT">
-            <Label text="Fecha" styleClass="filter-label"/>
-            <DatePicker fx:id="datePicker" styleClass="filter-control" prefWidth="170"/>
-        </HBox>
+
     </HBox>
 
+    <FlowPane hgap="12" vgap="8">
+        <Label text="Periodo" styleClass="filter-label"/>
+        <ComboBox fx:id="periodCombo" prefWidth="160" styleClass="filter-control"/>
+        <Label text="Desde" styleClass="filter-label"/>
+        <DatePicker fx:id="datePicker" prefWidth="155" styleClass="filter-control"/>
+        <Label text="Hasta" styleClass="filter-label"/>
+        <DatePicker fx:id="endDatePicker" prefWidth="155" styleClass="filter-control"/>
+    </FlowPane>
+    <Label fx:id="rangeLabel" styleClass="data-note"/>
     <HBox spacing="16">
         <VBox styleClass="stat-card" HBox.hgrow="ALWAYS" spacing="4">
             <Label text="Tiempo en primer plano" styleClass="stat-label"/>

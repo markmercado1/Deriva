@@ -15,8 +15,10 @@
             <VBox spacing="6" VBox.vgrow="ALWAYS">
                 <Button fx:id="interruptionsButton" text="Interrupciones" maxWidth="Infinity"
                         styleClass="nav-button" onAction="#showInterruptions"/>
-                <Button fx:id="usageButton" text="Uso diario" maxWidth="Infinity"
+                <Button fx:id="usageButton" text="Uso" maxWidth="Infinity"
                         styleClass="nav-button" onAction="#showUsage"/>
+                <Button fx:id="goalsButton" text="Objetivos" maxWidth="Infinity"
+                        styleClass="nav-button" onAction="#showGoals"/>
                 <Button fx:id="settingsButton" text="Ajustes" maxWidth="Infinity"
                         styleClass="nav-button" onAction="#showSettings"/>
             </VBox>

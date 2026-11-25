@@ -1,5 +1,6 @@
 package com.deriva.app.usecase;
 
+import com.deriva.analysis.DayWindow;
 import com.deriva.privacy.ObservationKind;
 import com.deriva.storage.port.SegmentRepository;
 import com.deriva.tracking.model.Segment;
@@ -33,23 +34,31 @@ public final class DailyUsageService {
      * is deliberately not counted until it is confirmed, so it cannot be duplicated.
      */
     public DailyUsage forDay(LocalDate day, ZoneId zone, CaptureSnapshot snapshot) {
+        return forRange(day, day, zone, snapshot);
+    }
+
+    public DailyUsage forRange(LocalDate day, LocalDate through, ZoneId zone, CaptureSnapshot snapshot) {
         Objects.requireNonNull(day, "day");
+        Objects.requireNonNull(through, "through");
+        if (through.isBefore(day)) throw new IllegalArgumentException("Desde debe ser anterior o igual a Hasta.");
         Objects.requireNonNull(zone, "zone");
         CaptureSnapshot live = snapshot == null ? CaptureSnapshot.stopped() : snapshot;
         LocalDate today = clock.instant().atZone(zone).toLocalDate();
-        if (!day.equals(today)) live = CaptureSnapshot.stopped();
-        Instant dayStart = day.atStartOfDay(zone).toInstant();
-        Instant dayEnd = day.plusDays(1).atStartOfDay(zone).toInstant();
+        if (today.isBefore(day) || today.isAfter(through)) live = CaptureSnapshot.stopped();
+        DayWindow window = new DayWindow(day.atStartOfDay(zone).toInstant(),
+                through.plusDays(1).atStartOfDay(zone).toInstant());
+        Instant dayStart = window.start();
+        Instant dayEnd = window.end();
         List<Segment> persisted = repository.between(dayStart, dayEnd);
 
         Totals totals = new Totals();
         boolean hasSegments = false;
         for (Segment segment : persisted)
-            hasSegments |= totals.add(segment, dayStart, dayEnd) > 0;
+            hasSegments |= totals.add(segment, window) > 0;
 
         Segment open = live.open();
         if (open != null && !overlapsAny(open, persisted))
-            hasSegments |= totals.add(open, dayStart, dayEnd) > 0;
+            hasSegments |= totals.add(open, window) > 0;
         if (live.captureRunning() && live.pending() != null) hasSegments = true;
 
         Instant now = clock.instant();
@@ -74,10 +83,8 @@ public final class DailyUsageService {
         private final Map<String, Long> apps = new HashMap<>();
         private final Map<String, Long> sites = new HashMap<>();
 
-        private long add(Segment segment, Instant dayStart, Instant dayEnd) {
-            Instant start = segment.start().isBefore(dayStart) ? dayStart : segment.start();
-            Instant end = segment.end().isAfter(dayEnd) ? dayEnd : segment.end();
-            long millis = Duration.between(start, end).toMillis();
+        private long add(Segment segment, DayWindow window) {
+            long millis = window.clippedMillis(segment);
             if (millis <= 0) return 0;
 
             switch (segment.kind()) {

@@ -51,6 +51,12 @@ public final class PrivacyFilter {
         this.authorizedBrowsers = Set.copyOf(Objects.requireNonNull(authorizedBrowsers, "authorizedBrowsers"));
     }
 
+    /** True for every process name in the shared browser list, including excluded ones. */
+    public static boolean isBrowserProcess(String processName) {
+        if (processName == null) return false;
+        return BROWSER_PROCESSES.contains(processName.toLowerCase(Locale.ROOT));
+    }
+
     public Observation filter(ActivitySample sample, Duration idleTime) {
         Objects.requireNonNull(sample, "sample");
         Objects.requireNonNull(idleTime, "idleTime");

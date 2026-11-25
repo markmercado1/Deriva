@@ -88,6 +88,21 @@ class SQLiteSegmentRepositoryTest {
     }
 
     @Test
+    void listsDistinctObservedContextsWithoutBoundaryIdentities() {
+        SQLiteSegmentRepository repository = new SQLiteSegmentRepository(database());
+        repository.saveAll(List.of(
+                observed("notepad.exe", null, 0, 10),
+                observed("notepad.exe", null, 10, 20),
+                observed("chrome.exe", "example.com", 20, 30),
+                boundary(ObservationKind.IDLE, 30, 35)));
+
+        assertEquals(List.of(
+                        new ContextKey("chrome.exe", "example.com"),
+                        new ContextKey("notepad.exe", null)),
+                repository.observedContexts());
+    }
+
+    @Test
     void rollsBackWholeBatchOnFailure() throws Exception {
         SQLiteSegmentRepository repository = new SQLiteSegmentRepository(database());
         try (Connection connection = SQLiteSchema.open(database());
